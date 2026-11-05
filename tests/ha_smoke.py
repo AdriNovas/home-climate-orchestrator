@@ -148,6 +148,41 @@ async def main():
             checks.append(
                 "per-zone daytime targets are editable without changing zone identity"
             )
+            for table, field, value in [
+                ("cool_targets", "cool_day", 28),
+                ("heat_sleep_targets", "heat_sleep", 18),
+                ("cool_sleep_targets", "cool_sleep", 29),
+            ]:
+                await options.async_step_zone_targets(
+                    {"zone": zone_id, "target_table": table}
+                )
+                values = {b.name: getattr(b, field) for b in Policy().bands}
+                values["normal"] = value
+                result = await options.async_step_zone_targets_edit(
+                    {"override": True, **values}
+                )
+                assert result["data"]["house"]["zones"][0][table]["normal"] == value
+                assert result["data"]["house"]["zones"][0]["id"] == zone_id
+            checks.append(
+                "independent heating/cooling and day/sleep tables preserve identity and other tables"
+            )
+            original = __import__("copy").deepcopy(options.profile)
+            bad = await options.async_step_zone_targets_edit(
+                {"override": True, **{b.name: 10 for b in Policy().bands}}
+            )
+            assert (
+                bad["errors"]["base"] == "invalid_configuration"
+                and options.profile == original
+            )
+            cleared = await options.async_step_zone_targets_edit({"override": False})
+            assert cleared["data"]["house"]["zones"][0]["cool_sleep_targets"] == {}
+            assert (
+                cleared["data"]["house"]["zones"][0]["heat_sleep_targets"]["normal"]
+                == 18
+            )
+            checks.append(
+                "conflicting zone tables are rejected atomically and one table can return to inheritance"
+            )
             options.profile["power_entity"] = "sensor.optional_power"
             cleared = await options.async_step_sources({})
             assert "power_entity" not in cleared["data"]

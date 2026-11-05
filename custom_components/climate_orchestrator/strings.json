@@ -140,6 +140,13 @@
       "policy": {
         "title": "Advanced regulation",
         "data": {
+          "continuous_hold": "Keep enabled and regulate the thermostat setpoint",
+          "shared_load_management": "Adapt shared load using an actual plant meter",
+          "relaxation_limit": "Maximum soft relaxation (°C)",
+          "shared_load_idle_w": "Initial aggregate low-load reference (W)",
+          "shared_load_high_w": "Initial aggregate high-load threshold (W)",
+          "shared_load_observe_s": "Observe comfortable high load before one withdrawal (s)",
+          "shared_load_retry_s": "Minimum before another withdrawal attempt on the same head (s)",
           "modulated_hold_s": "Maximum proposed soft hold (seconds; 0 disables)",
           "extreme_price_enabled": "Model an extreme-price shutdown",
           "extreme_price": "Extreme-price entry (EUR/kWh)",
@@ -207,15 +214,16 @@
         }
       },
       "zone_targets": {
-        "title": "Zone-specific heat targets",
+        "title": "Zone-specific temperature tables",
         "data": {
-          "zone": "Zone"
+          "zone": "Zone",
+          "target_table": "Season and phase to edit"
         }
       },
       "zone_targets_edit": {
-        "title": "Daytime heat targets",
+        "title": "Targets for the selected season and phase",
         "data": {
-          "override": "Override daytime heat targets for this zone",
+          "override": "Use a zone-specific table instead of inherited targets",
           "negative": "Negative price",
           "very_low": "Very low price",
           "low": "Low price",
@@ -398,7 +406,7 @@
           "schedule": "Use and sleep",
           "band": "Price band",
           "zone": "Zone",
-          "zone_targets": "Zone-specific heat targets",
+          "zone_targets": "Zone-specific temperature tables",
           "add_zone": "Add zone",
           "plant": "Climate plant",
           "add_plant": "Add plant",
@@ -487,6 +495,14 @@
     }
   },
   "selector": {
+    "target_tables": {
+      "options": {
+        "heat_targets": "Heating · day",
+        "cool_targets": "Cooling · day",
+        "heat_sleep_targets": "Heating · sleep",
+        "cool_sleep_targets": "Cooling · sleep"
+      }
+    },
     "execution_modes": {
       "options": {
         "shadow": "Observe only",

@@ -350,6 +350,14 @@ class ClimateOptions(config_entries.OptionsFlow):
     async def async_step_zone_targets(self, user_input=None):
         if user_input:
             self.selection = user_input["zone"]
+            self.target_table = user_input.get("target_table", "heat_targets")
+            if self.target_table not in [
+                "heat_targets",
+                "cool_targets",
+                "heat_sleep_targets",
+                "cool_sleep_targets",
+            ]:
+                return self.async_abort(reason="invalid_configuration")
             return await self.async_step_zone_targets_edit()
         return self.async_show_form(
             step_id="zone_targets",
@@ -362,7 +370,20 @@ class ClimateOptions(config_entries.OptionsFlow):
                                 for z in self.profile["house"]["zones"]
                             ]
                         )
-                    )
+                    ),
+                    vol.Required(
+                        "target_table", default="heat_targets"
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                "heat_targets",
+                                "cool_targets",
+                                "heat_sleep_targets",
+                                "cool_sleep_targets",
+                            ],
+                            translation_key="target_tables",
+                        )
+                    ),
                 }
             ),
         )
@@ -375,23 +396,34 @@ class ClimateOptions(config_entries.OptionsFlow):
         )
         z = self.profile["house"]["zones"][index]
         policy = house_from_dict(self.profile["house"]).policy
+        table = getattr(self, "target_table", "heat_targets")
+        base_field = {
+            "heat_targets": "heat_day",
+            "cool_targets": "cool_day",
+            "heat_sleep_targets": "heat_sleep",
+            "cool_sleep_targets": "cool_sleep",
+        }[table]
         errors = {}
         if user_input:
-            z["heat_targets"] = (
+            targets = (
                 {b.name: user_input[b.name] for b in policy.bands}
                 if user_input["override"]
                 else {}
             )
             try:
+                candidate = copy.deepcopy(self.profile)
+                candidate["house"]["zones"][index][table] = targets
+                house_from_dict(candidate["house"])
+                self.profile = candidate
                 return self.save()
             except ValueError:
                 errors["base"] = "invalid_configuration"
         schema = {
-            vol.Required("override", default=bool(z.get("heat_targets"))): bool,
+            vol.Required("override", default=bool(z.get(table))): bool,
             **{
                 vol.Required(
-                    b.name, default=z.get("heat_targets", {}).get(b.name, b.heat_day)
-                ): number(5, b.cool_day - 0.5, 0.5)
+                    b.name, default=z.get(table, {}).get(b.name, getattr(b, base_field))
+                ): number(5, 35, 0.5)
                 for b in policy.bands
             },
         }

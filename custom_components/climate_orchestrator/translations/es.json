@@ -140,6 +140,13 @@
       "policy": {
         "title": "Regulación avanzada",
         "data": {
+          "continuous_hold": "Mantener encendido regulando la consigna del equipo",
+          "shared_load_management": "Adaptar carga conjunta con un medidor real de planta",
+          "relaxation_limit": "Relajación suave máxima (°C)",
+          "shared_load_idle_w": "Referencia inicial de baja carga agregada (W)",
+          "shared_load_high_w": "Umbral inicial de carga agregada alta (W)",
+          "shared_load_observe_s": "Observar carga alta con confort antes de retirar una cabeza (s)",
+          "shared_load_retry_s": "Mínimo entre intentos de retirada de la misma cabeza (s)",
           "modulated_hold_s": "Espera suave propuesta máxima (segundos; 0 desactiva)",
           "extreme_price_enabled": "Modelar parada por precio extremo",
           "extreme_price": "Entrada en precio extremo (€/kWh)",
@@ -207,15 +214,16 @@
         }
       },
       "zone_targets": {
-        "title": "Objetivos de calor por estancia",
+        "title": "Tablas de temperatura por estancia",
         "data": {
-          "zone": "Estancia"
+          "zone": "Estancia",
+          "target_table": "Estación y fase que quieres editar"
         }
       },
       "zone_targets_edit": {
-        "title": "Objetivos diurnos de calor",
+        "title": "Objetivos de la estación y fase elegidas",
         "data": {
-          "override": "Objetivos diurnos de calor propios para esta estancia",
+          "override": "Usar tabla propia de la estancia en vez de heredar objetivos",
           "negative": "Precio negativo",
           "very_low": "Precio muy bajo",
           "low": "Precio bajo",
@@ -398,7 +406,7 @@
           "schedule": "Uso y sueño",
           "band": "Tramo de precio",
           "zone": "Estancia",
-          "zone_targets": "Objetivos de calor por estancia",
+          "zone_targets": "Tablas de temperatura por estancia",
           "add_zone": "Añadir estancia",
           "plant": "Planta climática",
           "add_plant": "Añadir planta",
@@ -487,6 +495,14 @@
     }
   },
   "selector": {
+    "target_tables": {
+      "options": {
+        "heat_targets": "Calor · día",
+        "cool_targets": "Frío · día",
+        "heat_sleep_targets": "Calor · sueño",
+        "cool_sleep_targets": "Frío · sueño"
+      }
+    },
     "execution_modes": {
       "options": {
         "shadow": "Solo observar",

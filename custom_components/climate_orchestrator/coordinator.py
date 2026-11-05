@@ -472,6 +472,32 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             self.reading(self.profile.get("power_entity"), "power"),
             bool(self.profile.get("power_entity")),
             (external_cut["at"], external_cut["released"]) if external_cut else None,
+            {
+                plant.id: self.reading(matched[0].power_entity, "power")
+                for plant in self.house.plants
+                if len(
+                    matched := [
+                        m
+                        for m in self.meters
+                        if m.scope == "plant"
+                        and m.target == plant.id
+                        and m.power_entity
+                    ]
+                )
+                == 1
+            },
+            {
+                zone.id: self.reading(matched[0].power_entity, "power")
+                for zone in self.house.zones
+                if len(
+                    matched := [
+                        m
+                        for m in self.meters
+                        if m.scope == "zone" and m.target == zone.id and m.power_entity
+                    ]
+                )
+                == 1
+            },
         )
         if self.profile.get("external_cut_entity") and (
             external_cut is None or external_cut["active"]

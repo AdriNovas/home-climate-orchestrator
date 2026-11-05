@@ -1,0 +1,96 @@
+{
+  "house": {
+    "name": "Demo versatile home",
+    "timezone": "UTC",
+    "plants": [
+      {
+        "id": "shared_outdoor",
+        "name": "Shared outdoor",
+        "shared_mode": true
+      },
+      {
+        "id": "standalone",
+        "name": "Independent unit",
+        "shared_mode": false
+      }
+    ],
+    "zones": [
+      {
+        "id": "living",
+        "name": "Living zone",
+        "plant": "shared_outdoor",
+        "temperature_entity": "sensor.demo_living_temperature",
+        "humidity_entity": "sensor.demo_living_humidity",
+        "climate_entity": "climate.demo_living",
+        "priority": 2,
+        "heat_targets": {
+          "low": 21,
+          "normal": 20
+        },
+        "cool_targets": {
+          "low": 25,
+          "normal": 26
+        },
+        "heat_sleep_targets": {
+          "low": 19
+        },
+        "cool_sleep_targets": {
+          "low": 27
+        }
+      },
+      {
+        "id": "office",
+        "name": "Occasional office",
+        "plant": "shared_outdoor",
+        "temperature_entity": "sensor.demo_office_temperature",
+        "climate_entity": "climate.demo_office",
+        "priority": 1,
+        "heat_targets": {
+          "low": 20.5,
+          "normal": 19.5
+        },
+        "cool_targets": {
+          "low": 25.5,
+          "normal": 26.5
+        }
+      },
+      {
+        "id": "guest",
+        "name": "Independent guest room",
+        "plant": "standalone",
+        "temperature_entity": "sensor.demo_guest_temperature",
+        "climate_entity": "climate.demo_guest",
+        "night_allowed": true,
+        "priority": 1
+      }
+    ],
+    "policy": {
+      "continuous_hold": true,
+      "shared_load_management": true,
+      "overshoot_delta": 2
+    }
+  },
+  "tariff": {
+    "type": "flat",
+    "price": 0.18
+  },
+  "control_entity": "input_boolean.demo_automatic",
+  "power_entity": "sensor.demo_supply_import",
+  "execution_mode": "shadow",
+  "meters": [
+    {
+      "id": "shared_meter",
+      "name": "Measured shared outdoor",
+      "scope": "plant",
+      "target": "shared_outdoor",
+      "power_entity": "sensor.demo_shared_power"
+    },
+    {
+      "id": "guest_meter",
+      "name": "Measured standalone",
+      "scope": "zone",
+      "target": "guest",
+      "power_entity": "sensor.demo_guest_power"
+    }
+  ]
+}

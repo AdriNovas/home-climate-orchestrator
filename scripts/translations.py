@@ -38,7 +38,8 @@ en = {
     "minimum_on_min": "Minimum on (minutes)",
     "direction_hold_min": "Minimum direction hold (minutes)",
     "reversal_gap_min": "Minimum between reversals (minutes)",
-    "override": "Override daytime heat targets for this zone",
+    "override": "Use a zone-specific table instead of inherited targets",
+    "target_table": "Season and phase to edit",
     "power_entity": "Measured active power (W/kW, optional)",
     "outdoor_entity": "Outdoor temperature sensor (optional)",
     "presence_entity": "Occupancy (optional)",
@@ -82,7 +83,8 @@ es = {
     "minimum_on_min": "Marcha mínima (minutos)",
     "direction_hold_min": "Permanencia del sentido (minutos)",
     "reversal_gap_min": "Separación entre inversiones (minutos)",
-    "override": "Objetivos diurnos de calor propios para esta estancia",
+    "override": "Usar tabla propia de la estancia en vez de heredar objetivos",
+    "target_table": "Estación y fase que quieres editar",
     "power_entity": "Potencia activa medida (W/kW, opcional)",
     "outdoor_entity": "Temperatura exterior (opcional)",
     "presence_entity": "Ocupación (opcional)",
@@ -96,6 +98,34 @@ es = {
     "upper": "Límite superior del precio, excluyente (€/kWh)",
 }
 policy_labels = {
+    "continuous_hold": (
+        "Keep enabled and regulate the thermostat setpoint",
+        "Mantener encendido regulando la consigna del equipo",
+    ),
+    "shared_load_management": (
+        "Adapt shared load using an actual plant meter",
+        "Adaptar carga conjunta con un medidor real de planta",
+    ),
+    "relaxation_limit": (
+        "Maximum soft relaxation (°C)",
+        "Relajación suave máxima (°C)",
+    ),
+    "shared_load_idle_w": (
+        "Initial aggregate low-load reference (W)",
+        "Referencia inicial de baja carga agregada (W)",
+    ),
+    "shared_load_high_w": (
+        "Initial aggregate high-load threshold (W)",
+        "Umbral inicial de carga agregada alta (W)",
+    ),
+    "shared_load_observe_s": (
+        "Observe comfortable high load before one withdrawal (s)",
+        "Observar carga alta con confort antes de retirar una cabeza (s)",
+    ),
+    "shared_load_retry_s": (
+        "Minimum before another withdrawal attempt on the same head (s)",
+        "Mínimo entre intentos de retirada de la misma cabeza (s)",
+    ),
     "modulated_hold_s": (
         "Maximum proposed soft hold (seconds; 0 disables)",
         "Espera suave propuesta máxima (segundos; 0 desactiva)",
@@ -420,7 +450,7 @@ steps = {
         "humidity_start",
         "humidity_stop",
     ],
-    "zone_targets": ["zone"],
+    "zone_targets": ["zone", "target_table"],
     "zone_targets_edit": [
         "override",
         "negative",
@@ -495,8 +525,14 @@ titles = {
     "schedule": ("Use and sleep", "Uso y sueño"),
     "band": ("Price band", "Tramo de precio"),
     "band_edit": ("Targets for this price band", "Objetivos de este tramo"),
-    "zone_targets": ("Zone-specific heat targets", "Objetivos de calor por estancia"),
-    "zone_targets_edit": ("Daytime heat targets", "Objetivos diurnos de calor"),
+    "zone_targets": (
+        "Zone-specific temperature tables",
+        "Tablas de temperatura por estancia",
+    ),
+    "zone_targets_edit": (
+        "Targets for the selected season and phase",
+        "Objetivos de la estación y fase elegidas",
+    ),
     "sources": ("Optional observations", "Medidas opcionales"),
     "fixed_select": ("Edit a fixed price period", "Editar un periodo fijo"),
     "fixed_edit": ("Fixed price period", "Periodo de precio fijo"),
@@ -648,6 +684,22 @@ for language, labels, index in [("en", en, 0), ("es", es, 1)]:
             },
         },
         "selector": {
+            "target_tables": {
+                "options": {
+                    "heat_targets": "Heating · day"
+                    if language == "en"
+                    else "Calor · día",
+                    "cool_targets": "Cooling · day"
+                    if language == "en"
+                    else "Frío · día",
+                    "heat_sleep_targets": "Heating · sleep"
+                    if language == "en"
+                    else "Calor · sueño",
+                    "cool_sleep_targets": "Cooling · sleep"
+                    if language == "en"
+                    else "Frío · sueño",
+                }
+            },
             "execution_modes": {
                 "options": {
                     "shadow": "Observe only" if language == "en" else "Solo observar",

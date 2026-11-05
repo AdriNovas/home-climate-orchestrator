@@ -130,6 +130,13 @@ class Policy:
     power_limit: float = 6000
     power_fresh_s: int = 120
     modulated_hold_s: int = 0
+    continuous_hold: bool = False
+    shared_load_management: bool = False
+    relaxation_limit: float = 3.5
+    shared_load_idle_w: float = 150
+    shared_load_high_w: float = 250
+    shared_load_observe_s: int = 1200
+    shared_load_retry_s: int = 7200
     extreme_price_enabled: bool = False
     extreme_price: float = 0.30
     extreme_price_hysteresis: float = 0.02
@@ -138,6 +145,23 @@ class Policy:
     thermal_sample_gap_s: int = 1200
 
     def __post_init__(self) -> None:
+        for name in ["continuous_hold", "shared_load_management"]:
+            if type(getattr(self, name)) is not bool:
+                raise ValueError(f"{name} must be boolean")
+        for name, low, high in [
+            ("relaxation_limit", 0.5, 6),
+            ("shared_load_idle_w", 0, 5000),
+            ("shared_load_high_w", 1, 20000),
+            ("shared_load_observe_s", 600, 86400),
+            ("shared_load_retry_s", 1200, 86400),
+        ]:
+            object.__setattr__(
+                self, name, bounded(getattr(self, name), name, low, high)
+            )
+        if self.shared_load_idle_w >= self.shared_load_high_w:
+            raise ValueError("Shared-load high threshold must exceed idle reference")
+        if self.shared_load_management and not self.continuous_hold:
+            raise ValueError("Shared-load management requires continuous holding")
         if type(self.extreme_price_enabled) is not bool:
             raise ValueError("extreme_price_enabled must be a boolean")
         object.__setattr__(
@@ -281,6 +305,9 @@ class Zone:
     expected_ledger_entity: str | None = None
     critical_ledger_entity: str | None = None
     require_internal_feedback: bool = False
+    cool_targets: dict[str, float] = field(default_factory=dict)
+    heat_sleep_targets: dict[str, float] = field(default_factory=dict)
+    cool_sleep_targets: dict[str, float] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not all([self.id, self.name, self.plant, self.temperature_entity]):
@@ -289,8 +316,14 @@ class Zone:
         object.__setattr__(
             self, "priority", bounded(self.priority, "priority", 0.1, 10)
         )
-        for value in self.heat_targets.values():
-            bounded(value, "zone heat target", 5, 30)
+        for table in [
+            self.heat_targets,
+            self.cool_targets,
+            self.heat_sleep_targets,
+            self.cool_sleep_targets,
+        ]:
+            for value in table.values():
+                bounded(value, "zone temperature target", 5, 35)
         if not self.authority_states or any(
             not isinstance(x, str) or not x or x in ["unknown", "unavailable"]
             for x in self.authority_states
@@ -327,10 +360,24 @@ class House:
             raise ValueError("Actuator assigned to several zones")
         bands = {b.name for b in self.policy.bands}
         for zone in self.zones:
-            if zone.plant not in ids or not set(zone.heat_targets) <= bands:
+            if zone.plant not in ids or any(
+                not set(table) <= bands
+                for table in [
+                    zone.heat_targets,
+                    zone.cool_targets,
+                    zone.heat_sleep_targets,
+                    zone.cool_sleep_targets,
+                ]
+            ):
                 raise ValueError("Unknown plant or price band")
             for band in self.policy.bands:
-                if zone.heat_targets.get(band.name, band.heat_day) >= band.cool_day:
+                if zone.heat_targets.get(
+                    band.name, band.heat_day
+                ) >= zone.cool_targets.get(
+                    band.name, band.cool_day
+                ) or zone.heat_sleep_targets.get(
+                    band.name, band.heat_sleep
+                ) >= zone.cool_sleep_targets.get(band.name, band.cool_sleep):
                     raise ValueError(
                         "Zone heating target conflicts with cooling target"
                     )
@@ -413,6 +460,8 @@ class Snapshot:
     power: Reading = field(default_factory=lambda: Reading(None))
     require_power: bool = False
     external_fence: tuple | None = None
+    plant_power: dict[str, Reading] = field(default_factory=dict)
+    zone_power: dict[str, Reading] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         aware(self.now)
@@ -420,6 +469,7 @@ class Snapshot:
 
 @dataclass
 class Memory:
+    regulation: dict = field(default_factory=dict)
     high_since: float = 0
     urgent_since: float = 0
     low_since: float = 0
@@ -443,6 +493,8 @@ class Memory:
     extreme_active: bool = False
 
     def __post_init__(self) -> None:
+        if not isinstance(self.regulation, dict):
+            raise ValueError("Stored room regulation must be a mapping")
         for name in [
             "high_since",
             "urgent_since",
@@ -482,8 +534,11 @@ class PlantMemory:
     since: float = 0
     last_flip: float = 0
     last_transition: float = 0
+    modulation: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
+        if not isinstance(self.modulation, dict):
+            raise ValueError("Stored plant modulation must be a mapping")
         if self.direction not in [None, "heat", "cool", "dry"]:
             raise ValueError("Unknown stored plant direction")
         for name in ["since", "last_flip", "last_transition"]:

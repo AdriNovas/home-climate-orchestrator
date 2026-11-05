@@ -184,3 +184,68 @@ opcionales elimina el vínculo; no conserva silenciosamente el sensor anterior.
 La candidata0.2 añade los menús Medidores energéticos y Ejecución, y fuentes
 externas por estancia. Contrato completo y límites en
 [EXECUTION_ENERGY.md](EXECUTION_ENERGY.md).
+
+## Objetivos por split, estación y precio
+
+En **Objetivos por estancia** selecciona el split y una de cuatro tablas:
+calor/día, frío/día, calor/sueño o frío/sueño. Cada fila corresponde a un tramo
+de precio. Puedes heredar la tabla general o activar una propia sin cambiar
+las otras tres. Los tramos ausentes en un perfil JSON se heredan.
+
+Las claves son `heat_targets` (calor/día, compatible con perfiles anteriores),
+`cool_targets`, `heat_sleep_targets` y `cool_sleep_targets`. Una fuente externa
+de objetivo válida tiene precedencia. Si está asignada pero ausente, bloquea
+la zona: no se sustituye silenciosamente por la tabla. Se rechaza calor ≥ frío
+en cualquier fase/tramo. `priority` resuelve demanda competidora, no reparte
+vatios del medidor.
+
+Una **planta** representa la unidad exterior física, no la planta del edificio.
+`shared_mode: true` coordina sus cabezas en un único sentido y conserva los
+mínimos de marcha, reposo e inversión. Los equipos independientes se asignan
+a plantas independientes y pueden calentar/enfriar simultáneamente.
+
+## Modulación continua opcional · candidata 0.2
+
+`continuous_hold: true` mantiene una cabeza ya activa y autorizada en calor/frío
+al alcanzar confort, sin plazo rutinario de apagado ni `fan_only` económico.
+No arranca un aparato satisfecho solo para mantenerlo encendido. El objetivo
+ambiental sigue la tabla/precio; la consigna física utiliza sesgo, déficit,
+respuesta ambiental y relajación progresiva. La sonda interna puede relajar
+la demanda cerca del objetivo, nunca se persigue la batería caliente para
+aumentar potencia. El esfuerzo y la relajación requieren reportes ambientales
+distintos: cada evaluación no fabrica aprendizaje.
+
+`overshoot_delta` permite parar ante exceso aun antes del mínimo de marcha.
+No cambia automáticamente: por defecto sigue en0,5°C; configura otro margen
+explícitamente si el ensayo lo requiere. `relaxation_limit` acota la relajación
+física (3,5°C por defecto), siempre dentro del paso y límites reales del equipo.
+
+`shared_load_management: true` añade realimentación del **medidor de la unidad
+exterior**, no del suministro. No suma padres/hijos ni divide potencia entre
+cabezas. Un split independiente puede usar su medidor de zona cuando es el
+único miembro de su planta y no hay medidor de planta. Dos medidores de potencia
+competidores para el mismo ámbito no permiten inferir cuál debe gobernar.
+
+Aprende referencias agregadas por número de cabezas activas. Solo propone retirar
+**una** cabeza si todas las activas son automáticas, tienen confort satisfecho,
+consignas relajadas, datos frescos y temperatura estable durante un episodio de
+carga alta. La propuesta caduca90s después de publicarse, se revalida al ejecutar
+y consume presupuesto por cabeza incluso si falla. Otra retirada requiere
+observar el efecto y un nuevo episodio. Nueva demanda, objetivos, Manual, pausa,
+datos ausentes o cambios de configuración invalidan la propuesta. Una diferencia
+de potencia tras retirar servicio es agregada, no consumo causal de esa cabeza.
+
+| Parámetro | Valor inicial |
+|---|---:|
+| `shared_load_idle_w` / `shared_load_high_w` |150/250W|
+| `shared_load_observe_s` |1200s|
+| `shared_load_retry_s` |7200s por cabeza|
+
+Son editables en **Política**. Continuidad y gestión compartida vienen apagadas;
+la segunda requiere continuidad.100W no es una orden al compresor ni una garantía:
+depende del equipo y se comprueba con potencia activa medida. Manual, permisos
+y corte independiente siguen limitando al controlador.
+
+Ejemplo ficticio de multisplit más equipo independiente, prioridades y tablas:
+[versatile-zones.json](../examples/versatile-zones.json). Sigue en sombra hasta
+superar [la migración de autoridad](MIGRATION.md).

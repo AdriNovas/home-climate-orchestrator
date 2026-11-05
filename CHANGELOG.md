@@ -1,5 +1,16 @@
 # Cambios
 
+## Candidata0.2 · sin release
+
+- Modulación continua opcional de consigna, respuesta ambiental acotada y
+  reportes distintos, sin caducidad rutinaria del mantenimiento.
+- Consumo compartido observado por medidor de planta, referencias agregadas
+  por número de cabezas y retirada escalonada con presupuesto persistente.
+- Tablas por split de calor/frío y día/sueño por tramo, herencia y validación
+  atómica, con opciones nativas en español/inglés.
+- Las entradas observadoras y releases existentes no adquieren autoridad ni
+  activan estas políticas como efecto de una actualización.
+
 ## 0.1.0a1 · 2026-11-05 · alfa pública de observación
 
 - Núcleo determinista y configuración versionada de casa/instalación/estancia.

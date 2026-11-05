@@ -19,6 +19,8 @@ from .models import (
 from .tariffs import current_price, opportunities
 from .thermal import observe_stability, extreme_price, relaxed_target
 from .provenance import number
+from .modulation import soft_correction, observe_shared_load, observe_room
+from .models import Reading
 
 
 def dew_point(temperature: float, humidity: float) -> float:
@@ -52,9 +54,14 @@ def hardware_target(
         else 0
     )
     response = obs.response
+    extra_effort, trim = 0, 0
     # Compact measured-response v1. A stale or mismatched response adds no effort;
     # it does not replace the independent environmental reference or base bias.
-    if zone.response_entity and deficit > 0.3 and isinstance(response, dict):
+    if (
+        (zone.response_entity or p.continuous_hold)
+        and deficit > 0.3
+        and isinstance(response, dict)
+    ):
         at, extra = response.get("at"), response.get("b")
         if (
             response.get("m") == mode
@@ -65,6 +72,16 @@ def hardware_target(
             and 0 <= extra <= 2.5
         ):
             effort += extra
+            extra_effort = extra
+    if (
+        isinstance(response, dict)
+        and response.get("m") == mode
+        and response.get("g") == goal
+        and number(response.get("at"))
+        and 0 <= now - response["at"] <= 660
+        and number(response.get("h"))
+    ):
+        trim = max(0, min(2.5, response["h"]))
     correction = max(
         -p.correction_limit,
         min(
@@ -78,7 +95,14 @@ def hardware_target(
         ),
     )
     target = goal + correction
-    if deficit <= p.hold_delta and obs.internal.fresh(now, p.internal_fresh_s):
+    if p.continuous_hold:
+        bias = (
+            obs.bias.value if obs.bias.fresh(now, p.temperature_fresh_s) else zone.bias
+        )
+        target = goal + soft_correction(deficit, bias, mode, extra_effort, trim, p)
+    if deficit <= (0.3 if p.continuous_hold else p.hold_delta) and obs.internal.fresh(
+        now, p.internal_fresh_s
+    ):
         target = (
             min(target, obs.internal.value - 0.5)
             if mode == "heat"
@@ -128,9 +152,15 @@ def evaluate(
             m.day = day
             m.attempts = 0
         heat = (
-            band.heat_sleep if sleep else z.heat_targets.get(band.name, band.heat_day)
+            z.heat_sleep_targets.get(band.name, band.heat_sleep)
+            if sleep
+            else z.heat_targets.get(band.name, band.heat_day)
         )
-        cool = band.cool_sleep if sleep else band.cool_day
+        cool = (
+            z.cool_sleep_targets.get(band.name, band.cool_sleep)
+            if sleep
+            else z.cool_targets.get(band.name, band.cool_day)
+        )
         if o.heat_goal.fresh(now, p.temperature_fresh_s):
             heat = o.heat_goal.value
         if o.cool_goal.fresh(now, p.temperature_fresh_s):
@@ -157,6 +187,17 @@ def evaluate(
             and o.mode in ["off", "heat", "cool"]
         )
         stable = observe_stability(m, o, p, now, eligible)
+        if p.continuous_hold and not z.response_entity:
+            m.regulation = observe_room(
+                o,
+                heat if o.mode == "heat" else cool,
+                snap.zone_power.get(z.id, snap.plant_power.get(z.plant, Reading(None))),
+                m.regulation,
+                now,
+                p,
+                eligible,
+            )
+            o = replace(o, response=m.regulation)
         expensive = extreme_price(m, p, price)
         if not eligible or o.mode != m.hold_mode or m.hold_since > now:
             m.hold_since = 0
@@ -311,21 +352,39 @@ def evaluate(
                     d, stage="coasting", reason="extreme_price_stable", mode="off"
                 )
             continue
-        if p.modulated_hold_s and target is not None:
+        if p.continuous_hold and near_goal:
+            # A thermostat may have to raise its physical setpoint again when
+            # the coil cools; continuity is not restricted to monotonic commands.
+            target = hardware_target(
+                z, o, heat if o.mode == "heat" else cool, o.mode, house, now
+            )
+        if (p.modulated_hold_s or p.continuous_hold) and target is not None:
             if not m.hold_since:
                 m.hold_since, m.hold_mode = now, o.mode
             until = m.hold_since + p.modulated_hold_s
-            if now < until or now - o.mode_since < plant.minimum_on_s:
+            if (
+                p.continuous_hold
+                or now < until
+                or now - o.mode_since < plant.minimum_on_s
+            ):
                 wanted[z.id] = (
                     o.mode,
                     z.priority,
                     replace(
                         d,
-                        stage="holding" if now < until else "settling",
-                        reason="modulated_hold" if now < until else "minimum_run",
+                        stage="holding"
+                        if p.continuous_hold or now < until
+                        else "settling",
+                        reason="continuous_modulation"
+                        if p.continuous_hold
+                        else "modulated_hold"
+                        if now < until
+                        else "minimum_run",
                         mode=o.mode,
                         physical_target=target,
-                        next_at=max(until, o.mode_since + plant.minimum_on_s),
+                        next_at=None
+                        if p.continuous_hold
+                        else max(until, o.mode_since + plant.minimum_on_s),
                     ),
                 )
             else:
@@ -469,6 +528,40 @@ def evaluate(
     for plant in house.plants:
         members = [z for z in house.zones if z.plant == plant.id]
         pm = plants.setdefault(plant.id, PlantMemory())
+        if p.shared_load_management:
+            observations = {z.id: snap.zones[z.id] for z in members}
+            goals = {
+                z.id: (result.get(z.id) or wanted[z.id][2]).heat_goal
+                if observations[z.id].mode == "heat"
+                else (result.get(z.id) or wanted[z.id][2]).cool_goal
+                for z in members
+            }
+            measured = snap.plant_power.get(
+                plant.id,
+                snap.zone_power.get(members[0].id, Reading(None))
+                if len(members) == 1
+                else Reading(None),
+            )
+            pm.modulation = observe_shared_load(
+                observations,
+                goals,
+                measured,
+                pm.modulation,
+                now,
+                p,
+                plant.minimum_on_s,
+                permitted=not snap.paused and snap.occupied is True,
+            )
+            candidate = pm.modulation.get("r")
+            if candidate in wanted and wanted[candidate][2].stage == "holding":
+                demand = wanted.pop(candidate)[2]
+                result[candidate] = replace(
+                    demand,
+                    stage="coasting",
+                    reason="shared_load_staged_withdrawal",
+                    mode="off",
+                    physical_target=None,
+                )
         active = {
             snap.zones[z.id].mode
             for z in members

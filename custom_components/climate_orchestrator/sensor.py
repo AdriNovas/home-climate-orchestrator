@@ -88,6 +88,16 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
             "observed_mode": o.mode if o else "unknown",
             "external_temperature": o.temperature.value if o else None,
             "relative_humidity": o.humidity.value if o else None,
+            "regulation_response": dict(
+                self.coordinator.memories[self.zone.id].regulation
+            )
+            if self.zone.id in self.coordinator.memories
+            else {},
+            "plant_load_observation": dict(
+                self.coordinator.plants[self.zone.plant].modulation
+            )
+            if self.zone.plant in self.coordinator.plants
+            else {},
             "interpretation": "Decision; execution requires its own confirmed journal. HVAC mode is not measured compressor activity.",
         }
 

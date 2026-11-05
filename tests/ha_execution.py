@@ -244,6 +244,11 @@ async def main():
                 "scope": "plant",
                 "target": "plant",
             }
+            assert c.snapshot().plant_power["plant"].value == 1200
+            assert c.snapshot().power.value != c.snapshot().plant_power["plant"].value
+            checks.append(
+                "shared-load feedback reads the assigned HVAC plant meter, never the supply guard meter"
+            )
             registry = entity_registry.async_get(hass)
             entities = [
                 e
