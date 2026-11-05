@@ -11,4 +11,5 @@
 - Use stable zone/plant IDs, native entities, translations, lifecycle cleanup and
   redacted diagnostics. Do not fabricate compressor activity or savings.
 - Run `python -m unittest discover -s tests -v` and the isolated HA smoke test before
-  release. CI is not a production deployer. No public push without publication scope.
+  release, plus `python tests/ha_lifecycle.py` for native setup/reload/removal.
+  CI is not a production deployer. No public push without publication scope.

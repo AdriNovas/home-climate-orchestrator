@@ -72,7 +72,7 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
             **(asdict(d) if d else {}),
             "physical_control": False,
             "observed_mode": o.mode if o else "unknown",
-            "aqara_or_reference": o.temperature.value if o else None,
+            "external_temperature": o.temperature.value if o else None,
             "relative_humidity": o.humidity.value if o else None,
             "interpretation": "Proposal, not a command or measured compressor operation",
         }

@@ -3,7 +3,8 @@
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryError
-from .const import PLATFORMS
+from homeassistant.helpers.storage import Store
+from .const import DOMAIN, PLATFORMS, STORAGE_VERSION
 from .coordinator import ClimateCoordinator
 
 
@@ -35,3 +36,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Reject unknown future schemas; never silently discard a configuration.
     return entry.version == 1
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Delete only this observation entry's own memory after removal."""
+    await Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}").async_remove()

@@ -1,58 +1,74 @@
-# Instalación y verificación
+# Instalar con Marketplace o HACS
 
-## Estado de distribución
+Repositorio: [AdriNovas/home-climate-orchestrator](https://github.com/AdriNovas/home-climate-orchestrator).
+Dominio HA: `climate_orchestrator`. Versión inicial: **0.1.0a1, prerelease**.
+Requiere HA2026.10.4 o superior y Celsius; Marketplace está disponible desde2026.11.
 
-Alfa local0.1.0a1. No hay URL pública o release descargable garantizada todavía.
-Los enlaces GitHub del manifiesto son el destino de publicación previsto. La
-estructura `custom_components/climate_orchestrator`, manifiesto, traducciones y
-`hacs.json` prepara una integración, **no acredita validación HACS**.
+**Alfa de observación:** instalar añade propuestas/diagnósticos. No envía órdenes
+al AC, no reemplaza el control existente ni cambia automáticamente su configuración.
+No está incluida en el catálogo: añadirla por URL. No implica revisión/aprobación
+del proyecto Home Assistant.
 
-HACS exige un repositorio público GitHub para distribuir una integración. Antes
-de publicarlo: revisión de privacidad, licencia, URL real, hassfest, HACS action,
-release y ensayo de instalación/actualización/eliminación en otro HA. También
-falta el recurso de marca `brand/icon.png` requerido para publicar; esta alfa no
-se declara HACS-ready. Véase la
-[documentación de publicación de HACS](https://www.hacs.xyz/docs/publish/start/).
+## Marketplace · HA2026.11+
 
-## Entorno de prueba
+1. Abrir **Ajustes → Marketplace → Añadir desde enlace**.
+2. Introducir `https://github.com/AdriNovas/home-climate-orchestrator`.
+3. Si pide tipo, seleccionar **Integración**. Conectar GitHub si la interfaz lo requiere.
+4. Habilitar versiones preliminares para este repositorio y seleccionar0.1.0a1.
+   Marketplace ofrece estables por defecto; el interruptor de prereleases puede
+   necesitar habilitarse en el dispositivo Marketplace del repositorio.
+5. Instalar y seguir cualquier aviso de reinicio; después añadir la integración
+   desde **Ajustes → Dispositivos y servicios** si no abre el asistente.
 
-1. Preparar un HA desechable2026.10.x, configurado en Celsius, con estados de
-   demostración. No habilitar otro escritor físico sobre equipos de una casa.
-2. En desarrollo, copiar únicamente la carpeta de integración al directorio
-   `custom_components` de ese entorno y reiniciar. Esto no es una instalación
-   manual autorizada implícitamente para cualquier HA de producción.
-3. Añadir integración desde la interfaz, tarifa, instalación y una estancia.
-4. Comprobar diagnósticos, nombres traducidos, área/etiquetas, recarga y eliminación.
-5. Ninguna automatización debe actuar a partir de propuestas alfa.
+Referencia: [Marketplace y repositorios personalizados](https://www.home-assistant.io/integrations/marketplace/#custom-repositories).
 
-En una futura release pública, añadir el repositorio personalizado en HACS como
-**Integration**, instalar y reiniciar; después añadir desde Dispositivos y servicios.
-No basta con que HACS copie los archivos: hay que verificar también configuración
-y entidades cargadas. La referencia de versiones HA ensayada no es una promesa
-de compatibilidad futura.
+## HACS · instalaciones anteriores
 
-## Pruebas del repositorio
+1. Abrir HACS → menú de repositorios personalizados.
+2. Añadir la misma URL como **Integration**.
+3. Seleccionar la prerelease0.1.0a1, habilitando versiones beta si no aparece.
+4. Descargar, reiniciar cuando lo solicite HA y añadir **Home Climate Orchestrator**
+   en Dispositivos y servicios.
 
-La batería de dominio no requiere instalar HA:
+[Abrir repositorio en HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=AdriNovas&repository=home-climate-orchestrator&category=integration).
+El paquete es el mismo para ambos; no instalar dos copias del dominio.
+
+## Vincular tu instalación
+
+1. Integrar previamente cada split y sensor externo en HA.
+2. Elegir nombre, zona horaria y tarifa: PVPC/plana/tramos/intervalos.
+3. Crear las instalaciones que comparten exterior y sus tiempos mínimos.
+4. Añadir estancias: equipo, temperatura externa, humedad opcional y permisos.
+5. Ajustar horarios, objetivos, umbrales HR/precio y demás política desde Opciones.
+
+Ver [compatibilidad](COMPATIBILITY.md) y [configuración](CONFIGURATION.md).
+Los JSON de `examples/` son ficticios y documentan el esquema: no hay importador
+JSON en la UI. No conectar propuestas alfa a automatizaciones de actuación.
+
+## Actualizar y eliminar
+
+Antes de actualizar, guardar configuración/backup. Marketplace/HACS sustituye
+la carpeta de código; el estado del usuario está en el almacenamiento HA, no allí.
+Las actualizaciones de código cargado requieren reiniciar según indique HA.
+
+Para retirar: eliminar primero la entrada de integración en Dispositivos y
+servicios y después desinstalar el repositorio. La alfa no apaga ni reconfigura
+los equipos al retirarla. Seguir cualquier reparación/aviso de reinicio.
+
+## Verificación y desarrollo
 
 ```sh
 python3 -m unittest discover -s tests -v
 python3 -m compileall -q custom_components tests
-```
-
-Smoke con HA instalado en entorno aislado:
-
-```sh
+# En un entorno desechable con Home Assistant instalado:
 python3 tests/ha_smoke.py
+python3 tests/ha_lifecycle.py
 ```
 
-Ejercita formularios, opciones, adaptador sobre la máquina de estados HA,
-construcción de entidades, diagnóstico redactado y cierre. No acredita una
-instalación completa mediante HACS ni funcionamiento físico. Una futura CI de
-release debe ejecutar además los validadores oficiales
-[hassfest](https://developers.home-assistant.io/docs/creating_integration_manifest/)
-y [HACS](https://www.hacs.xyz/docs/publish/integration/).
+CI ejecuta el núcleo, Gitleaks sobre el historial, smoke HA y los validadores
+oficiales HACS/hassfest. El smoke no es un ensayo físico ni una inspección de UI.
+Consultar [validación](VALIDATION.md) y los resultados del commit en Actions.
+La instalación completa por ambas interfaces sigue siendo un ensayo distinto.
 
-No hay dependencias PyPI adicionales en ejecución. Ruff es exclusivamente una
-herramienta de desarrollo. No guardar credenciales, backups de HA o Recorder en
-este repositorio.
+Sin dependencias PyPI adicionales en ejecución. No copiar configuración de otra
+casa ni instalar carpetas privadas junto al código.

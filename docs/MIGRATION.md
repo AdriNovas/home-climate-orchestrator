@@ -13,7 +13,7 @@ pendiente; no se hacen pruebas físicas para rellenar una cuota.
 | 3 Planificador | Shadow precio/umbrales por estancia | 7–14 días útiles; bloques completos, precio/datos faltantes, deuda, noches y multisplit sin contradicciones. |
 | 4 Producto alfa | Núcleo y adaptador HA de observación configurable | Pruebas deterministas y smoke con versión HA objetivo; perfil privado separado. Esto es0.1, sin ejecutor. |
 | 5 Un solo escritor | Ejecutor certificado y migración por instalación | Pruebas de Manual, restart, ACK tardío, apagado crítico, rollback, límite eléctrico y exclusión mutua. Sin convivencia de escritores. |
-| 6 Beta HACS | Release pública, documentación y otra vivienda de prueba | Validadores HACS/hassfest, instalación/actualización/desinstalación, segunda instalación y revisión de privacidad. |
+| 6 Beta funcional | Producto de actuación maduro y otra vivienda de prueba | Validadores HACS/hassfest, instalación/actualización/desinstalación y revisión de privacidad. Publicar antes una alfa observadora no cumple esta puerta. |
 
 ## Lo que no se debe adelantar
 

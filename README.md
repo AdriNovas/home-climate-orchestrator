@@ -1,12 +1,31 @@
 # Home Climate Orchestrator
 
-Planificador doméstico de temperatura y humedad según tarifa eléctrica, con
-sensores ambientales externos y equipos agrupados por instalación.
+![Home Climate Orchestrator](custom_components/climate_orchestrator/brand/icon.png)
 
-**0.1.0a1 · alfa local, solo observación.** Genera propuestas y diagnósticos;
+Planificador doméstico de temperatura y humedad según tarifa eléctrica, con
+sensores ambientales externos y splits de aire acondicionado agrupados por instalación.
+
+**0.1.0a1 · alfa pública, solo observación.** Genera propuestas y diagnósticos;
 **no envía órdenes**, no sustituye al termostato y no promete ahorro. El
-repositorio todavía no está publicado ni admitido en HACS. La estructura permite
-prepararlo como integración HACS, pero esto no equivale a una versión distribuida.
+repositorio se distribuye como integración personalizada para HACS y el
+Marketplace de Home Assistant; **no está incluido en su catálogo oficial**.
+
+[Instalar con HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=AdriNovas&repository=home-climate-orchestrator&category=integration)
+· [Instalación Marketplace/HACS](docs/INSTALLATION.md)
+· [Iniciar configuración tras instalar](https://my.home-assistant.io/redirect/config_flow_start/?domain=climate_orchestrator)
+
+## Para otra casa o marca de AC
+
+No hay nombres de dispositivos, habitaciones ni tarifas de una vivienda incrustados.
+Por estancia se vincula una entidad `climate` de la integración del fabricante,
+un sensor externo de temperatura y, opcionalmente, otro de humedad. Pueden ser
+Zigbee, Bluetooth, Wi-Fi o MQTT: importa su estado/unidad en HA, no la marca.
+Se declara qué splits comparten unidad exterior para evitar propuestas de modos
+incompatibles. La tarifa se elige por separado: PVPC, plana o tramos configurables.
+
+El AC debe estar integrado primero en HA. Un emisor infrarrojo sin estado fiable
+no se considera equivalente a un equipo con modos y límites confirmados.
+Ver [compatibilidad y vinculación](docs/COMPATIBILITY.md).
 
 ## Qué hace esta versión
 
@@ -63,6 +82,7 @@ python3 -m unittest discover -s tests -v
 python3 -m compileall -q custom_components tests
 # Solo en un entorno desechable con HA 2026.10 instalado:
 python3 tests/ha_smoke.py
+python3 tests/ha_lifecycle.py
 ```
 
 `ha_smoke.py` usa un directorio temporal y un Home Assistant aislado; no carga
@@ -74,4 +94,5 @@ visual y de una instalación HACS real son comprobaciones distintas y pendientes
 Observation-only Home Assistant alpha for tariff-aware temperature and humidity
 planning. Configurable PVPC/fixed/flat/interval tariffs, zones and shared plants.
 No actuator commands, no measured savings, no universal HVAC compatibility claim.
-Not published on HACS yet. Keep real home profiles and histories outside this repo.
+Installable as a custom repository, not included in the HACS/Marketplace catalog.
+Keep real home profiles and histories outside this repo.
