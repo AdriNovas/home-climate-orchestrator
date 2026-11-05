@@ -1,0 +1,60 @@
+{
+  "house": {
+    "name": "Demo home",
+    "timezone": "Europe/Madrid",
+    "plants": [
+      {
+        "id": "demo-plant",
+        "name": "Demo outdoor",
+        "shared_mode": true
+      }
+    ],
+    "zones": [
+      {
+        "id": "demo-zone",
+        "name": "Demo room",
+        "plant": "demo-plant",
+        "temperature_entity": "sensor.demo_temperature",
+        "humidity_entity": "sensor.demo_humidity",
+        "climate_entity": "climate.demo_unit",
+        "authority_entity": "input_boolean.demo_automatic",
+        "allow_dry": true
+      }
+    ]
+  },
+  "outdoor_entity": "sensor.demo_outdoor_temperature",
+  "power_entity": "sensor.demo_hvac_power",
+  "tariff": {
+    "type": "fixed",
+    "periods": [
+      {
+        "weekdays": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "00:00",
+        "end": "08:00",
+        "price": 0.07
+      },
+      {
+        "weekdays": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "start": "08:00",
+        "end": "00:00",
+        "price": 0.22
+      }
+    ]
+  }
+}

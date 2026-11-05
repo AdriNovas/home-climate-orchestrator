@@ -1,0 +1,393 @@
+{
+  "title": "Home Climate Orchestrator",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Home",
+        "data": {
+          "name": "Name",
+          "timezone": "Time zone",
+          "tariff_type": "Tariff type"
+        },
+        "description": "Observation-only alpha: installation never controls devices."
+      },
+      "tariff": {
+        "title": "Tariff source",
+        "data": {
+          "price": "Energy price (EUR/kWh)",
+          "entity": "Price sensor"
+        }
+      },
+      "period": {
+        "title": "Fixed price period",
+        "data": {
+          "weekdays": "Days",
+          "start": "Start",
+          "end": "End",
+          "price": "Energy price (EUR/kWh)",
+          "on_date": "Date exception (optional)",
+          "add_another": "Add another price period"
+        },
+        "description": "Equal start/end means 24 hours on the selected days. Date exceptions override matching regular hours."
+      },
+      "plant": {
+        "title": "Climate plant",
+        "data": {
+          "name": "Name",
+          "shared_mode": "Shared outdoor unit: one thermal mode",
+          "minimum_off_min": "Minimum off (minutes)",
+          "minimum_on_min": "Minimum on (minutes)",
+          "direction_hold_min": "Minimum direction hold (minutes)",
+          "reversal_gap_min": "Minimum between reversals (minutes)"
+        }
+      },
+      "zone": {
+        "title": "Zone",
+        "data": {
+          "name": "Name",
+          "plant": "Plant",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "climate_entity": "Underlying climate entity",
+          "authority_entity": "Automatic-authority helper (on = automatic)",
+          "area": "Real area",
+          "labels": "Existing functional labels",
+          "bias": "Internal sensor bias (°C)",
+          "priority": "Relative priority",
+          "allow_dry": "Model drying opportunities",
+          "night_allowed": "Allow this zone during sleep",
+          "enabled": "Include this zone in proposals"
+        }
+      },
+      "finish": {
+        "title": "Continue",
+        "menu_options": {
+          "zone": "Add zone",
+          "plant": "Add plant",
+          "create": "Create observation entry"
+        }
+      }
+    },
+    "error": {
+      "invalid_configuration": "Invalid settings or conflicting targets",
+      "invalid_tariff": "Overlapping or uncovered tariff periods"
+    }
+  },
+  "options": {
+    "step": {
+      "tariff": {
+        "title": "Tariff source",
+        "data": {
+          "price": "Energy price (EUR/kWh)",
+          "entity": "Price sensor"
+        }
+      },
+      "plant": {
+        "title": "Climate plant",
+        "data": {
+          "name": "Name",
+          "shared_mode": "Shared outdoor unit: one thermal mode",
+          "minimum_off_min": "Minimum off (minutes)",
+          "minimum_on_min": "Minimum on (minutes)",
+          "direction_hold_min": "Minimum direction hold (minutes)",
+          "reversal_gap_min": "Minimum between reversals (minutes)"
+        }
+      },
+      "zone": {
+        "title": "Zone",
+        "data": {
+          "name": "Name",
+          "plant": "Plant",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "climate_entity": "Underlying climate entity",
+          "authority_entity": "Automatic-authority helper (on = automatic)",
+          "area": "Real area",
+          "labels": "Existing functional labels",
+          "bias": "Internal sensor bias (°C)",
+          "priority": "Relative priority",
+          "allow_dry": "Model drying opportunities",
+          "night_allowed": "Allow this zone during sleep",
+          "enabled": "Include this zone in proposals"
+        }
+      },
+      "policy": {
+        "title": "Advanced regulation",
+        "data": {
+          "start_delta": "Start deviation (°C)",
+          "hold_delta": "Maintenance tolerance (°C)",
+          "overshoot_delta": "Overshoot protection (°C)",
+          "proportional_gain": "Recovery proportional gain",
+          "boost_limit": "Maximum extra effort (°C)",
+          "correction_limit": "Maximum total compensation (°C)",
+          "command_interval": "Ordinary command cadence (seconds)",
+          "temperature_fresh_s": "Reference temperature freshness (seconds)",
+          "humidity_fresh_s": "Humidity freshness (seconds)",
+          "internal_fresh_s": "Internal sensor freshness (seconds)",
+          "dry_floor_day": "Drying temperature floor, day (°C)",
+          "dry_floor_sleep": "Drying temperature floor, sleep (°C)",
+          "dry_margin": "Drying temperature margin (°C)",
+          "dry_min_outdoor": "Minimum outdoor temperature for drying (°C)",
+          "dry_min_s": "Normal minimum drying session (seconds)",
+          "dry_max_s": "Maximum drying session (seconds)",
+          "dry_cooldown_s": "Drying cooldown (seconds)",
+          "dry_attempts": "Drying attempts per local day",
+          "humidity_stable_s": "Humidity demand persistence (seconds)",
+          "humidity_recovery_s": "Humidity recovery persistence (seconds)",
+          "humidity_deadline_s": "Maximum normal humidity deferral (seconds)",
+          "service_humidity": "Humidity debt threshold (%)",
+          "severe_humidity": "Severe humidity threshold (%)",
+          "severe_stable_s": "Severe humidity persistence (seconds)",
+          "urgent_humidity": "High humidity threshold (%)",
+          "urgent_stable_s": "High humidity persistence (seconds)",
+          "lookahead_s": "Maximum price lookahead (seconds)",
+          "improvement": "Minimum useful price improvement (EUR/kWh)",
+          "power_limit": "Preventive active-power budget (W)",
+          "power_fresh_s": "Active-power freshness (seconds)"
+        }
+      },
+      "schedule": {
+        "title": "Use and sleep",
+        "data": {
+          "day_start": "Day starts",
+          "night_start": "Sleep starts",
+          "weekend_day_start": "Weekend day starts",
+          "weekend_night_start": "Friday/Saturday sleep starts"
+        }
+      },
+      "band": {
+        "title": "Price band",
+        "data": {
+          "band": "Price band"
+        }
+      },
+      "band_edit": {
+        "title": "Targets for this price band",
+        "data": {
+          "upper": "Upper price boundary (exclusive, EUR/kWh)",
+          "heat_day": "Day heating target (°C)",
+          "heat_sleep": "Sleep heating target (°C)",
+          "cool_day": "Day cooling target (°C)",
+          "cool_sleep": "Sleep cooling target (°C)",
+          "humidity_start": "Start drying above (%)",
+          "humidity_stop": "Finish drying below (%)"
+        }
+      },
+      "zone_targets": {
+        "title": "Zone-specific heat targets",
+        "data": {
+          "zone": "Zone"
+        }
+      },
+      "zone_targets_edit": {
+        "title": "Daytime heat targets",
+        "data": {
+          "override": "Override daytime heat targets for this zone",
+          "negative": "Negative price",
+          "very_low": "Very low price",
+          "low": "Low price",
+          "normal": "Normal price",
+          "high": "High price",
+          "very_high": "Very high price"
+        }
+      },
+      "sources": {
+        "title": "Optional observations",
+        "data": {
+          "power_entity": "Measured active power (W/kW, optional)",
+          "outdoor_entity": "Outdoor temperature sensor (optional)",
+          "presence_entity": "Occupancy (optional)"
+        }
+      },
+      "fixed_select": {
+        "title": "Edit a fixed price period",
+        "data": {
+          "period": "Price period"
+        }
+      },
+      "fixed_edit": {
+        "title": "Fixed price period",
+        "data": {
+          "weekdays": "Days",
+          "start": "Start",
+          "end": "End",
+          "price": "Energy price (EUR/kWh)",
+          "on_date": "Date exception (optional)"
+        }
+      },
+      "tariff_type": {
+        "title": "Replace tariff type",
+        "data": {
+          "tariff_type": "Tariff type"
+        }
+      },
+      "tariff_replace": {
+        "title": "New tariff source",
+        "data": {
+          "entity": "Price sensor",
+          "price": "Energy price (EUR/kWh)"
+        }
+      },
+      "tariff_period": {
+        "title": "New fixed price period",
+        "data": {
+          "weekdays": "Days",
+          "start": "Start",
+          "end": "End",
+          "price": "Energy price (EUR/kWh)",
+          "on_date": "Date exception (optional)",
+          "add_another": "Add another price period"
+        }
+      },
+      "add_zone": {
+        "title": "Add zone",
+        "data": {
+          "name": "Name",
+          "plant": "Plant",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "climate_entity": "Underlying climate entity",
+          "authority_entity": "Automatic-authority helper (on = automatic)",
+          "area": "Real area",
+          "labels": "Existing functional labels",
+          "bias": "Internal sensor bias (°C)",
+          "priority": "Relative priority",
+          "allow_dry": "Model drying opportunities",
+          "night_allowed": "Allow this zone during sleep",
+          "enabled": "Include this zone in proposals"
+        }
+      },
+      "zone_edit": {
+        "title": "Edit zone",
+        "data": {
+          "name": "Name",
+          "plant": "Plant",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "climate_entity": "Underlying climate entity",
+          "authority_entity": "Automatic-authority helper (on = automatic)",
+          "area": "Real area",
+          "labels": "Existing functional labels",
+          "bias": "Internal sensor bias (°C)",
+          "priority": "Relative priority",
+          "allow_dry": "Model drying opportunities",
+          "night_allowed": "Allow this zone during sleep",
+          "enabled": "Include this zone in proposals"
+        }
+      },
+      "plant_edit": {
+        "title": "Edit plant",
+        "data": {
+          "name": "Name",
+          "shared_mode": "Shared outdoor unit: one thermal mode",
+          "minimum_off_min": "Minimum off (minutes)",
+          "minimum_on_min": "Minimum on (minutes)",
+          "direction_hold_min": "Minimum direction hold (minutes)",
+          "reversal_gap_min": "Minimum between reversals (minutes)"
+        }
+      },
+      "add_plant": {
+        "title": "Add plant",
+        "data": {
+          "name": "Name",
+          "shared_mode": "Shared outdoor unit: one thermal mode",
+          "minimum_off_min": "Minimum off (minutes)",
+          "minimum_on_min": "Minimum on (minutes)",
+          "direction_hold_min": "Minimum direction hold (minutes)",
+          "reversal_gap_min": "Minimum between reversals (minutes)"
+        }
+      },
+      "init": {
+        "title": "Settings",
+        "menu_options": {
+          "policy": "Advanced regulation",
+          "schedule": "Use and sleep",
+          "band": "Price band",
+          "zone": "Zone",
+          "zone_targets": "Zone-specific heat targets",
+          "add_zone": "Add zone",
+          "plant": "Climate plant",
+          "add_plant": "Add plant",
+          "sources": "Optional observations",
+          "tariff": "Tariff source",
+          "tariff_type": "Replace tariff type"
+        }
+      }
+    },
+    "error": {
+      "invalid_configuration": "Invalid settings or conflicting targets",
+      "invalid_tariff": "Overlapping or uncovered tariff periods"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "planned_stage": {
+        "name": "Proposed strategy",
+        "state": {
+          "idle": "In band",
+          "manual": "Manual authority",
+          "waiting": "Waiting",
+          "blocked": "Blocked",
+          "paused": "Paused",
+          "recovering": "Would recover temperature",
+          "maintaining": "Would maintain temperature",
+          "settling": "Minimum run settling",
+          "protect": "Would stop for protection",
+          "coasting": "Would coast",
+          "dry_ready": "Drying opportunity",
+          "drying": "Owned drying model",
+          "dry_stop": "Would stop drying",
+          "external": "Externally controlled drying",
+          "reversing": "Would stop before reversing"
+        }
+      },
+      "heat_goal": {
+        "name": "Proposed heating target"
+      },
+      "cool_goal": {
+        "name": "Proposed cooling target"
+      },
+      "humidity_start": {
+        "name": "Drying start threshold"
+      },
+      "humidity_stop": {
+        "name": "Drying end threshold"
+      },
+      "physical_target": {
+        "name": "Proposed hardware setpoint"
+      }
+    },
+    "binary_sensor": {
+      "price_degraded": {
+        "name": "Price data degraded"
+      },
+      "source_degraded": {
+        "name": "Climate observations degraded"
+      },
+      "service_blocked": {
+        "name": "Persistent humidity service blocked"
+      }
+    }
+  },
+  "selector": {
+    "weekdays": {
+      "options": {
+        "0": "Monday",
+        "1": "Tuesday",
+        "2": "Wednesday",
+        "3": "Thursday",
+        "4": "Friday",
+        "5": "Saturday",
+        "6": "Sunday"
+      }
+    },
+    "tariff_types": {
+      "options": {
+        "pvpc": "PVPC",
+        "fixed": "Fixed time periods",
+        "flat": "One fixed price",
+        "generic": "Generic price intervals"
+      }
+    }
+  }
+}

@@ -1,0 +1,393 @@
+{
+  "title": "Home Climate Orchestrator",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Casa",
+        "data": {
+          "name": "Nombre",
+          "timezone": "Zona horaria",
+          "tariff_type": "Tipo de tarifa"
+        },
+        "description": "Alfa de observación: instalarla nunca controla los equipos."
+      },
+      "tariff": {
+        "title": "Fuente de tarifa",
+        "data": {
+          "price": "Precio de energía (€/kWh)",
+          "entity": "Sensor de precio"
+        }
+      },
+      "period": {
+        "title": "Periodo de precio fijo",
+        "data": {
+          "weekdays": "Días",
+          "start": "Inicio",
+          "end": "Fin",
+          "price": "Precio de energía (€/kWh)",
+          "on_date": "Excepción de fecha (opcional)",
+          "add_another": "Añadir otro periodo de precio"
+        },
+        "description": "Inicio y fin iguales significan 24 horas en los días elegidos. Las excepciones de fecha sustituyen las horas regulares coincidentes."
+      },
+      "plant": {
+        "title": "Planta climática",
+        "data": {
+          "name": "Nombre",
+          "shared_mode": "Exterior compartido: un único sentido térmico",
+          "minimum_off_min": "Reposo mínimo (minutos)",
+          "minimum_on_min": "Marcha mínima (minutos)",
+          "direction_hold_min": "Permanencia del sentido (minutos)",
+          "reversal_gap_min": "Separación entre inversiones (minutos)"
+        }
+      },
+      "zone": {
+        "title": "Estancia",
+        "data": {
+          "name": "Nombre",
+          "plant": "Planta",
+          "temperature_entity": "Sonda de temperatura de referencia",
+          "humidity_entity": "Sonda de humedad",
+          "climate_entity": "Entidad del equipo climático",
+          "authority_entity": "Ayudante de autoridad automática (on = automático)",
+          "area": "Área real",
+          "labels": "Etiquetas funcionales existentes",
+          "bias": "Desfase de la sonda interna (°C)",
+          "priority": "Prioridad relativa",
+          "allow_dry": "Modelar oportunidades de secado",
+          "night_allowed": "Permitir esta estancia durante sueño",
+          "enabled": "Incluir esta estancia en las propuestas"
+        }
+      },
+      "finish": {
+        "title": "Continuar",
+        "menu_options": {
+          "zone": "Añadir estancia",
+          "plant": "Añadir planta",
+          "create": "Crear entrada de observación"
+        }
+      }
+    },
+    "error": {
+      "invalid_configuration": "Ajustes inválidos u objetivos incompatibles",
+      "invalid_tariff": "Periodos solapados o tarifa con huecos"
+    }
+  },
+  "options": {
+    "step": {
+      "tariff": {
+        "title": "Fuente de tarifa",
+        "data": {
+          "price": "Precio de energía (€/kWh)",
+          "entity": "Sensor de precio"
+        }
+      },
+      "plant": {
+        "title": "Planta climática",
+        "data": {
+          "name": "Nombre",
+          "shared_mode": "Exterior compartido: un único sentido térmico",
+          "minimum_off_min": "Reposo mínimo (minutos)",
+          "minimum_on_min": "Marcha mínima (minutos)",
+          "direction_hold_min": "Permanencia del sentido (minutos)",
+          "reversal_gap_min": "Separación entre inversiones (minutos)"
+        }
+      },
+      "zone": {
+        "title": "Estancia",
+        "data": {
+          "name": "Nombre",
+          "plant": "Planta",
+          "temperature_entity": "Sonda de temperatura de referencia",
+          "humidity_entity": "Sonda de humedad",
+          "climate_entity": "Entidad del equipo climático",
+          "authority_entity": "Ayudante de autoridad automática (on = automático)",
+          "area": "Área real",
+          "labels": "Etiquetas funcionales existentes",
+          "bias": "Desfase de la sonda interna (°C)",
+          "priority": "Prioridad relativa",
+          "allow_dry": "Modelar oportunidades de secado",
+          "night_allowed": "Permitir esta estancia durante sueño",
+          "enabled": "Incluir esta estancia en las propuestas"
+        }
+      },
+      "policy": {
+        "title": "Regulación avanzada",
+        "data": {
+          "start_delta": "Desviación para arrancar (°C)",
+          "hold_delta": "Tolerancia de mantenimiento (°C)",
+          "overshoot_delta": "Protección por sobrepaso (°C)",
+          "proportional_gain": "Ganancia proporcional de recuperación",
+          "boost_limit": "Empuje adicional máximo (°C)",
+          "correction_limit": "Compensación total máxima (°C)",
+          "command_interval": "Cadencia de órdenes ordinarias (segundos)",
+          "temperature_fresh_s": "Frescura de temperatura de referencia (segundos)",
+          "humidity_fresh_s": "Frescura de humedad (segundos)",
+          "internal_fresh_s": "Frescura de sonda interna (segundos)",
+          "dry_floor_day": "Suelo térmico de secado, día (°C)",
+          "dry_floor_sleep": "Suelo térmico de secado, sueño (°C)",
+          "dry_margin": "Margen térmico para secado (°C)",
+          "dry_min_outdoor": "Exterior mínimo para secar (°C)",
+          "dry_min_s": "Mínimo normal de secado (segundos)",
+          "dry_max_s": "Máximo de secado (segundos)",
+          "dry_cooldown_s": "Descanso entre secados (segundos)",
+          "dry_attempts": "Intentos de secado por día local",
+          "humidity_stable_s": "Permanencia de demanda de humedad (segundos)",
+          "humidity_recovery_s": "Permanencia de recuperación de humedad (segundos)",
+          "humidity_deadline_s": "Aplazamiento máximo de humedad normal (segundos)",
+          "service_humidity": "Umbral de deuda de humedad (%)",
+          "severe_humidity": "Umbral de humedad severa (%)",
+          "severe_stable_s": "Permanencia de humedad severa (segundos)",
+          "urgent_humidity": "Umbral de humedad alta (%)",
+          "urgent_stable_s": "Permanencia de humedad alta (segundos)",
+          "lookahead_s": "Horizonte de espera por precio (segundos)",
+          "improvement": "Mejora mínima de precio útil (€/kWh)",
+          "power_limit": "Presupuesto preventivo de potencia activa (W)",
+          "power_fresh_s": "Frescura de potencia activa (segundos)"
+        }
+      },
+      "schedule": {
+        "title": "Uso y sueño",
+        "data": {
+          "day_start": "Inicio diurno",
+          "night_start": "Inicio de sueño",
+          "weekend_day_start": "Inicio diurno en fin de semana",
+          "weekend_night_start": "Inicio de sueño viernes/sábado"
+        }
+      },
+      "band": {
+        "title": "Tramo de precio",
+        "data": {
+          "band": "Tramo de precio"
+        }
+      },
+      "band_edit": {
+        "title": "Objetivos de este tramo",
+        "data": {
+          "upper": "Límite superior del precio, excluyente (€/kWh)",
+          "heat_day": "Objetivo de calor diurno (°C)",
+          "heat_sleep": "Objetivo de calor en sueño (°C)",
+          "cool_day": "Objetivo de frío diurno (°C)",
+          "cool_sleep": "Objetivo de frío en sueño (°C)",
+          "humidity_start": "Iniciar secado por encima de (%)",
+          "humidity_stop": "Terminar secado por debajo de (%)"
+        }
+      },
+      "zone_targets": {
+        "title": "Objetivos de calor por estancia",
+        "data": {
+          "zone": "Estancia"
+        }
+      },
+      "zone_targets_edit": {
+        "title": "Objetivos diurnos de calor",
+        "data": {
+          "override": "Objetivos diurnos de calor propios para esta estancia",
+          "negative": "Precio negativo",
+          "very_low": "Precio muy bajo",
+          "low": "Precio bajo",
+          "normal": "Precio normal",
+          "high": "Precio alto",
+          "very_high": "Precio muy alto"
+        }
+      },
+      "sources": {
+        "title": "Medidas opcionales",
+        "data": {
+          "power_entity": "Potencia activa medida (W/kW, opcional)",
+          "outdoor_entity": "Temperatura exterior (opcional)",
+          "presence_entity": "Ocupación (opcional)"
+        }
+      },
+      "fixed_select": {
+        "title": "Editar un periodo fijo",
+        "data": {
+          "period": "Periodo de precio"
+        }
+      },
+      "fixed_edit": {
+        "title": "Periodo de precio fijo",
+        "data": {
+          "weekdays": "Días",
+          "start": "Inicio",
+          "end": "Fin",
+          "price": "Precio de energía (€/kWh)",
+          "on_date": "Excepción de fecha (opcional)"
+        }
+      },
+      "tariff_type": {
+        "title": "Cambiar tipo de tarifa",
+        "data": {
+          "tariff_type": "Tipo de tarifa"
+        }
+      },
+      "tariff_replace": {
+        "title": "Nueva fuente de tarifa",
+        "data": {
+          "entity": "Sensor de precio",
+          "price": "Precio de energía (€/kWh)"
+        }
+      },
+      "tariff_period": {
+        "title": "Nuevo periodo fijo",
+        "data": {
+          "weekdays": "Días",
+          "start": "Inicio",
+          "end": "Fin",
+          "price": "Precio de energía (€/kWh)",
+          "on_date": "Excepción de fecha (opcional)",
+          "add_another": "Añadir otro periodo de precio"
+        }
+      },
+      "add_zone": {
+        "title": "Añadir estancia",
+        "data": {
+          "name": "Nombre",
+          "plant": "Planta",
+          "temperature_entity": "Sonda de temperatura de referencia",
+          "humidity_entity": "Sonda de humedad",
+          "climate_entity": "Entidad del equipo climático",
+          "authority_entity": "Ayudante de autoridad automática (on = automático)",
+          "area": "Área real",
+          "labels": "Etiquetas funcionales existentes",
+          "bias": "Desfase de la sonda interna (°C)",
+          "priority": "Prioridad relativa",
+          "allow_dry": "Modelar oportunidades de secado",
+          "night_allowed": "Permitir esta estancia durante sueño",
+          "enabled": "Incluir esta estancia en las propuestas"
+        }
+      },
+      "zone_edit": {
+        "title": "Editar estancia",
+        "data": {
+          "name": "Nombre",
+          "plant": "Planta",
+          "temperature_entity": "Sonda de temperatura de referencia",
+          "humidity_entity": "Sonda de humedad",
+          "climate_entity": "Entidad del equipo climático",
+          "authority_entity": "Ayudante de autoridad automática (on = automático)",
+          "area": "Área real",
+          "labels": "Etiquetas funcionales existentes",
+          "bias": "Desfase de la sonda interna (°C)",
+          "priority": "Prioridad relativa",
+          "allow_dry": "Modelar oportunidades de secado",
+          "night_allowed": "Permitir esta estancia durante sueño",
+          "enabled": "Incluir esta estancia en las propuestas"
+        }
+      },
+      "plant_edit": {
+        "title": "Editar planta",
+        "data": {
+          "name": "Nombre",
+          "shared_mode": "Exterior compartido: un único sentido térmico",
+          "minimum_off_min": "Reposo mínimo (minutos)",
+          "minimum_on_min": "Marcha mínima (minutos)",
+          "direction_hold_min": "Permanencia del sentido (minutos)",
+          "reversal_gap_min": "Separación entre inversiones (minutos)"
+        }
+      },
+      "add_plant": {
+        "title": "Añadir planta",
+        "data": {
+          "name": "Nombre",
+          "shared_mode": "Exterior compartido: un único sentido térmico",
+          "minimum_off_min": "Reposo mínimo (minutos)",
+          "minimum_on_min": "Marcha mínima (minutos)",
+          "direction_hold_min": "Permanencia del sentido (minutos)",
+          "reversal_gap_min": "Separación entre inversiones (minutos)"
+        }
+      },
+      "init": {
+        "title": "Ajustes",
+        "menu_options": {
+          "policy": "Regulación avanzada",
+          "schedule": "Uso y sueño",
+          "band": "Tramo de precio",
+          "zone": "Estancia",
+          "zone_targets": "Objetivos de calor por estancia",
+          "add_zone": "Añadir estancia",
+          "plant": "Planta climática",
+          "add_plant": "Añadir planta",
+          "sources": "Medidas opcionales",
+          "tariff": "Fuente de tarifa",
+          "tariff_type": "Cambiar tipo de tarifa"
+        }
+      }
+    },
+    "error": {
+      "invalid_configuration": "Ajustes inválidos u objetivos incompatibles",
+      "invalid_tariff": "Periodos solapados o tarifa con huecos"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "planned_stage": {
+        "name": "Estrategia propuesta",
+        "state": {
+          "idle": "En banda",
+          "manual": "Autoridad Manual",
+          "waiting": "En espera",
+          "blocked": "Bloqueado",
+          "paused": "Pausado",
+          "recovering": "Recuperaría temperatura",
+          "maintaining": "Mantendría temperatura",
+          "settling": "Respetaría marcha mínima",
+          "protect": "Pararía por protección",
+          "coasting": "Pasaría a reposo",
+          "dry_ready": "Oportunidad de secado",
+          "drying": "Modelo de secado propio",
+          "dry_stop": "Terminaría secado",
+          "external": "Secado de otro controlador",
+          "reversing": "Pararía antes de invertir"
+        }
+      },
+      "heat_goal": {
+        "name": "Objetivo de calor previsto"
+      },
+      "cool_goal": {
+        "name": "Objetivo de frío previsto"
+      },
+      "humidity_start": {
+        "name": "Umbral de inicio de secado"
+      },
+      "humidity_stop": {
+        "name": "Umbral de fin de secado"
+      },
+      "physical_target": {
+        "name": "Consigna física propuesta"
+      }
+    },
+    "binary_sensor": {
+      "price_degraded": {
+        "name": "Precio degradado"
+      },
+      "source_degraded": {
+        "name": "Medidas climáticas degradadas"
+      },
+      "service_blocked": {
+        "name": "Servicio de humedad persistente bloqueado"
+      }
+    }
+  },
+  "selector": {
+    "weekdays": {
+      "options": {
+        "0": "Lunes",
+        "1": "Martes",
+        "2": "Miércoles",
+        "3": "Jueves",
+        "4": "Viernes",
+        "5": "Sábado",
+        "6": "Domingo"
+      }
+    },
+    "tariff_types": {
+      "options": {
+        "pvpc": "PVPC",
+        "fixed": "Tramos horarios fijos",
+        "flat": "Precio fijo único",
+        "generic": "Intervalos de sensor genérico"
+      }
+    }
+  }
+}
