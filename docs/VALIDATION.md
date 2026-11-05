@@ -1,5 +1,18 @@
 # Evidencia de la alfa
 
+## Candidata0.2.0a1 · objetivos como entidades
+
+`tests/ha_number.py` usa el servicio real `number.set_value` en HA temporal:
+24 entidades por split, categoría/unidades/área/etiquetas, perfil compartido,
+rechazo atómico de objetivos incompatibles/no finitos, cambios rápidos sin
+pérdida de celdas ni descarga de plataformas, herencia desde OptionsFlow,
+autoridad de objetivos externos e identidad tras recarga. Prohíbe todos los
+servicios físicos y verifica que la entrada continúa en observación.
+La prueba incluye Manual normal sin falsa avería y recuperación incierta
+todavía accionable. El ciclo de una zona observadora pasa de10 a34 entidades:
+10 diagnósticas y24 de configuración. CI añade esta quinta suite a ambas
+versiones HA; consultar la ejecución del commit, no presumirla por el workflow.
+
 ## Candidata · alta y configuración nativas
 
 La candidata mantiene132pruebas de núcleo y añade `tests/ha_config_flow.py`:

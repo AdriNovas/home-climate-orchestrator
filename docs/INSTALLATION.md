@@ -1,4 +1,4 @@
-> Esta rama es la candidata0.2.0a0, no una release publicada. La instalación
+> Esta rama es la candidata0.2.0a1, no una release publicada. La instalación
 > pública0.1 sigue en observación. No cambiar la autoridad de una vivienda por
 > el solo hecho de actualizar archivos.
 
@@ -49,6 +49,9 @@ El paquete es el mismo para ambos; no instalar dos copias del dominio.
    splits, unidades exteriores, confort/horarios, consumo y fuentes/funcionamiento.
 6. Para un split, seleccionar **Configurar un split o estancia** y elegir
    equipo/sondas, temperaturas por precio o permisos/compensación avanzados.
+7. En el dispositivo lógico de cada split, **Configuración** ofrece también
+   los objetivos como números editables: calor/frío y día/sueño por rango de
+   precio. Son las mismas tablas, no helpers ni consignas del AC duplicadas.
 
 Este recorrido simplificado corresponde a la candidata0.2. La release pública
 0.1 también se añade desde Dispositivos y servicios, pero no incorpora aún esta

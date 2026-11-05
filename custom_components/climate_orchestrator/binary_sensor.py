@@ -85,7 +85,8 @@ class ExecutionProblem(ClimateDiagnostic, BinarySensorEntity):
             c.executor.errors
             or c.executor.state["critical"]
             or any(
-                reason != "user_pause" for reason in c.executor.state["manual"].values()
+                reason not in ["user_pause", "external_command", "external_authority"]
+                for reason in c.executor.state["manual"].values()
             )
             or any(
                 (m.power_entity and c.data["metering"][m.id]["power"] is None)

@@ -608,6 +608,20 @@
       "automatic_control": {
         "name": "Autoridad automática"
       }
+    },
+    "number": {
+      "heat_day_target": {
+        "name": "Calor · día · {price_range}"
+      },
+      "cool_day_target": {
+        "name": "Frío · día · {price_range}"
+      },
+      "heat_sleep_target": {
+        "name": "Calor · sueño · {price_range}"
+      },
+      "cool_sleep_target": {
+        "name": "Frío · sueño · {price_range}"
+      }
     }
   },
   "selector": {
@@ -643,6 +657,14 @@
         "flat": "Precio fijo único",
         "generic": "Intervalos de sensor genérico"
       }
+    }
+  },
+  "exceptions": {
+    "invalid_target": {
+      "message": "Objetivo inválido. Debe estar entre 5 y 35 °C y el objetivo de calor debe ser menor que el de frío."
+    },
+    "external_target": {
+      "message": "El objetivo lo controla {entity}. Cambia esa fuente o retírala en Configurar antes de editar la tabla."
     }
   }
 }

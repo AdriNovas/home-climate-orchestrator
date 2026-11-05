@@ -33,6 +33,33 @@ Los dispositivos de regulación son servicios lógicos con acceso a la configura
 nativa. El equipo físico permanece en su integración original: no se reempareja,
 no se apropian sus identificadores ni se sustituye el driver del fabricante.
 
+## Objetivos editables como entidades
+
+Cada split expone cuatro tablas como entidades nativas `number`, con categoría
+**Configuración**, área y etiquetas de la zona: calor/frío × día/sueño, una
+celda por tramo (24 ajustes con los seis tramos predeterminados). El nombre
+indica el rango de precio. Los objetivos previstos y la consigna propuesta
+continúan como sensores diagnósticos separados, no mandos falsos.
+
+Estas entidades y **Configurar → Splits → Temperaturas por precio** comparten
+el mismo perfil persistente. Editar una celda crea una excepción de esa zona;
+los demás tramos siguen heredando cuando no tienen excepción. El formulario
+permite volver a la tabla común. Un objetivo externo configurado tiene la
+autoridad y deja sus números de tabla no disponibles para evitar ajustes sin
+efecto; se cambia la fuente o se retira su binding en Configurar.
+
+Se rechazan valores no finitos/fuera de5–35°C y calor≥frío en cada fase/tramo,
+sin guardar medias configuraciones. Los cambios sucesivos de objetivos no
+descargan las plataformas: se aplica el perfil validado, revoca decisiones
+antiguas y solicita la revisión normal, preservando Manual, memoria y fuentes.
+Los demás cambios de configuración conservan su recarga nativa habitual.
+
+**En observación, editar objetivos solo cambia propuestas.** No activa la
+ejecución ni modifica la consigna física. En modo control autorizado, orienta
+la siguiente revisión con todas sus guardas; no es un servicio directo al AC.
+Humedad, horarios, prioridad, fuentes, consumos y límites de modulación se
+ajustan en los cinco grupos de Configurar, sin necesidad de editar YAML.
+
 ## Casa, instalación y estancia
 
 | Nivel | Campos y significado |

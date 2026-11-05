@@ -18,3 +18,7 @@
   Home Assistant. Use the real flow managers, not only direct step calls: schema
   defaults can silently restore optional bindings the user cleared. Verify
   setup/edit/reload/removal, stable IDs and preservation of vendor devices.
+- For native target entities, run `python tests/ha_number.py`: exercise actual
+  number services and rapid edits. Table-only changes must not unload entities
+  between commands or lose a cell; revalidate and fence stale plans while
+  preserving Manual, sessions, sources and execution authority.

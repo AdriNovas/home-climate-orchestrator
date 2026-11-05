@@ -39,6 +39,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    if entry.runtime_data.async_apply_target_options():
+        await entry.runtime_data.async_request_refresh()
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 

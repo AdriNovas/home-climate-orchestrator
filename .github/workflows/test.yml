@@ -50,6 +50,12 @@ jobs:
           --entrypoint python
           ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
           tests/ha_execution.py
+      - name: Native editable ambient targets (no physical control)
+        run: >-
+          timeout 90s docker run --rm --pull=never -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo
+          --entrypoint python
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_number.py
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 5

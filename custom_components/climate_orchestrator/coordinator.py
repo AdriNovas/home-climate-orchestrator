@@ -92,6 +92,36 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         self._safety_worker = None
         self._safety_pending = False
 
+    @callback
+    def async_apply_target_options(self) -> bool:
+        """Apply table cells without unloading controls during rapid UI edits.
+
+        Source bindings, policy, metadata, execution mode and topology must be
+        identical. All other option changes still require the normal reload.
+        """
+        profile = configuration(self.entry)
+        before, after = copy.deepcopy(self.profile), copy.deepcopy(profile)
+        for item in [before, after]:
+            for zone in item["house"]["zones"]:
+                for table in [
+                    "heat_targets",
+                    "cool_targets",
+                    "heat_sleep_targets",
+                    "cool_sleep_targets",
+                ]:
+                    zone.pop(table, None)
+        if before != after:
+            return False
+        validate_sources(self.hass, profile)
+        house = house_from_dict(profile["house"])
+        # Revoke in-flight decisions before publishing new goals, without
+        # resetting Manual, ownership, learned response or session budgets.
+        self.executor.invalidate()
+        self.profile = copy.deepcopy(profile)
+        self.house = house
+        self.executor.house = house
+        return True
+
     async def publish_execution(self, persisted):
         """Publish only durable bytes, before the corresponding physical call."""
         self.execution_snapshot = persisted

@@ -1,5 +1,18 @@
 # Cambios
 
+## Candidata0.2.0a1 · sin release
+
+- Objetivos ambientales por split/precio/fase como entidades `number` nativas
+  de Configuración, con nombres de rango, unidad, área, etiquetas e identidad
+  estable; el mismo perfil de las opciones, no consignas directas del equipo.
+- Validación atómica e indicación de herencia/fuente externa; cambios rápidos
+  de tablas sin descargar controles ni perder celdas. Revocan propuestas
+  antiguas y conservan Manual, fuentes, autoridad y memoria.
+- La elección normal de Manual no se representa como fallo de ejecución;
+  incertidumbre y errores reales siguen visibles.
+- Ensayo del servicio real de números y formularios en HA temporal, sin
+  llamadas físicas; observadores no adquieren autoridad al actualizar.
+
 ## Candidata0.2 · sin release
 
 - Alta nativa simplificada desde Dispositivos y servicios; split y sonda

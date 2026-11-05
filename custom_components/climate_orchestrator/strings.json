@@ -608,6 +608,20 @@
       "automatic_control": {
         "name": "Automatic authority"
       }
+    },
+    "number": {
+      "heat_day_target": {
+        "name": "Heat · day · {price_range}"
+      },
+      "cool_day_target": {
+        "name": "Cool · day · {price_range}"
+      },
+      "heat_sleep_target": {
+        "name": "Heat · sleep · {price_range}"
+      },
+      "cool_sleep_target": {
+        "name": "Cool · sleep · {price_range}"
+      }
     }
   },
   "selector": {
@@ -643,6 +657,14 @@
         "flat": "One fixed price",
         "generic": "Generic price intervals"
       }
+    }
+  },
+  "exceptions": {
+    "invalid_target": {
+      "message": "Invalid target. It must be between 5 and 35 °C, with the heating goal below the cooling goal."
+    },
+    "external_target": {
+      "message": "The goal is controlled by {entity}. Edit that source or remove its binding in Configure before editing this table."
     }
   }
 }

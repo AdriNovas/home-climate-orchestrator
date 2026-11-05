@@ -5,7 +5,7 @@
 Planificador doméstico de temperatura y humedad según tarifa eléctrica, con
 sensores ambientales externos y splits de aire acondicionado agrupados por instalación.
 
-**0.2.0a0 · candidata de desarrollo, sin release de actuación.** Añade ejecución
+**0.2.0a1 · candidata de desarrollo, sin release de actuación.** Añade ejecución
 opcional con registro/confirmación y medidores energéticos configurables. Toda
 entrada comienza en observación; actualizar no activa órdenes. La versión pública
 0.1.0a1 continúa siendo observadora. Sin promesa de ahorro ni compatibilidad universal.
@@ -38,6 +38,8 @@ Ver [compatibilidad y vinculación](docs/COMPATIBILITY.md).
   proveedor genérico de intervalos. Precios negativos y cambios de hora reales.
 - Objetivos de calor, frío y humedad por banda de precio. Horarios laborables y
   fin de semana; excepciones térmicas diurnas por estancia.
+- Objetivos ambientales editables como entidades `number` de configuración,
+  por split, tramo y día/sueño, sincronizadas con los formularios nativos.
 - Propuestas de recuperación y mantenimiento: histéresis, corrección acotada de
   consigna, cadencia y límites temporales por instalación.
 - Secado con temperatura prioritaria, suelo térmico independiente de la tarifa,
