@@ -2,7 +2,8 @@
 
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
-from homeassistant.helpers import area_registry, entity_registry
+from homeassistant.helpers import area_registry, device_registry, entity_registry
+from homeassistant.helpers.device_registry import DeviceEntryType
 from .const import DOMAIN
 
 
@@ -24,7 +25,9 @@ class ClimateDiagnostic(CoordinatorEntity):
             },
             name=zone.name if zone else coordinator.house.name,
             manufacturer="Home Climate Orchestrator",
-            model="Tariff-aware climate orchestrator",
+            model="Split regulation" if zone else "Climate coordination",
+            entry_type=DeviceEntryType.SERVICE,
+            configuration_url=f"homeassistant://config/integrations/integration/{DOMAIN}",
         )
 
     async def async_added_to_hass(self):
@@ -40,6 +43,10 @@ class ClimateDiagnostic(CoordinatorEntity):
             self.zone.area
         ):
             changes["area_id"] = self.zone.area
+            if current.device_id:
+                device_registry.async_get(self.hass).async_update_device(
+                    current.device_id, area_id=self.zone.area
+                )
         if self.zone.labels:
             changes["labels"] = sorted(set(current.labels) | set(self.zone.labels))
         if changes:

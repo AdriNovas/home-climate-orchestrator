@@ -2,6 +2,16 @@
 
 ## Candidata0.2 · sin release
 
+- Alta nativa simplificada desde Dispositivos y servicios; split y sonda
+  externa con humedad opcional, metadatos reales y comprobación de duplicados.
+- Opciones agrupadas y menú por split para equipos/sondas, las cuatro tablas
+  de temperatura y permisos/compensación; dispositivos lógicos con enlace de
+  configuración, sin apropiarse del dispositivo del fabricante.
+- Los campos opcionales usan sugerencias nativas para permitir eliminar una
+  asignación sin que el formulario vuelva a insertar la anterior.
+- Prueba de gestores nativos de configuración y opciones, incluido alta,
+  recarga con identidad estable y retirada sin eliminar el equipo físico.
+
 - Modulación continua opcional de consigna, respuesta ambiental acotada y
   reportes distintos, sin caducidad rutinaria del mantenimiento.
 - Consumo compartido observado por medidor de planta, referencias agregadas

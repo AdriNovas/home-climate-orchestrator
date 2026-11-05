@@ -32,7 +32,8 @@ Ver [compatibilidad y vinculación](docs/COMPATIBILITY.md).
 
 ## Qué hace esta versión
 
-- Asistente nativo de Home Assistant y opciones en español/inglés.
+- Alta desde **Dispositivos y servicios → Añadir integración**, sin YAML.
+  Vinculación rápida de splits/sondas y opciones agrupadas en español/inglés.
 - Tarifas PVPC nativo, precio fijo, tramos semanales con excepciones por fecha o
   proveedor genérico de intervalos. Precios negativos y cambios de hora reales.
 - Objetivos de calor, frío y humedad por banda de precio. Horarios laborables y
@@ -72,11 +73,14 @@ térmicos siguen la banda actual. No simula una temperatura futura alcanzada.
 
 1. Leer [instalación y pruebas](docs/INSTALLATION.md). La instalación alfa es en
    un entorno de prueba, no una instrucción para reemplazar un control doméstico.
-2. Configurar tarifa, instalaciones y estancias desde **Dispositivos y servicios
-   → Añadir integración → Climate Orchestrator**.
+2. Abrir **Dispositivos y servicios → Añadir integración → Home Climate
+   Orchestrator**. Elegir tarifa, unidad exterior, split y sonda ambiental.
 3. Consultar [configuración](docs/CONFIGURATION.md), especialmente sensores,
    Manual, unidades, tramos y significados de los umbrales de humedad.
-4. Asignar fuentes y medidores en Opciones; revisar propuestas en observación.
+4. En **Configurar**, administrar **Splits y estancias**, **Unidades exteriores**,
+   **Confort y horarios**, **Consumo y medidores** y **Fuentes y funcionamiento**.
+   Cada split tiene su menú de equipo/sondas, cuatro tablas de temperaturas y
+   permisos/compensación. Revisar propuestas en observación.
 5. Antes de habilitar control, cumplir [puertas de aceptación y reversión](docs/MIGRATION.md).
 
 Documentación técnica: [arquitectura](docs/ARCHITECTURE.md),
@@ -91,6 +95,7 @@ python3 -m compileall -q custom_components tests
 # Solo en un entorno desechable con HA 2026.10 instalado:
 python3 tests/ha_smoke.py
 python3 tests/ha_lifecycle.py
+python3 tests/ha_config_flow.py
 python3 tests/ha_execution.py
 ```
 

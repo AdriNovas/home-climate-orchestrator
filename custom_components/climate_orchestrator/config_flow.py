@@ -8,6 +8,7 @@ import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.helpers import selector
+from homeassistant.helpers import area_registry, device_registry, entity_registry
 from .const import DOMAIN
 from .domain.models import Policy, house_from_dict
 from .domain.tariffs import FixedPeriod, validate_fixed
@@ -29,6 +30,16 @@ def number(low, high, step=1):
 
 def entity(domain):
     return selector.EntitySelector(selector.EntitySelectorConfig(domain=domain))
+
+
+def optional(name, value=vol.UNDEFINED):
+    """Pre-fill the UI without reinserting a value the user has just cleared."""
+    return vol.Optional(
+        name,
+        description={"suggested_value": value}
+        if value is not vol.UNDEFINED and value is not None
+        else {},
+    )
 
 
 def states_selector():
@@ -53,15 +64,13 @@ def zone_schema(plants, defaults=None):
         vol.Required(
             "temperature_entity", default=d.get("temperature_entity", vol.UNDEFINED)
         ): entity("sensor"),
-        vol.Optional(
-            "humidity_entity", default=d.get("humidity_entity", vol.UNDEFINED)
-        ): entity("sensor"),
-        vol.Optional(
-            "climate_entity", default=d.get("climate_entity", vol.UNDEFINED)
-        ): entity("climate"),
-        vol.Optional(
-            "authority_entity", default=d.get("authority_entity", vol.UNDEFINED)
-        ): entity(
+        optional("humidity_entity", d.get("humidity_entity", vol.UNDEFINED)): entity(
+            "sensor"
+        ),
+        optional("climate_entity", d.get("climate_entity", vol.UNDEFINED)): entity(
+            "climate"
+        ),
+        optional("authority_entity", d.get("authority_entity", vol.UNDEFINED)): entity(
             [
                 "input_boolean",
                 "binary_sensor",
@@ -75,7 +84,7 @@ def zone_schema(plants, defaults=None):
             "authority_states", default=list(d.get("authority_states", ["on"]))
         ): states_selector(),
         **{
-            vol.Optional(n, default=d.get(n, vol.UNDEFINED)): entity(domains)
+            optional(n, d.get(n, vol.UNDEFINED)): entity(domains)
             for n, domains in [
                 ("heat_goal_entity", ["sensor", "input_number", "number"]),
                 ("cool_goal_entity", ["sensor", "input_number", "number"]),
@@ -102,12 +111,10 @@ def zone_schema(plants, defaults=None):
                 ),
             ]
         },
-        vol.Optional(
-            "area", default=d.get("area", vol.UNDEFINED)
-        ): selector.AreaSelector(),
-        vol.Optional(
-            "labels", default=list(d.get("labels", []))
-        ): selector.LabelSelector(selector.LabelSelectorConfig(multiple=True)),
+        optional("area", d.get("area", vol.UNDEFINED)): selector.AreaSelector(),
+        optional("labels", list(d.get("labels", []))): selector.LabelSelector(
+            selector.LabelSelectorConfig(multiple=True)
+        ),
         vol.Required("bias", default=d.get("bias", 0)): number(-4, 4, 0.5),
         vol.Required("priority", default=d.get("priority", 1)): number(0.1, 10, 0.1),
         vol.Required("allow_dry", default=d.get("allow_dry", False)): bool,
@@ -144,12 +151,130 @@ def plant_data(data, identity=None):
     return {
         "id": identity or uuid4().hex,
         "name": data["name"],
-        "shared_mode": data["shared_mode"],
+        "shared_mode": data.get("shared_mode", True),
         **{
-            name + "_s": int(data[name + "_min"] * 60)
-            for name in ["minimum_off", "minimum_on", "direction_hold", "reversal_gap"]
+            name + "_s": int(data.get(name + "_min", base) * 60)
+            for name, base in [
+                ("minimum_off", 20),
+                ("minimum_on", 20),
+                ("direction_hold", 60),
+                ("reversal_gap", 120),
+            ]
         },
     }
+
+
+BASIC_ZONE_FIELDS = {
+    "name",
+    "plant",
+    "climate_entity",
+    "temperature_entity",
+    "humidity_entity",
+    "area",
+    "labels",
+}
+
+
+def split_schema(plants, defaults=None, *, required_climate=True):
+    """Only everyday bindings in the initial form; advanced policy stays optional."""
+    d = defaults or {}
+    schema = {
+        optional("name", d.get("name", "")): str,
+        (
+            vol.Required(
+                "climate_entity", default=d.get("climate_entity", vol.UNDEFINED)
+            )
+            if required_climate
+            else optional("climate_entity", d.get("climate_entity", vol.UNDEFINED))
+        ): entity("climate"),
+        vol.Required(
+            "temperature_entity", default=d.get("temperature_entity", vol.UNDEFINED)
+        ): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor", device_class="temperature")
+        ),
+        optional(
+            "humidity_entity", d.get("humidity_entity", vol.UNDEFINED)
+        ): selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor", device_class="humidity")
+        ),
+        vol.Required(
+            "plant", default=d.get("plant", plants[0]["id"])
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=[{"value": p["id"], "label": p["name"]} for p in plants]
+            )
+        ),
+        optional("area", d.get("area", vol.UNDEFINED)): selector.AreaSelector(),
+        optional("labels", list(d.get("labels", []))): selector.LabelSelector(
+            selector.LabelSelectorConfig(multiple=True)
+        ),
+    }
+    return vol.Schema(schema)
+
+
+def split_data(hass, data, existing=None):
+    """Infer only registry-backed metadata, never identity from a room name."""
+    zone = {**(existing or {}), **data}
+    registry = entity_registry.async_get(hass)
+    climate = data.get("climate_entity")
+    source = registry.async_get(climate) if climate else None
+    device = (
+        device_registry.async_get(hass).async_get(source.device_id) if source else None
+    )
+    if not zone.get("area"):
+        area = (source.area_id if source else None) or (
+            device.area_id if device else None
+        )
+        if area:
+            zone["area"] = area
+    if not str(zone.get("name", "")).strip():
+        state = hass.states.get(climate) if climate else None
+        zone["name"] = (source.name or source.original_name) if source else None
+        zone["name"] = zone["name"] or (
+            device.name_by_user or device.name if device else None
+        )
+        zone["name"] = zone["name"] or (state.name if state else None)
+        area = (
+            area_registry.async_get(hass).async_get_area(zone.get("area"))
+            if zone.get("area")
+            else None
+        )
+        zone["name"] = zone["name"] or (area.name if area else None) or ""
+    zone["name"] = str(zone["name"]).strip()
+    return zone
+
+
+def split_errors(hass, profile, data, identity=None):
+    """Validate selected existing entities without requiring them to be online."""
+    errors = {}
+    registry = entity_registry.async_get(hass)
+    for key, domain, units in [
+        ("climate_entity", "climate", None),
+        ("temperature_entity", "sensor", {"°C", "°F"}),
+        ("humidity_entity", "sensor", {"%"}),
+    ]:
+        source = data.get(key)
+        if not source:
+            continue
+        state = hass.states.get(source)
+        if not isinstance(source, str) or source.split(".")[0] != domain:
+            errors[key] = "invalid_source"
+        elif state is None and registry.async_get(source) is None:
+            errors[key] = "entity_not_found"
+        elif (
+            units
+            and state
+            and state.attributes.get("unit_of_measurement") not in (None, *units)
+        ):
+            errors[key] = "invalid_unit"
+    if data.get("climate_entity") and any(
+        z.get("climate_entity") == data["climate_entity"] and z["id"] != identity
+        for z in profile["house"]["zones"]
+    ):
+        errors["climate_entity"] = "already_configured"
+    if not data.get("name"):
+        errors["name"] = "name_required"
+    return errors
 
 
 class ClimateFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -252,8 +377,37 @@ class ClimateFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_plant(self, user_input=None):
         if user_input:
             self.profile["house"]["plants"].append(plant_data(user_input))
-            return await self.async_step_zone()
-        return self.async_show_form(step_id="plant", data_schema=plant_schema())
+            return await self.async_step_split()
+        return self.async_show_form(
+            step_id="plant",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name"): str,
+                    vol.Required("shared_mode", default=True): bool,
+                }
+            ),
+        )
+
+    async def async_step_split(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            zone = split_data(self.hass, user_input)
+            errors = split_errors(self.hass, self.profile, zone)
+            if not errors:
+                candidate = copy.deepcopy(self.profile)
+                candidate["house"]["zones"].append({"id": uuid4().hex, **zone})
+                try:
+                    house_from_dict(candidate["house"])
+                    validate_sources(self.hass, candidate)
+                    self.profile = candidate
+                    return await self.async_step_finish()
+                except (ValueError, TypeError):
+                    errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="split",
+            data_schema=split_schema(self.profile["house"]["plants"], user_input),
+            errors=errors,
+        )
 
     async def async_step_zone(self, user_input=None):
         errors = {}
@@ -275,7 +429,7 @@ class ClimateFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_finish(self, user_input=None):
         return self.async_show_menu(
-            step_id="finish", menu_options=["zone", "plant", "create"]
+            step_id="finish", menu_options=["split", "plant", "create"]
         )
 
     async def async_step_create(self, user_input=None):
@@ -310,21 +464,46 @@ class ClimateOptions(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         return self.async_show_menu(
             step_id="init",
-            menu_options=[
-                "policy",
-                "schedule",
-                "band",
-                "zone",
-                "zone_targets",
-                "add_zone",
-                "plant",
-                "add_plant",
-                "sources",
-                "tariff",
-                "tariff_type",
-                "energy",
-                "execution",
-            ],
+            menu_options=["splits", "plants", "comfort", "energy", "system"],
+        )
+
+    async def async_step_splits(self, user_input=None):
+        return self.async_show_menu(
+            step_id="splits", menu_options=["add_split", "zone", "zone_targets"]
+        )
+
+    async def async_step_plants(self, user_input=None):
+        return self.async_show_menu(
+            step_id="plants", menu_options=["plant", "add_plant"]
+        )
+
+    async def async_step_comfort(self, user_input=None):
+        return self.async_show_menu(
+            step_id="comfort",
+            menu_options=["zone_targets", "band", "schedule", "policy"],
+        )
+
+    async def async_step_system(self, user_input=None):
+        return self.async_show_menu(
+            step_id="system",
+            menu_options=["sources", "tariff", "tariff_type", "execution"],
+        )
+
+    async def async_step_add_split(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            zone = split_data(self.hass, user_input)
+            errors = split_errors(self.hass, self.profile, zone)
+            if not errors:
+                self.profile["house"]["zones"].append({"id": uuid4().hex, **zone})
+                try:
+                    return self.save()
+                except (ValueError, TypeError):
+                    errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="add_split",
+            data_schema=split_schema(self.profile["house"]["plants"], user_input),
+            errors=errors,
         )
 
     async def async_step_add_zone(self, user_input=None):
@@ -428,7 +607,10 @@ class ClimateOptions(config_entries.OptionsFlow):
             },
         }
         return self.async_show_form(
-            step_id="zone_targets_edit", data_schema=vol.Schema(schema), errors=errors
+            step_id="zone_targets_edit",
+            data_schema=vol.Schema(schema),
+            errors=errors,
+            description_placeholders={"name": z["name"]},
         )
 
     async def async_step_tariff_type(self, user_input=None):
@@ -616,7 +798,7 @@ class ClimateOptions(config_entries.OptionsFlow):
     async def async_step_zone(self, user_input=None):
         if user_input:
             self.selection = user_input["zone"]
-            return await self.async_step_zone_edit()
+            return await self.async_step_zone_settings()
         return self.async_show_form(
             step_id="zone",
             data_schema=vol.Schema(
@@ -631,6 +813,87 @@ class ClimateOptions(config_entries.OptionsFlow):
                     )
                 }
             ),
+        )
+
+    async def async_step_zone_settings(self, user_input=None):
+        zone = next(
+            z for z in self.profile["house"]["zones"] if z["id"] == self.selection
+        )
+        return self.async_show_menu(
+            step_id="zone_settings",
+            menu_options=["zone_binding", "zone_targets_menu", "zone_advanced"],
+            description_placeholders={"name": zone["name"]},
+        )
+
+    async def async_step_zone_binding(self, user_input=None):
+        zones = self.profile["house"]["zones"]
+        index = next(i for i, z in enumerate(zones) if z["id"] == self.selection)
+        errors = {}
+        if user_input is not None:
+            remaining = {
+                k: v for k, v in zones[index].items() if k not in BASIC_ZONE_FIELDS
+            }
+            zone = split_data(self.hass, user_input, remaining)
+            errors = split_errors(self.hass, self.profile, zone, self.selection)
+            if not errors:
+                zones[index] = zone
+                try:
+                    return self.save()
+                except (ValueError, TypeError):
+                    errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="zone_binding",
+            data_schema=split_schema(
+                self.profile["house"]["plants"], zones[index], required_climate=False
+            ),
+            errors=errors,
+        )
+
+    async def async_step_zone_targets_menu(self, user_input=None):
+        return self.async_show_menu(
+            step_id="zone_targets_menu",
+            menu_options=["heat_day", "cool_day", "heat_sleep", "cool_sleep"],
+        )
+
+    async def async_step_heat_day(self, user_input=None):
+        self.target_table = "heat_targets"
+        return await self.async_step_zone_targets_edit()
+
+    async def async_step_cool_day(self, user_input=None):
+        self.target_table = "cool_targets"
+        return await self.async_step_zone_targets_edit()
+
+    async def async_step_heat_sleep(self, user_input=None):
+        self.target_table = "heat_sleep_targets"
+        return await self.async_step_zone_targets_edit()
+
+    async def async_step_cool_sleep(self, user_input=None):
+        self.target_table = "cool_sleep_targets"
+        return await self.async_step_zone_targets_edit()
+
+    async def async_step_zone_advanced(self, user_input=None):
+        zones = self.profile["house"]["zones"]
+        index = next(i for i, z in enumerate(zones) if z["id"] == self.selection)
+        errors = {}
+        advanced = {
+            key: value
+            for key, value in zone_schema(
+                self.profile["house"]["plants"], zones[index]
+            ).schema.items()
+            if key.schema not in BASIC_ZONE_FIELDS
+        }
+        if user_input is not None:
+            keys = {key.schema for key in advanced}
+            zones[index] = {
+                **{k: v for k, v in zones[index].items() if k not in keys},
+                **user_input,
+            }
+            try:
+                return self.save()
+            except (ValueError, TypeError):
+                errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="zone_advanced", data_schema=vol.Schema(advanced), errors=errors
         )
 
     async def async_step_zone_edit(self, user_input=None):
@@ -734,9 +997,7 @@ class ClimateOptions(config_entries.OptionsFlow):
             step_id="sources",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(n, default=self.profile.get(n, vol.UNDEFINED)): entity(
-                        d
-                    )
+                    optional(n, self.profile.get(n, vol.UNDEFINED)): entity(d)
                     for n, d in [
                         ("power_entity", "sensor"),
                         ("outdoor_entity", "sensor"),
@@ -886,12 +1147,12 @@ class ClimateOptions(config_entries.OptionsFlow):
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(options=options)
                     ),
-                    vol.Optional(
-                        "power_entity", default=old.get("power_entity") or vol.UNDEFINED
+                    optional(
+                        "power_entity", old.get("power_entity") or vol.UNDEFINED
                     ): entity("sensor"),
-                    vol.Optional(
+                    optional(
                         "energy_entity",
-                        default=old.get("energy_entity") or vol.UNDEFINED,
+                        old.get("energy_entity") or vol.UNDEFINED,
                     ): entity("sensor"),
                     vol.Required("fresh_s", default=old.get("fresh_s", 120)): number(
                         10, 86400
@@ -989,8 +1250,8 @@ class ClimateOptions(config_entries.OptionsFlow):
             vol.Required("start", default=row["start"]): selector.TimeSelector(),
             vol.Required("end", default=row["end"]): selector.TimeSelector(),
             vol.Required("price", default=row["price"]): number(-10, 10, 0.00001),
-            vol.Optional(
-                "on_date", default=row.get("on_date", vol.UNDEFINED)
+            optional(
+                "on_date", row.get("on_date", vol.UNDEFINED)
             ): selector.DateSelector(),
         }
         return self.async_show_form(

@@ -5,6 +5,34 @@ no hay que editar constantes Python ni rellenar entidades de una casa concreta.
 Los perfiles JSON de `examples/` documentan el esquema interno; **no existe
 importador JSON en la interfaz de la alfa**.
 
+## Desde Dispositivos y servicios
+
+Tras instalar el código con HACS/Marketplace, abrir **Ajustes → Dispositivos y
+servicios → Añadir integración → Home Climate Orchestrator**. El asistente pide
+nombre/zona horaria/tarifa, unidad exterior y los splits con sus sondas. No se
+configura a través de un dashboard ni requiere YAML. La candidata añade un alta
+rápida de siete campos, sin registros internos ni parámetros avanzados obligatorios.
+
+Desde la ficha de integración, **Configurar** abre:
+
+| Grupo | Ajustes |
+|---|---|
+| Splits y estancias | Vincular otro split; elegir uno y editar equipo, sondas/área, temperaturas o prioridad/permisos/compensación. |
+| Unidades exteriores | Añadir y editar instalaciones, sentido compartido y tiempos mínimos. |
+| Confort y horarios | Cuatro tablas por split, objetivos comunes por precio, día/sueño y regulación avanzada. |
+| Consumo y medidores | Vincular W/kW y energía al ámbito real: casa, instalación o estancia. |
+| Fuentes y funcionamiento | Exterior, presencia y permisos globales, fuente/tipo de tarifa, observación/control y protección. |
+
+El nombre y área vacíos se pueden completar desde el registro del equipo
+seleccionado; no se deduce un área por el nombre de una entidad. Se comprueban
+los tipos/unidades conocidos y se rechaza un split duplicado en la misma casa.
+Las asignaciones opcionales pueden borrarse de verdad: lo mostrado es una
+sugerencia de interfaz, no un valor que se restaura al enviarlo vacío.
+
+Los dispositivos de regulación son servicios lógicos con acceso a la configuración
+nativa. El equipo físico permanece en su integración original: no se reempareja,
+no se apropian sus identificadores ni se sustituye el driver del fabricante.
+
 ## Casa, instalación y estancia
 
 | Nivel | Campos y significado |
@@ -75,8 +103,9 @@ Fronteras exclusivas por arriba; son editables en Opciones:
 | very_high | ≥0,30 | 18,5 / 18 | 28 / 28 | 65 / 60 |
 
 Son valores iniciales editables, no prescripción de confort ni regla certificada
-para una vivienda. Opciones permite objetivos de calor **diurnos** por estancia y
-banda; noche/frío siguen la matriz común en esta alfa. Franjas: laborable 07–22,
+para una vivienda. La candidata permite cuatro tablas por estancia y banda:
+**calor día, frío día, calor sueño y frío sueño**, con herencia independiente de
+la política común y validación de compatibilidad calor/frío. Franjas: laborable 07–22,
 fin de semana empieza09; viernes/sábado terminan23. Se editan cuatro horas;
 no hay todavía calendario de vacaciones ni tres fases nocturnas.
 

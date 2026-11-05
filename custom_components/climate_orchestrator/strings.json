@@ -31,7 +31,7 @@
         "description": "Equal start/end means 24 hours on the selected days. Date exceptions override matching regular hours."
       },
       "plant": {
-        "title": "Climate plant",
+        "title": "Outdoor unit",
         "data": {
           "name": "Name",
           "shared_mode": "Shared outdoor unit: one thermal mode",
@@ -39,7 +39,8 @@
           "minimum_on_min": "Minimum on (minutes)",
           "direction_hold_min": "Minimum direction hold (minutes)",
           "reversal_gap_min": "Minimum between reversals (minutes)"
-        }
+        },
+        "description": "Group only heads that physically share an outdoor unit. Use another installation for independent equipment. Minimum times can be adjusted later."
       },
       "zone": {
         "title": "Zone",
@@ -75,15 +76,33 @@
       "finish": {
         "title": "Continue",
         "menu_options": {
-          "zone": "Add zone",
-          "plant": "Add plant",
-          "create": "Create observation entry"
+          "split": "Add another split",
+          "plant": "Add outdoor unit",
+          "create": "Finish in observation"
+        }
+      },
+      "split": {
+        "title": "Link a split",
+        "description": "Link an existing Home Assistant climate entity and external temperature probe. Humidity is optional. An empty name uses the existing equipment name. Starts in observation without AC commands.",
+        "data": {
+          "name": "Name (optional)",
+          "climate_entity": "Underlying climate entity",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "plant": "Plant",
+          "area": "Real area",
+          "labels": "Existing functional labels"
         }
       }
     },
     "error": {
       "invalid_configuration": "Invalid settings or conflicting targets",
-      "invalid_tariff": "Overlapping or uncovered tariff periods"
+      "invalid_tariff": "Overlapping or uncovered tariff periods",
+      "invalid_source": "Choose an entity of the required type",
+      "entity_not_found": "The entity does not exist in Home Assistant",
+      "invalid_unit": "Unit is incompatible with this measurement",
+      "already_configured": "This split is already linked to another room",
+      "name_required": "Enter a name for the room"
     }
   },
   "options": {
@@ -221,7 +240,7 @@
         }
       },
       "zone_targets_edit": {
-        "title": "Targets for the selected season and phase",
+        "title": "Targets for {name}",
         "data": {
           "override": "Use a zone-specific table instead of inherited targets",
           "negative": "Negative price",
@@ -402,25 +421,122 @@
       "init": {
         "title": "Settings",
         "menu_options": {
-          "policy": "Advanced regulation",
-          "schedule": "Use and sleep",
-          "band": "Price band",
-          "zone": "Zone",
-          "zone_targets": "Zone-specific temperature tables",
-          "add_zone": "Add zone",
-          "plant": "Climate plant",
-          "add_plant": "Add plant",
-          "sources": "Optional observations",
-          "tariff": "Tariff source",
-          "tariff_type": "Replace tariff type",
-          "energy": "Energy meter assignments",
-          "execution": "Execution and supply protection"
+          "splits": "Splits and rooms",
+          "plants": "Outdoor units",
+          "comfort": "Comfort and schedules",
+          "energy": "Energy and meters",
+          "system": "Sources and operation"
+        }
+      },
+      "splits": {
+        "title": "Splits and rooms",
+        "menu_options": {
+          "add_split": "Link another split",
+          "zone": "Configure a split or room",
+          "zone_targets": "Room and price targets"
+        }
+      },
+      "plants": {
+        "title": "Outdoor units",
+        "menu_options": {
+          "plant": "Configure a unit and coordination",
+          "add_plant": "Add outdoor unit"
+        }
+      },
+      "comfort": {
+        "title": "Comfort and schedules",
+        "menu_options": {
+          "zone_targets": "Split and price temperatures",
+          "band": "Price bands and shared targets",
+          "schedule": "Day and sleep",
+          "policy": "Advanced regulation"
+        }
+      },
+      "system": {
+        "title": "Sources and operation",
+        "menu_options": {
+          "sources": "Outdoor conditions, presence and permissions",
+          "tariff": "Current price source",
+          "tariff_type": "Change tariff type",
+          "execution": "Observation, control and protection"
+        }
+      },
+      "zone_settings": {
+        "title": "Settings for {name}",
+        "menu_options": {
+          "zone_binding": "Equipment, probes and area",
+          "zone_targets_menu": "Temperatures by price",
+          "zone_advanced": "Priority, permissions and compensation"
+        }
+      },
+      "zone_targets_menu": {
+        "title": "Temperature by price",
+        "menu_options": {
+          "heat_day": "Heating · day",
+          "cool_day": "Cooling · day",
+          "heat_sleep": "Heating · sleep",
+          "cool_sleep": "Cooling · sleep"
+        }
+      },
+      "add_split": {
+        "title": "Link a split",
+        "description": "Link an existing Home Assistant climate entity and external temperature probe. Humidity is optional. An empty name uses the existing equipment name. Starts in observation without AC commands.",
+        "data": {
+          "name": "Name (optional)",
+          "climate_entity": "Underlying climate entity",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "plant": "Plant",
+          "area": "Real area",
+          "labels": "Existing functional labels"
+        }
+      },
+      "zone_binding": {
+        "title": "Equipment and probes",
+        "data": {
+          "name": "Name (optional)",
+          "climate_entity": "Underlying climate entity",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "plant": "Plant",
+          "area": "Real area",
+          "labels": "Existing functional labels"
+        },
+        "description": "Changing equipment or probes preserves the zone identity and all four target tables."
+      },
+      "zone_advanced": {
+        "title": "Split priority and permissions",
+        "data": {
+          "authority_entity": "Automatic-authority helper (on = automatic)",
+          "bias": "Internal sensor bias (°C)",
+          "priority": "Relative priority",
+          "allow_dry": "Model drying opportunities",
+          "night_allowed": "Allow this zone during sleep",
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
         }
       }
     },
     "error": {
       "invalid_configuration": "Invalid settings or conflicting targets",
-      "invalid_tariff": "Overlapping or uncovered tariff periods"
+      "invalid_tariff": "Overlapping or uncovered tariff periods",
+      "invalid_source": "Choose an entity of the required type",
+      "entity_not_found": "The entity does not exist in Home Assistant",
+      "invalid_unit": "Unit is incompatible with this measurement",
+      "already_configured": "This split is already linked to another room",
+      "name_required": "Enter a name for the room"
     }
   },
   "entity": {
