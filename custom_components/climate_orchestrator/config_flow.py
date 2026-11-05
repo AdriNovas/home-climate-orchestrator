@@ -434,7 +434,9 @@ class ClimateOptions(config_entries.OptionsFlow):
             step_id="policy",
             data_schema=vol.Schema(
                 {
-                    vol.Required(n, default=values[n]): number(
+                    vol.Required(n, default=values[n]): bool
+                    if isinstance(values[n], bool)
+                    else number(
                         -20 if n == "dry_min_outdoor" else 0,
                         100000,
                         0.1 if isinstance(values[n], float) else 1,
@@ -615,7 +617,12 @@ class ClimateOptions(config_entries.OptionsFlow):
     async def async_step_sources(self, user_input=None):
         errors = {}
         if user_input is not None:
-            for name in ["power_entity", "outdoor_entity", "presence_entity"]:
+            for name in [
+                "power_entity",
+                "outdoor_entity",
+                "presence_entity",
+                "control_entity",
+            ]:
                 self.profile.pop(name, None)
             self.profile.update(user_input)
             try:
@@ -633,6 +640,7 @@ class ClimateOptions(config_entries.OptionsFlow):
                         ("power_entity", "sensor"),
                         ("outdoor_entity", "sensor"),
                         ("presence_entity", "binary_sensor"),
+                        ("control_entity", "input_boolean"),
                     ]
                 }
             ),

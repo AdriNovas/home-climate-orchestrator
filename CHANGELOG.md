@@ -10,3 +10,10 @@
 - Repositorio personalizado HACS/Marketplace, marca propia y CI de validación
   y secretos; no incluida en el catálogo.
 - Sin ejecutor físico, calibración automática ni ahorro certificado.
+# Candidata sin publicar
+
+- Propuestas opcionales de mantenimiento con consigna relajada y espera acotada.
+- Corte económico opcional con precio conocido, histéresis y estabilidad de
+  lecturas distintas; preserva confort, mínimos, Manual y arbitraje multisplit.
+- Permiso automático global configurable; pausa ante off o dato desconocido.
+- Sigue siendo observadora: no se incorpora un ejecutor ni se certifica traspaso.

@@ -48,3 +48,13 @@ normalizado es una propuesta de API futura, no una entidad de esta alfa.
    una observación natural. No llamar «rollback probado» a tener un backup.
 
 Una casa debe seguir siendo manejable manualmente aunque el planificador falle.
+
+## Estado de preparación de la candidata térmica
+
+La candidata añade permiso global que falla cerrado y propuestas opt-in de
+mantenimiento modulado y corte económico con estabilidad. **No añade ejecutor.**
+Autorizar el traspaso no crea ese componente: siguen pendientes persistencia de
+intenciones, ACK/reconciliación, autoridad por generación y corte independiente,
+además de validar el calendario y las protecciones del perfil de destino.
+No deshabilitar al controlador existente ni conectar las salidas de la alfa
+directamente a climate.set_temperature/set_hvac_mode para suplir esa ausencia.

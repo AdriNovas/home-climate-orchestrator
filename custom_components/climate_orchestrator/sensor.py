@@ -37,6 +37,7 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
                 "paused",
                 "recovering",
                 "maintaining",
+                "holding",
                 "settling",
                 "protect",
                 "coasting",

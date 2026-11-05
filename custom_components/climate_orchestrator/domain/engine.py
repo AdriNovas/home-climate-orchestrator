@@ -17,6 +17,7 @@ from .models import (
     minute,
 )
 from .tariffs import current_price, opportunities
+from .thermal import observe_stability, extreme_price, relaxed_target
 
 
 def dew_point(temperature: float, humidity: float) -> float:
@@ -115,6 +116,20 @@ def evaluate(
             band.humidity_stop,
         )
         temp_ok = o.temperature.fresh(now, p.temperature_fresh_s)
+        eligible = (
+            o.automatic
+            and z.enabled
+            and temp_ok
+            and not snap.paused
+            and (not sleep or z.night_allowed)
+            and snap.occupied is True
+            and o.mode in ["off", "heat", "cool"]
+        )
+        stable = observe_stability(m, o, p, now, eligible)
+        expensive = extreme_price(m, p, price)
+        if not eligible or o.mode != m.hold_mode or m.hold_since > now:
+            m.hold_since = 0
+            m.hold_mode = None
         rh_ok = (
             o.humidity.fresh(now, p.humidity_fresh_s) and 0 < o.humidity.value <= 100
         )
@@ -215,6 +230,67 @@ def evaluate(
         if snap.occupied is not True:
             result[z.id] = replace(d, stage="waiting", reason="occupancy_unconfirmed")
             continue
+        plant = next(x for x in house.plants if x.id == z.plant)
+        near_goal = (
+            o.mode == "heat" and heat - p.hold_delta <= t < heat + p.overshoot_delta
+        ) or (o.mode == "cool" and cool - p.overshoot_delta < t <= cool + p.hold_delta)
+        target = (
+            relaxed_target(
+                o,
+                hardware_target(
+                    z, o, heat if o.mode == "heat" else cool, o.mode, house, now
+                ),
+                now,
+                p,
+            )
+            if near_goal and o.mode in o.supported_modes
+            else None
+        )
+        economic_coast = (
+            expensive and stable and heat - p.hold_delta <= t <= cool + p.hold_delta
+        )
+        if economic_coast:
+            if o.mode in ["heat", "cool"] and now - o.mode_since < plant.minimum_on_s:
+                wanted[z.id] = (
+                    o.mode,
+                    z.priority,
+                    replace(
+                        d,
+                        stage="settling",
+                        reason="economic_minimum_run",
+                        mode=o.mode,
+                        physical_target=target,
+                        next_at=o.mode_since + plant.minimum_on_s,
+                    ),
+                )
+            else:
+                result[z.id] = replace(
+                    d, stage="coasting", reason="extreme_price_stable", mode="off"
+                )
+            continue
+        if p.modulated_hold_s and target is not None:
+            if not m.hold_since:
+                m.hold_since, m.hold_mode = now, o.mode
+            until = m.hold_since + p.modulated_hold_s
+            if now < until or now - o.mode_since < plant.minimum_on_s:
+                wanted[z.id] = (
+                    o.mode,
+                    z.priority,
+                    replace(
+                        d,
+                        stage="holding" if now < until else "settling",
+                        reason="modulated_hold" if now < until else "minimum_run",
+                        mode=o.mode,
+                        physical_target=target,
+                        next_at=max(until, o.mode_since + plant.minimum_on_s),
+                    ),
+                )
+            else:
+                result[z.id] = replace(
+                    d, stage="coasting", reason="hold_budget_expired", mode="off"
+                )
+            continue
+        m.hold_since, m.hold_mode = 0, None
         heat_needed = t <= heat - p.start_delta or (
             o.mode == "heat" and t < heat + p.hold_delta
         )
@@ -419,7 +495,8 @@ def evaluate(
                 and o.setpoint is not None
                 and abs(o.setpoint - d.physical_target) < o.step / 2
             ):
-                d = replace(d, reason="already_satisfied")
+                if d.reason == "local_temperature_demand":
+                    d = replace(d, reason="already_satisfied")
             elif not reason and now - memories[z.id].last_sent < p.command_interval:
                 reason = "command_cadence"
                 until = memories[z.id].last_sent + p.command_interval

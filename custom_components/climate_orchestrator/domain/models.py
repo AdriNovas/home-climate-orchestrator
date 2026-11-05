@@ -129,8 +129,32 @@ class Policy:
     improvement: float = 0.04
     power_limit: float = 6000
     power_fresh_s: int = 120
+    modulated_hold_s: int = 0
+    extreme_price_enabled: bool = False
+    extreme_price: float = 0.30
+    extreme_price_hysteresis: float = 0.02
+    thermal_stable_s: int = 900
+    thermal_stability_delta: float = 0.3
+    thermal_sample_gap_s: int = 1200
 
     def __post_init__(self) -> None:
+        if type(self.extreme_price_enabled) is not bool:
+            raise ValueError("extreme_price_enabled must be a boolean")
+        object.__setattr__(
+            self,
+            "modulated_hold_s",
+            int(bounded(self.modulated_hold_s, "modulated_hold_s", 0, 7200)),
+        )
+        for name, low, high in [
+            ("extreme_price", 0.01, 10),
+            ("extreme_price_hysteresis", 0, 10),
+            ("thermal_stability_delta", 0.01, 2),
+        ]:
+            object.__setattr__(
+                self, name, bounded(getattr(self, name), name, low, high)
+            )
+        if self.extreme_price_hysteresis >= self.extreme_price:
+            raise ValueError("Price exit hysteresis must be below its entry threshold")
         if not self.bands or self.bands[-1].upper is not None:
             raise ValueError("Last price band must be unbounded")
         limits = [b.upper for b in self.bands[:-1]]
@@ -169,6 +193,8 @@ class Policy:
             "severe_stable_s",
             "lookahead_s",
             "power_fresh_s",
+            "thermal_stable_s",
+            "thermal_sample_gap_s",
         ]:
             object.__setattr__(
                 self, name, int(bounded(getattr(self, name), name, 1, 86400))
@@ -376,6 +402,14 @@ class Memory:
     last_sent: float = 0
     debt_since: float = 0
     severe_since: float = 0
+    hold_since: float = 0
+    hold_mode: str | None = None
+    thermal_stable_since: float = 0
+    thermal_low: float = 0
+    thermal_high: float = 0
+    thermal_last_report: float = 0
+    thermal_last_seen: float = 0
+    extreme_active: bool = False
 
     def __post_init__(self) -> None:
         for name in [
@@ -388,8 +422,20 @@ class Memory:
             "last_sent",
             "debt_since",
             "severe_since",
+            "hold_since",
+            "thermal_stable_since",
+            "thermal_last_report",
+            "thermal_last_seen",
         ]:
             setattr(self, name, bounded(getattr(self, name), name, 0, 100000000000))
+        if self.hold_mode not in [None, "heat", "cool"]:
+            raise ValueError("Unknown stored hold direction")
+        if type(self.extreme_active) is not bool:
+            raise ValueError("Stored extreme-price latch must be boolean")
+        self.thermal_low = bounded(self.thermal_low, "thermal_low", -100, 100)
+        self.thermal_high = bounded(self.thermal_high, "thermal_high", -100, 100)
+        if self.thermal_low > self.thermal_high:
+            raise ValueError("Reversed thermal stability range")
         self.attempts = int(bounded(self.attempts, "attempts", 0, 100000))
         self.dry_floor = bounded(self.dry_floor, "dry_floor", 0, 40)
         self.dry_target = bounded(self.dry_target, "dry_target", 0, 100)

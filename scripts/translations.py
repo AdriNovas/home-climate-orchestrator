@@ -42,6 +42,7 @@ en = {
     "power_entity": "Measured active power (W/kW, optional)",
     "outdoor_entity": "Outdoor temperature sensor (optional)",
     "presence_entity": "Occupancy (optional)",
+    "control_entity": "Global automatic permission (on = enabled, optional)",
     "heat_day": "Day heating target (°C)",
     "heat_sleep": "Sleep heating target (°C)",
     "cool_day": "Day cooling target (°C)",
@@ -85,6 +86,7 @@ es = {
     "power_entity": "Potencia activa medida (W/kW, opcional)",
     "outdoor_entity": "Temperatura exterior (opcional)",
     "presence_entity": "Ocupación (opcional)",
+    "control_entity": "Permiso automático global (on = habilitado, opcional)",
     "heat_day": "Objetivo de calor diurno (°C)",
     "heat_sleep": "Objetivo de calor en sueño (°C)",
     "cool_day": "Objetivo de frío diurno (°C)",
@@ -94,6 +96,34 @@ es = {
     "upper": "Límite superior del precio, excluyente (€/kWh)",
 }
 policy_labels = {
+    "modulated_hold_s": (
+        "Maximum proposed soft hold (seconds; 0 disables)",
+        "Espera suave propuesta máxima (segundos; 0 desactiva)",
+    ),
+    "extreme_price_enabled": (
+        "Model an extreme-price shutdown",
+        "Modelar parada por precio extremo",
+    ),
+    "extreme_price": (
+        "Extreme-price entry (EUR/kWh)",
+        "Entrada en precio extremo (€/kWh)",
+    ),
+    "extreme_price_hysteresis": (
+        "Extreme-price exit margin (EUR/kWh)",
+        "Margen de salida de precio extremo (€/kWh)",
+    ),
+    "thermal_stable_s": (
+        "Required observed stability (seconds)",
+        "Estabilidad observada necesaria (segundos)",
+    ),
+    "thermal_stability_delta": (
+        "Maximum stable temperature range (°C)",
+        "Rango térmico máximo estable (°C)",
+    ),
+    "thermal_sample_gap_s": (
+        "Maximum stability sample gap (seconds)",
+        "Hueco máximo entre muestras estables (segundos)",
+    ),
     "start_delta": ("Start deviation (°C)", "Desviación para arrancar (°C)"),
     "hold_delta": ("Maintenance tolerance (°C)", "Tolerancia de mantenimiento (°C)"),
     "overshoot_delta": ("Overshoot protection (°C)", "Protección por sobrepaso (°C)"),
@@ -273,7 +303,7 @@ steps = {
         "high",
         "very_high",
     ],
-    "sources": ["power_entity", "outdoor_entity", "presence_entity"],
+    "sources": ["power_entity", "outdoor_entity", "presence_entity", "control_entity"],
     "fixed_select": ["period"],
     "fixed_edit": ["weekdays", "start", "end", "price", "on_date"],
     "tariff_type": ["tariff_type"],
@@ -332,6 +362,7 @@ stages = {
     "paused": ("Paused", "Pausado"),
     "recovering": ("Would recover temperature", "Recuperaría temperatura"),
     "maintaining": ("Would maintain temperature", "Mantendría temperatura"),
+    "holding": ("Would use a relaxed setpoint", "Esperaría con consigna suave"),
     "settling": ("Minimum run settling", "Respetaría marcha mínima"),
     "protect": ("Would stop for protection", "Pararía por protección"),
     "coasting": ("Would coast", "Pasaría a reposo"),

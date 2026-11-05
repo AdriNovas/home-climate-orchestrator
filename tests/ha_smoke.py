@@ -212,6 +212,21 @@ async def main():
             assert data["mode"] == "shadow" and data["physical_control"] is False
             assert data["price_error"] is None
             checks.append("runtime reads real HA state machine in observation mode")
+            c.profile["control_entity"] = "input_boolean.demo_control"
+            for value in ["off", "unknown", "unavailable", None]:
+                if value is None:
+                    h.states.async_remove("input_boolean.demo_control")
+                else:
+                    h.states.async_set("input_boolean.demo_control", value)
+                paused = await c._async_update_data()
+                assert paused["decisions"][zone_id].stage == "paused"
+                assert paused["decisions"][zone_id].mode is None
+            h.states.async_set("input_boolean.demo_control", "on")
+            assert (await c._async_update_data())["decisions"][
+                zone_id
+            ].stage != "paused"
+            del c.profile["control_entity"]
+            checks.append("global permission fails closed when off, unknown or missing")
             entities = []
             await sensor.async_setup_entry(h, entry, entities.extend)
             await binary_sensor.async_setup_entry(h, entry, entities.extend)

@@ -114,6 +114,13 @@
       "policy": {
         "title": "Advanced regulation",
         "data": {
+          "modulated_hold_s": "Maximum proposed soft hold (seconds; 0 disables)",
+          "extreme_price_enabled": "Model an extreme-price shutdown",
+          "extreme_price": "Extreme-price entry (EUR/kWh)",
+          "extreme_price_hysteresis": "Extreme-price exit margin (EUR/kWh)",
+          "thermal_stable_s": "Required observed stability (seconds)",
+          "thermal_stability_delta": "Maximum stable temperature range (°C)",
+          "thermal_sample_gap_s": "Maximum stability sample gap (seconds)",
           "start_delta": "Start deviation (°C)",
           "hold_delta": "Maintenance tolerance (°C)",
           "overshoot_delta": "Overshoot protection (°C)",
@@ -196,7 +203,8 @@
         "data": {
           "power_entity": "Measured active power (W/kW, optional)",
           "outdoor_entity": "Outdoor temperature sensor (optional)",
-          "presence_entity": "Occupancy (optional)"
+          "presence_entity": "Occupancy (optional)",
+          "control_entity": "Global automatic permission (on = enabled, optional)"
         }
       },
       "fixed_select": {
@@ -331,6 +339,7 @@
           "paused": "Paused",
           "recovering": "Would recover temperature",
           "maintaining": "Would maintain temperature",
+          "holding": "Would use a relaxed setpoint",
           "settling": "Minimum run settling",
           "protect": "Would stop for protection",
           "coasting": "Would coast",

@@ -10,7 +10,12 @@ def validate_sources(hass, profile: dict) -> None:
     registry = entity_registry.async_get(hass)
     sources = {
         profile.get(name)
-        for name in ["power_entity", "outdoor_entity", "presence_entity"]
+        for name in [
+            "power_entity",
+            "outdoor_entity",
+            "presence_entity",
+            "control_entity",
+        ]
     }
     sources.add(profile["tariff"].get("entity"))
     for zone in profile["house"]["zones"]:

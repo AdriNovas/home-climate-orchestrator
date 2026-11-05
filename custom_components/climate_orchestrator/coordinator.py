@@ -118,6 +118,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 self.profile.get("presence_entity"),
                 self.profile.get("power_entity"),
                 self.profile.get("outdoor_entity"),
+                self.profile.get("control_entity"),
             ]
             if x
         }
@@ -272,7 +273,12 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             now,
             readings,
             occupied,
-            False,
+            bool(self.profile.get("control_entity"))
+            and (
+                (control := self.hass.states.get(self.profile["control_entity"]))
+                is None
+                or control.state != "on"
+            ),
             self.reading(self.profile.get("outdoor_entity"), "temperature"),
             self.reading(self.profile.get("power_entity"), "power"),
             bool(self.profile.get("power_entity")),

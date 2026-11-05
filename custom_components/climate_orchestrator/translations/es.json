@@ -114,6 +114,13 @@
       "policy": {
         "title": "Regulación avanzada",
         "data": {
+          "modulated_hold_s": "Espera suave propuesta máxima (segundos; 0 desactiva)",
+          "extreme_price_enabled": "Modelar parada por precio extremo",
+          "extreme_price": "Entrada en precio extremo (€/kWh)",
+          "extreme_price_hysteresis": "Margen de salida de precio extremo (€/kWh)",
+          "thermal_stable_s": "Estabilidad observada necesaria (segundos)",
+          "thermal_stability_delta": "Rango térmico máximo estable (°C)",
+          "thermal_sample_gap_s": "Hueco máximo entre muestras estables (segundos)",
           "start_delta": "Desviación para arrancar (°C)",
           "hold_delta": "Tolerancia de mantenimiento (°C)",
           "overshoot_delta": "Protección por sobrepaso (°C)",
@@ -196,7 +203,8 @@
         "data": {
           "power_entity": "Potencia activa medida (W/kW, opcional)",
           "outdoor_entity": "Temperatura exterior (opcional)",
-          "presence_entity": "Ocupación (opcional)"
+          "presence_entity": "Ocupación (opcional)",
+          "control_entity": "Permiso automático global (on = habilitado, opcional)"
         }
       },
       "fixed_select": {
@@ -331,6 +339,7 @@
           "paused": "Pausado",
           "recovering": "Recuperaría temperatura",
           "maintaining": "Mantendría temperatura",
+          "holding": "Esperaría con consigna suave",
           "settling": "Respetaría marcha mínima",
           "protect": "Pararía por protección",
           "coasting": "Pasaría a reposo",

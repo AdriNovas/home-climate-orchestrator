@@ -22,6 +22,10 @@ global de actuador antes de permitir control.
 `authority_entity` es un `input_boolean`: **on = automático autorizado**;
 off/desconocido = Manual. Sin selector se presupone autorizado para proponer.
 Esto solo controla propuestas en la alfa, no cambia el control existente.
+`control_entity`, opcional, es el permiso global `input_boolean`: on habilita
+propuestas; off, unknown, unavailable o entidad ausente las pausa. Es independiente
+de la autoridad por estancia. Sin configurarlo no se presume que exista una pausa
+externa. No presentar una pausa de propuestas como apagado físico.
 `presence_entity`, opcional, es un `binary_sensor` ya normalizado: on = ocupado;
 off/desconocido impide nuevas propuestas de servicio. No se infiere presencia de
 un teléfono ni se modifica su asociación.
@@ -99,6 +103,39 @@ su consigna igual al Aqara no asegura mantener la temperatura ambiental.
 Ya estar en modo/consigna correctos significa mantener, no una nueva orden.
 No se introduce `fan_only` como paso económico rutinario. No se puede deducir un
 ciclo del compresor de un cambio de modo HA.
+
+### Mantenimiento modulado y corte económico opcionales
+
+Las dos estrategias siguientes vienen **desactivadas** y siguen siendo propuestas
+sin órdenes. Las bandas de objetivos por precio continúan siendo la referencia.
+
+| Parámetro | Inicial | Significado |
+|---|---|---|
+| `modulated_hold_s` | 0 | Duración máxima propuesta con consigna relajada; 0 desactiva, máximo7200s. |
+| `extreme_price_enabled` | false | Modelar corte económico ante precio extremo. |
+| `extreme_price` / `extreme_price_hysteresis` | 0,30 / 0,02 EUR/kWh | Entrada y margen de salida del tramo extremo; no son valores certificados para una vivienda. |
+| `thermal_stable_s` | 900s | Estabilidad mínima sustentada en informes distintos de la sonda. |
+| `thermal_stability_delta` | 0,3°C | Rango máximo de temperatura de esa secuencia estable. |
+| `thermal_sample_gap_s` | 1200s | Hueco máximo entre evaluaciones e informes para no reiniciar continuidad. |
+
+En espera se mantiene el sentido ya activo, sin arrancar una cabeza apagada.
+Calor reduce su consigna y frío la eleva, sin aumentar la exigencia frente a la
+consigna observada y con sonda interna fresca. Se retira el empuje, no se fuerza
+el número del Aqara como consigna física universal. Se conserva el presupuesto
+de espera al recargar; un cambio de precio no lo renueva por sí mismo. Al agotar
+la espera propone off, respetando el mínimo de marcha. Déficit real retoma
+regulación; sobrepaso protector conserva prioridad. Manual/pausa invalidan la espera.
+
+El corte económico requiere precio conocido, estabilidad medida y temperatura
+dentro de la banda de confort activa. Un déficit impide cortar solo por precio.
+Un informe repetido no acumula estabilidad; hueco, reloj regresivo o deriva
+reinician la continuidad. El precio debe bajar del umbral menos su margen para
+liberar el estado extremo. No se salta el mínimo de marcha por tarifa sola.
+
+`holding` significa **propondría una consigna relajada**: no es un modo standby
+nativo, reserva aceptada, potencia cero ni ahorro medido. Todavía no se estima
+la inercia futura ni el coste de recuperación; compararlos sigue siendo requisito
+de validación del ejecutor y del ensayo por vivienda.
 
 ## Humedad y ventanas útiles
 
