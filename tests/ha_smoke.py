@@ -21,8 +21,8 @@ if "FILES" not in globals():
 
 async def main():
     from homeassistant.core import HomeAssistant
-    from homeassistant.config_entries import ConfigEntry, ConfigEntries
-    from homeassistant.util.unit_system import METRIC_SYSTEM
+    from homeassistant import bootstrap, loader
+    from homeassistant.config_entries import ConfigEntry
 
     checks = []
     with tempfile.TemporaryDirectory(prefix="climate-orchestrator-smoke-") as folder:
@@ -47,14 +47,27 @@ async def main():
         )
 
         h = HomeAssistant(folder)
-        h.config.units = METRIC_SYSTEM
-        h.config_entries = ConfigEntries(h, {})
-        from homeassistant.helpers import entity_registry as er, device_registry as dr
-
-        dr.async_setup(h)
-        await dr.async_load(h, load_empty=True)
-        await er.async_get(h).async_load(load_empty=True)
+        h.config.skip_pip = True
+        loader.async_setup(h)
         try:
+            # Use normal empty HA bootstrap, not a partial registry mock whose
+            # internal startup dependencies can change between HA releases.
+            assert (
+                await bootstrap.async_from_config_dict(
+                    {
+                        "homeassistant": {
+                            "name": "Fictional test home",
+                            "latitude": 0,
+                            "longitude": 0,
+                            "elevation": 0,
+                            "time_zone": "Europe/Madrid",
+                            "unit_system": "metric",
+                        }
+                    },
+                    h,
+                )
+                is h
+            )
             flow = ClimateFlow()
             flow.hass = h
             flow.context = {"source": "user"}
@@ -237,4 +250,4 @@ async def main():
     )
 
 
-asyncio.run(main())
+asyncio.run(asyncio.wait_for(main(), timeout=60))

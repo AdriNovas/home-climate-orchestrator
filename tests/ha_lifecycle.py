@@ -157,4 +157,4 @@ async def main():
             await hass.async_stop()
 
 
-asyncio.run(main())
+asyncio.run(asyncio.wait_for(main(), timeout=60))
