@@ -10,7 +10,7 @@
 - Repositorio personalizado HACS/Marketplace, marca propia y CI de validación
   y secretos; no incluida en el catálogo.
 - Sin ejecutor físico, calibración automática ni ahorro certificado.
-# Candidata 0.2.0a0 sin publicar
+# Candidata 0.2.0a0 · sin release
 
 - Propuestas opcionales de mantenimiento con consigna relajada y espera acotada.
 - Corte económico opcional con precio conocido, histéresis y estabilidad de
@@ -26,3 +26,10 @@
   configurables y conversión °C/°F de sensores/actuadores.
 - Pruebas de protocolo y ciclo nativo con servicios simulados. No certifica
   traspaso de una vivienda ni activación física; observación sigue por defecto.
+- Publicación de expectativas persistidas antes del servicio, journal v1 nativo
+  y contrato Jinja para detectores Manual externos. Los registros externos se
+  leen, no se escriben ni renuevan. Contexto humano explícito prevalece.
+- Barrera crítica externa JSON con certificado de generación releído al emitir;
+  publicación diagnóstica fallida no bloquea la vía independiente off-only.
+- Entrada opcional de respuesta medida acotada y requisito por equipo de feedback
+  interno fresco; una zona sin feedback no reserva la planta contra zonas sanas.

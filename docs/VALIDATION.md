@@ -28,3 +28,21 @@ energéticos/contadores, formularios, reload y eliminación propia. No carga
 dispositivos ni configuración de una vivienda. La CI lo ejecuta también con
 la matriz de versiones HA; definir el workflow no demuestra que haya pasado
 una ejecución remota nueva.
+
+## Candidata · journal e interoperabilidad externa
+
+Ensayo local05-11-2026: **111 pruebas de núcleo/protocolo**,12 verificaciones
+smoke y15 de ejecución nativa en HA2026.11.0 temporal; setup/reload/unload/removal
+con identidades conservadas. Diez entidades diagnósticas por zona en el perfil
+observador de prueba;15 entidades en el ejemplo activo con medidor. Cuatro
+servicios climate simulados, cero físicos y cero escrituras de configuración
+productiva. Incluye publicación del journal antes del servicio, eco externo sin
+escribir su ledger y cambio humano que reutiliza el mismo contexto.
+
+La macro Jinja se incluye en el artefacto probado y se comprueban fase,
+coincidencia, caducidad y prioridad humana. El requisito opcional de sonda interna
+no permite que una zona inválida reserve la planta frente a zonas sanas.
+
+Consultar Actions para los resultados del commit exacto y la matriz completa
+de versiones. Ni esta tabla ni una PR en borrador certifican instalación por
+el distribuidor, UI, hardware, plazos Manual particulares o traspaso de una casa.

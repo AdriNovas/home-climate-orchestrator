@@ -226,6 +226,11 @@ policy_labels = {
 }
 for key, a, b in [
     (
+        "require_internal_feedback",
+        "Require fresh internal feedback for thermal commands",
+        "Exigir sonda interna fresca para órdenes térmicas",
+    ),
+    (
         "authority_states",
         "States granting automatic authority",
         "Estados que conceden autoridad automática",
@@ -327,6 +332,29 @@ for key, (a, b) in policy_labels.items():
     en[key] = a
     es[key] = b
 for key, a, b in [
+    (
+        "response_entity",
+        "Measured response record (compact v1, optional)",
+        "Registro de respuesta medida (compacto v1, opcional)",
+    ),
+    (
+        "expected_ledger_entity",
+        "External expected-transition ledger (optional)",
+        "Registro externo de transiciones esperadas (opcional)",
+    ),
+    (
+        "critical_ledger_entity",
+        "External critical echo ledger (optional)",
+        "Registro externo de ecos críticos (opcional)",
+    ),
+    (
+        "external_cut_entity",
+        "External persistent cut fence (JSON, optional)",
+        "Barrera crítica persistente externa (JSON, opcional)",
+    ),
+]:
+    en[key], es[key] = a, b
+for key, a, b in [
     ("day_start", "Day starts", "Inicio diurno"),
     ("night_start", "Sleep starts", "Inicio de sueño"),
     ("weekend_day_start", "Weekend day starts", "Inicio diurno en fin de semana"),
@@ -424,9 +452,15 @@ steps["zone"].extend(
         "heat_permission_entity",
         "cool_permission_entity",
         "dry_permission_entity",
+        "response_entity",
+        "expected_ledger_entity",
+        "critical_ledger_entity",
+        "require_internal_feedback",
     ]
 )
-steps["sources"].extend(["critical_entity", "control_states", "presence_states"])
+steps["sources"].extend(
+    ["critical_entity", "external_cut_entity", "control_states", "presence_states"]
+)
 steps["execution"] = [
     "execution_mode",
     "exclusive_control",
@@ -475,6 +509,7 @@ titles = {
     "add_plant": ("Add plant", "Añadir planta"),
 }
 entities = {
+    "execution_journal": ("Execution journal", "Registro de ejecución"),
     "meter_power": ("Measured power", "Potencia medida"),
     "meter_energy": ("Measured energy", "Energía medida"),
     "meter_cost_rate": ("Current energy cost rate", "Coste energético instantáneo"),

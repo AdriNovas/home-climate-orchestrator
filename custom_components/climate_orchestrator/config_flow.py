@@ -81,6 +81,9 @@ def zone_schema(plants, defaults=None):
                 ("cool_goal_entity", ["sensor", "input_number", "number"]),
                 ("bias_entity", ["sensor", "input_number", "number"]),
                 ("internal_entity", "sensor"),
+                ("response_entity", ["input_text", "sensor"]),
+                ("expected_ledger_entity", ["input_text", "sensor"]),
+                ("critical_ledger_entity", ["input_text", "sensor"]),
                 (
                     "permission_entity",
                     ["binary_sensor", "input_boolean", "switch", "schedule"],
@@ -108,6 +111,10 @@ def zone_schema(plants, defaults=None):
         vol.Required("bias", default=d.get("bias", 0)): number(-4, 4, 0.5),
         vol.Required("priority", default=d.get("priority", 1)): number(0.1, 10, 0.1),
         vol.Required("allow_dry", default=d.get("allow_dry", False)): bool,
+        vol.Required(
+            "require_internal_feedback",
+            default=d.get("require_internal_feedback", False),
+        ): bool,
         vol.Required("night_allowed", default=d.get("night_allowed", True)): bool,
         vol.Required("enabled", default=d.get("enabled", True)): bool,
     }
@@ -614,6 +621,9 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "heat_permission_entity",
                 "cool_permission_entity",
                 "dry_permission_entity",
+                "response_entity",
+                "expected_ledger_entity",
+                "critical_ledger_entity",
             }
             zones[index] = {
                 **{k: v for k, v in zones[index].items() if k not in optional},
@@ -680,6 +690,7 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "presence_entity",
                 "control_entity",
                 "critical_entity",
+                "external_cut_entity",
             ]:
                 self.profile.pop(name, None)
             self.profile.update(user_input)
@@ -719,6 +730,7 @@ class ClimateOptions(config_entries.OptionsFlow):
                             ],
                         ),
                         ("critical_entity", ["binary_sensor", "input_boolean"]),
+                        ("external_cut_entity", ["input_text", "sensor"]),
                     ]
                 }
                 | {

@@ -16,6 +16,7 @@ from .validation import validate_sources, source_entities
 from .domain.engine import evaluate, begin_dry, sleeping
 from .domain.energy import meters_from_profile, normalize
 from .domain.safety import SupplyProtection, supply_cut
+from .domain.provenance import record, transition_echo, critical_echo, cut_record
 from .execution import Executor
 from .domain.models import (
     Memory,
@@ -81,13 +82,46 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             self.emit,
             lambda: dt.utcnow().timestamp(),
             self.profile.get("execution_mode", "shadow") == "control",
+            publish=self.publish_execution,
         )
+        self.execution_snapshot = {}
         self._worker = None
         self._pending_review = False
         self._closing = False
         self._started = False
         self._safety_worker = None
         self._safety_pending = False
+
+    async def publish_execution(self, persisted):
+        """Publish only durable bytes, before the corresponding physical call."""
+        self.execution_snapshot = persisted
+        if self.data is not None:
+            self.async_update_listeners()
+
+    def source_record(self, entity):
+        state = self.hass.states.get(entity) if entity else None
+        return record(state.state) if state else None
+
+    def external_echo(self, zone, old, new, user):
+        if not old or not new:
+            return False
+        now = dt.utcnow().timestamp()
+        return transition_echo(
+            self.source_record(zone.expected_ledger_entity),
+            new.state,
+            new.attributes.get("temperature"),
+            old.state,
+            old.attributes.get("temperature"),
+            now,
+            user,
+        ) or critical_echo(
+            self.source_record(zone.critical_ledger_entity),
+            self.source_record(self.profile.get("external_cut_entity")),
+            new.state,
+            new.attributes.get("temperature"),
+            now,
+            user,
+        )
 
     async def async_restore(self) -> None:
         await self.executor.restore()
@@ -156,21 +190,30 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 (z for z in self.house.zones if z.climate_entity == entity), None
             )
             if climate:
+                user = bool(
+                    new
+                    and new.context.user_id
+                    and (
+                        not old
+                        or old.context.id != new.context.id
+                        or old.state != new.state
+                        or old.attributes.get("temperature")
+                        != new.attributes.get("temperature")
+                    )
+                )
                 self.executor.observe(
                     climate.id,
                     new.state if new else "unavailable",
                     self.native_temperature(new, "temperature"),
                     old.state if old else None,
                     self.native_temperature(old, "temperature"),
-                    bool(
-                        new
-                        and new.context.user_id
-                        and (not old or old.context.id != new.context.id)
-                    ),
+                    user,
+                    external=self.external_echo(climate, old, new, user),
                 )
             elif (not old or not new or old.state != new.state) and (
                 entity == self.profile.get("control_entity")
                 or entity == self.profile.get("critical_entity")
+                or entity == self.profile.get("external_cut_entity")
                 or any(
                     entity
                     in [
@@ -384,6 +427,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                     and abs(bias.value) <= self.house.policy.correction_limit
                 ),
                 self.allowed(z.permission_entity),
+                self.source_record(z.response_entity),
             )
         # Persist observed plant direction, not a planned or sent direction.
         for p in self.house.plants:
@@ -408,6 +452,11 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             if self.profile.get("presence_entity")
             else True
         )
+        external_cut = (
+            cut_record(self.source_record(self.profile.get("external_cut_entity")))
+            if self.profile.get("external_cut_entity")
+            else None
+        )
         snap = Snapshot(
             now,
             readings,
@@ -422,7 +471,14 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             self.reading(self.profile.get("outdoor_entity"), "temperature"),
             self.reading(self.profile.get("power_entity"), "power"),
             bool(self.profile.get("power_entity")),
+            (external_cut["at"], external_cut["released"]) if external_cut else None,
         )
+        if self.profile.get("external_cut_entity") and (
+            external_cut is None or external_cut["active"]
+        ):
+            from dataclasses import replace
+
+            snap = replace(snap, paused=True)
         return snap
 
     def fresh_plan(self, executing_zone=None):
@@ -440,6 +496,10 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         return snap, decisions
 
     async def emit(self, zone, service, data, token):
+        if self.profile.get("external_cut_entity") and data.get("hvac_mode") != "off":
+            cut = cut_record(self.source_record(self.profile["external_cut_entity"]))
+            if cut is None or cut["active"]:
+                raise ValueError("External critical fence denies non-off emission")
         payload = {"entity_id": zone.climate_entity, **data}
         if (
             "temperature" in payload
@@ -484,6 +544,15 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         if entity := self.profile.get("critical_entity"):
             s = self.hass.states.get(entity)
             external = s.state == "on" if s and s.state in ["on", "off"] else None
+        if self.profile.get("external_cut_entity"):
+            cut = cut_record(self.source_record(self.profile["external_cut_entity"]))
+            external = (
+                True
+                if cut and cut["active"] or external is True
+                else None
+                if cut is None or external is None
+                else False
+            )
         active = supply_cut(
             memory,
             snap.power if self.profile.get("power_entity") else None,

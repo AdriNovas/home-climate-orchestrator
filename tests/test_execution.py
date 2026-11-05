@@ -298,6 +298,98 @@ class ExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(await self.executor.execute(self.zone, decision), "acked")
         self.assertEqual(self.calls[0][2], {"hvac_mode": "off"})
 
+    async def test_published_expectation_precedes_physical_service(self):
+        published = []
+
+        async def publish(state):
+            self.assertEqual(state, self.store.data)
+            published.append(copy.deepcopy(state))
+
+        async def emit(zone, service, data, token):
+            last = published[-1]["pending"][zone.id]
+            self.assertEqual(last["id"], token)
+            self.assertEqual(last["phase"], "sending")
+            self.assertTrue(last["expected"])
+            await self.emit(zone, service, data, token)
+
+        self.executor.publish, self.executor.emit = publish, emit
+        self.assertEqual(await self.run_zone(), "acked")
+        self.assertEqual(published[-1]["pending"][self.zone.id]["phase"], "acked")
+
+    async def test_failed_publication_cannot_start_an_appliance(self):
+        async def publish(_):
+            raise OSError("Unavailable compatibility surface")
+
+        self.executor.publish = publish
+        with self.assertRaises(OSError):
+            await self.run_zone()
+        self.assertFalse(self.calls)
+
+    async def test_publication_failure_does_not_block_critical_off(self):
+        async def publish(_):
+            raise OSError("Unavailable compatibility surface")
+
+        self.snap.zones[self.zone.id] = replace(
+            self.snap.zones[self.zone.id], mode="heat"
+        )
+        self.executor.publish = publish
+        await self.executor.critical(True)
+        await asyncio.gather(*list(self.executor.tasks))
+        self.assertEqual(self.snap.zones[self.zone.id].mode, "off")
+        self.executor.publish = None
+
+    async def test_external_fence_release_while_queued_does_not_renew_authority(self):
+        self.snap = replace(self.snap, external_fence=(900.123456, 901.123456))
+        lock = self.executor.locks[self.zone.plant]
+        await lock.acquire()
+        task = asyncio.create_task(self.run_zone())
+        await asyncio.sleep(0)
+        # Deliberately no event callback: direct reread must catch the new fence.
+        self.snap = replace(self.snap, external_fence=(900.123456, 901.123457))
+        lock.release()
+        self.assertEqual(await task, "revoked")
+        self.assertFalse(self.calls)
+
+    async def test_external_fence_during_durable_write_cancels_prepared_intent(self):
+        async def release():
+            self.snap = replace(self.snap, external_fence=(2.1, 3.2))
+
+        self.snap = replace(self.snap, external_fence=(0, 0))
+        self.store.hook = release
+        self.assertEqual(await self.run_zone(), "revoked")
+        self.assertFalse(self.calls)
+
+    async def test_registered_external_correction_revokes_plan_without_local_manual(
+        self,
+    ):
+        before = self.executor.state["generation"]
+        self.executor.observe(self.zone.id, "heat", 22, "heat", 23, external=True)
+        self.assertTrue(self.executor.is_automatic(self.zone.id))
+        self.assertGreater(self.executor.state["generation"], before)
+
+    async def test_external_record_never_suppresses_explicit_person(self):
+        self.executor.observe(
+            self.zone.id, "heat", 22, "heat", 23, user=True, external=True
+        )
+        self.assertFalse(self.executor.is_automatic(self.zone.id))
+
+    async def test_critical_journal_retains_old_exact_echoes_without_extending_lease(
+        self,
+    ):
+        until = self.executor.clock() + 20
+        self.executor.state["pending"][self.zone.id] = {
+            "expected": [{"mode": "heat", "target": 23, "until": until}]
+        }
+        self.snap.zones[self.zone.id] = replace(
+            self.snap.zones[self.zone.id], mode="heat", setpoint=23
+        )
+        await self.executor.critical(True)
+        await asyncio.gather(*list(self.executor.tasks))
+        expected = self.executor.state["pending"][self.zone.id]["expected"]
+        self.assertIn({"mode": "heat", "target": 23, "until": until}, expected)
+        self.executor.observe(self.zone.id, "heat", 23, "off", 23)
+        self.assertTrue(self.executor.is_automatic(self.zone.id))
+
 
 if __name__ == "__main__":
     unittest.main()

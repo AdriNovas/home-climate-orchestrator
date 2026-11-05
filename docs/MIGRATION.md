@@ -65,3 +65,6 @@ reversión y observación natural. La autorización existente no se pide de nuev
 la falta de esas comprobaciones es una puerta técnica, no falta de permiso.
 
 Detalles: [ejecución y energía](EXECUTION_ENERGY.md).
+Interoperabilidad opcional: [journal y detectores externos](EXTERNAL_MANUAL.md).
+Publicar el journal antes de emitir y reconocerlo no equivale a certificar las
+excepciones Manual o las fases de una instalación: comparar esos contratos aparte.

@@ -21,6 +21,9 @@ ZONE_SOURCES = [
     "heat_permission_entity",
     "cool_permission_entity",
     "dry_permission_entity",
+    "response_entity",
+    "expected_ledger_entity",
+    "critical_ledger_entity",
 ]
 HOUSE_SOURCES = [
     "power_entity",
@@ -28,6 +31,7 @@ HOUSE_SOURCES = [
     "presence_entity",
     "control_entity",
     "critical_entity",
+    "external_cut_entity",
 ]
 
 
@@ -47,6 +51,9 @@ def validate_sources(hass, profile: dict) -> None:
     house = house_from_dict(profile["house"])
     meters_from_profile(profile, house)
     SupplyProtection(**profile.get("supply_protection", {}))
+    for zone in house.zones:
+        if zone.critical_ledger_entity and not profile.get("external_cut_entity"):
+            raise ValueError("A critical echo ledger requires its matching cut fence")
     if profile.get("execution_mode", "shadow") not in ["shadow", "control"]:
         raise ValueError("Unknown execution mode")
     if profile.get("execution_mode") == "control" and not profile.get("control_entity"):

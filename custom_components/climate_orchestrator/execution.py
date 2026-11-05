@@ -13,10 +13,21 @@ from uuid import uuid4
 
 
 class Executor:
-    def __init__(self, house, store, fresh, emit, clock, enabled=False, ack_timeout=30):
+    def __init__(
+        self,
+        house,
+        store,
+        fresh,
+        emit,
+        clock,
+        enabled=False,
+        ack_timeout=30,
+        publish=None,
+    ):
         self.house, self.store, self.fresh = house, store, fresh
         self.emit, self.clock, self.enabled = emit, clock, enabled
         self.ack_timeout = ack_timeout
+        self.publish = publish
         self.state = {
             "generation": 0,
             "critical": False,
@@ -35,9 +46,18 @@ class Executor:
         self.inflight = 0
         self.restored = False
 
-    async def save(self):
+    async def save(self, publish_required=True):
         async with self.save_lock:
-            await self.store.async_save(copy.deepcopy(self.state))
+            persisted = copy.deepcopy(self.state)
+            await self.store.async_save(persisted)
+            if self.publish:
+                try:
+                    await self.publish(persisted)
+                    self.errors.pop("journal_publication", None)
+                except Exception as err:
+                    self.errors["journal_publication"] = type(err).__name__
+                    if publish_required:
+                        raise
 
     async def restore(self):
         self.restored = False
@@ -117,7 +137,9 @@ class Executor:
             and abs(target - observed_target) <= tolerance
         )
 
-    def observe(self, zone, mode, target, old_mode, old_target, user=False):
+    def observe(
+        self, zone, mode, target, old_mode, old_target, user=False, external=False
+    ):
         """Keep full-state expectations so an unrelated human mode/target is not ACKed."""
         if mode in ["unknown", "unavailable"] or old_mode in [
             None,
@@ -139,6 +161,11 @@ class Executor:
             ):
                 self.wake.set()
                 return
+        if external and not user:
+            # A retained safety/manual manager may emit a registered correction.
+            # Revoke in-flight plans, but do not misclassify that echo as a person.
+            self.invalidate()
+            return
         if self.enabled:
             self.manual(zone)
 
@@ -148,11 +175,13 @@ class Executor:
             or not self.restored
             or not self.enabled
             or self.state["critical"]
-            or self.state["generation"] != certificate
+            or self.state["generation"] != certificate[0]
             or not self.is_automatic(zone.id)
         ):
             return False
         snap, decisions = self.fresh(zone.id)
+        if snap.external_fence != certificate[1]:
+            return False
         obs = snap.zones[zone.id]
         current = decisions[zone.id]
         same = (
@@ -177,7 +206,7 @@ class Executor:
 
     async def execute(self, zone, decision, accepted=None):
         """One transaction per plant. Re-evaluate after every wait and persistence."""
-        certificate = self.state["generation"]
+        certificate = (self.state["generation"], self.fresh(zone.id)[0].external_fence)
         submitted = self.clock()
         async with self.locks[zone.plant]:
             if self.clock() - submitted > 30 or not await self._ready(
@@ -202,7 +231,7 @@ class Executor:
             row = {
                 "id": uuid4().hex,
                 "binding": zone.climate_entity,
-                "generation": certificate,
+                "generation": certificate[0],
                 "mode": decision.mode,
                 "target": decision.physical_target,
                 "expires": self.clock() + self.ack_timeout + 15,
@@ -325,9 +354,11 @@ class Executor:
         deadline = loop.time() + self.ack_timeout
         while loop.time() < deadline:
             self.wake.clear()
-            if self.closed or self.state["generation"] != certificate:
+            if self.closed or self.state["generation"] != certificate[0]:
                 return False
             snap, _ = self.fresh(zone.id)
+            if snap.external_fence != certificate[1]:
+                return False
             obs = snap.zones[zone.id]
             if self.matches(mode, target, obs.mode, obs.setpoint, obs.step / 2):
                 return True
@@ -346,7 +377,9 @@ class Executor:
         if active != self.state["critical"]:
             self.state["critical"] = active
             self.invalidate()
-            await self.save()  # Durable fence before publishing/dispatching a cut.
+            await self.save(
+                publish_required=False
+            )  # A display failure must not block off-only safety.
         if active:
             for zone in self.house.zones:
                 task = self.off_tasks.get(zone.id)
@@ -386,6 +419,10 @@ class Executor:
         if obs.mode == "off":
             return
         self.last_cut[zone.id] = self.clock()
+        previous = self.state["pending"].get(zone.id, {})
+        late = [
+            x for x in previous.get("expected", []) if self.clock() <= x.get("until", 0)
+        ]
         row = {
             "id": uuid4().hex,
             "binding": zone.climate_entity,
@@ -394,10 +431,17 @@ class Executor:
             "target": None,
             "expires": self.clock() + self.ack_timeout + 15,
             "phase": "sending",
-            "expected": [{"mode": "off", "target": None}],
+            "expected": late[-3:]
+            + [
+                {
+                    "mode": "off",
+                    "target": None,
+                    "until": self.clock() + self.ack_timeout + 15,
+                }
+            ],
         }
         self.state["pending"][zone.id] = row
-        await self.save()
+        await self.save(publish_required=False)
         if (
             not self.state["critical"] and not self.owned_certificate(zone, owner)
         ) or self.state["generation"] != row["generation"]:
@@ -420,7 +464,7 @@ class Executor:
             self.errors[zone.id] = type(err).__name__
             row["phase"] = "uncertain"
         if self.restored:
-            await self.save()
+            await self.save(publish_required=False)
 
     async def close(self):
         self.closed = True
@@ -430,4 +474,4 @@ class Executor:
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         if self.restored:
-            await self.save()
+            await self.save(publish_required=False)

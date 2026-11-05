@@ -65,7 +65,11 @@
           "permission_entity": "Zone permission (on = permitted)",
           "heat_permission_entity": "Heating permission (optional)",
           "cool_permission_entity": "Cooling permission (optional)",
-          "dry_permission_entity": "Drying permission (optional)"
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
         }
       },
       "finish": {
@@ -126,7 +130,11 @@
           "permission_entity": "Zone permission (on = permitted)",
           "heat_permission_entity": "Heating permission (optional)",
           "cool_permission_entity": "Cooling permission (optional)",
-          "dry_permission_entity": "Drying permission (optional)"
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
         }
       },
       "policy": {
@@ -224,6 +232,7 @@
           "presence_entity": "Occupancy (optional)",
           "control_entity": "Global automatic permission (on = enabled, optional)",
           "critical_entity": "External critical cutoff (on = cut all assigned actuators)",
+          "external_cut_entity": "External persistent cut fence (JSON, optional)",
           "control_states": "States granting global permission",
           "presence_states": "States meaning occupied"
         }
@@ -292,7 +301,11 @@
           "permission_entity": "Zone permission (on = permitted)",
           "heat_permission_entity": "Heating permission (optional)",
           "cool_permission_entity": "Cooling permission (optional)",
-          "dry_permission_entity": "Drying permission (optional)"
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
         }
       },
       "zone_edit": {
@@ -319,7 +332,11 @@
           "permission_entity": "Zone permission (on = permitted)",
           "heat_permission_entity": "Heating permission (optional)",
           "cool_permission_entity": "Cooling permission (optional)",
-          "dry_permission_entity": "Drying permission (optional)"
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
         }
       },
       "plant_edit": {
@@ -400,6 +417,9 @@
   },
   "entity": {
     "sensor": {
+      "execution_journal": {
+        "name": "Execution journal"
+      },
       "meter_power": {
         "name": "Measured power"
       },

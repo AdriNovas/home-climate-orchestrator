@@ -23,6 +23,9 @@ En **Opciones → Estancia** pueden asignarse:
 | `heat_goal_entity`, `cool_goal_entity` | Objetivos ambientales externos que sustituyen la matriz cuando están asignados. |
 | `bias_entity` | Desfase interno menos referencia, no una consigna física. Admite ayudantes numéricos con unidad explícita. |
 | `internal_entity` | Sonda interna separada cuando no se usa el atributo del climatizador. |
+| `response_entity` | Respuesta medida compacta opcional; no activa aprendizaje nuevo. |
+| `expected_ledger_entity`, `critical_ledger_entity` | Lectura de procedencia de emisores retenidos, nunca escritura o renovación de sus expectativas. |
+| `require_internal_feedback` | Requisito explícito de sonda interna fresca para las órdenes térmicas del equipo. |
 
 Sin asignar un objetivo externo se utiliza la matriz propia. Si **está asignado
 pero falla**, no se vuelve silenciosamente a otra política. Los objetivos y el
@@ -121,4 +124,5 @@ El núcleo prioriza confort e histéresis; todavía no aprende un modelo térmic
 predice coste de recuperación ni demuestra que mantener supere siempre a apagar.
 
 Contrato de migración y reversión: [MIGRATION.md](MIGRATION.md).
+Contrato de [journal nativo, Manual externo y barrera persistente](EXTERNAL_MANUAL.md).
 Ejemplo ficticio: [shared-meter.json](../examples/shared-meter.json).

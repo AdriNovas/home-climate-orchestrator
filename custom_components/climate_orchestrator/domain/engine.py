@@ -18,6 +18,7 @@ from .models import (
 )
 from .tariffs import current_price, opportunities
 from .thermal import observe_stability, extreme_price, relaxed_target
+from .provenance import number
 
 
 def dew_point(temperature: float, humidity: float) -> float:
@@ -50,6 +51,20 @@ def hardware_target(
         if deficit > 0.3
         else 0
     )
+    response = obs.response
+    # Compact measured-response v1. A stale or mismatched response adds no effort;
+    # it does not replace the independent environmental reference or base bias.
+    if zone.response_entity and deficit > 0.3 and isinstance(response, dict):
+        at, extra = response.get("at"), response.get("b")
+        if (
+            response.get("m") == mode
+            and response.get("g") == goal
+            and number(at)
+            and 0 <= now - at <= 660
+            and number(extra)
+            and 0 <= extra <= 2.5
+        ):
+            effort += extra
     correction = max(
         -p.correction_limit,
         min(
@@ -433,6 +448,24 @@ def evaluate(
         else:
             result[z.id] = d
 
+    # Remove a failed zone before arbitration, so missing local feedback cannot
+    # reserve the shared plant against an otherwise healthy zone.
+    for zone in house.zones:
+        demand = wanted.get(zone.id)
+        if (
+            demand
+            and demand[0] in ("heat", "cool")
+            and zone.require_internal_feedback
+            and not snap.zones[zone.id].internal.fresh(now, p.internal_fresh_s)
+        ):
+            wanted.pop(zone.id)
+            result[zone.id] = replace(
+                demand[2],
+                stage="blocked",
+                reason="internal_feedback_stale",
+                mode=None,
+                physical_target=None,
+            )
     for plant in house.plants:
         members = [z for z in house.zones if z.plant == plant.id]
         pm = plants.setdefault(plant.id, PlantMemory())
@@ -538,4 +571,20 @@ def evaluate(
             elif mode == "dry":
                 dry_selected = True
             result[z.id] = d
+    # A capability-specific feedback requirement restricts thermal emissions,
+    # never off-only protection or unaffected zones. Recheck in fresh_plan too.
+    for zone in house.zones:
+        decision = result[zone.id]
+        if (
+            zone.require_internal_feedback
+            and decision.mode in ("heat", "cool")
+            and not snap.zones[zone.id].internal.fresh(now, p.internal_fresh_s)
+        ):
+            result[zone.id] = replace(
+                decision,
+                stage="blocked",
+                reason="internal_feedback_stale",
+                mode=None,
+                physical_target=None,
+            )
     return result

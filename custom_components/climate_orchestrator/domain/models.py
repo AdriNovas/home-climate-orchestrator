@@ -277,6 +277,10 @@ class Zone:
     heat_permission_entity: str | None = None
     cool_permission_entity: str | None = None
     dry_permission_entity: str | None = None
+    response_entity: str | None = None
+    expected_ledger_entity: str | None = None
+    critical_ledger_entity: str | None = None
+    require_internal_feedback: bool = False
 
     def __post_init__(self) -> None:
         if not all([self.id, self.name, self.plant, self.temperature_entity]):
@@ -293,6 +297,8 @@ class Zone:
         ):
             raise ValueError("Explicit available automatic-authority states required")
         object.__setattr__(self, "authority_states", tuple(self.authority_states))
+        if type(self.require_internal_feedback) is not bool:
+            raise ValueError("require_internal_feedback must be boolean")
 
 
 @dataclass(frozen=True)
@@ -386,6 +392,7 @@ class Observation:
     dry_allowed: bool = True
     goals_valid: bool = True
     permitted: bool = True
+    response: dict | None = None
 
     def __post_init__(self) -> None:
         for name in ["minimum", "maximum", "step", "mode_since"]:
@@ -405,6 +412,7 @@ class Snapshot:
     outdoor: Reading = field(default_factory=lambda: Reading(None))
     power: Reading = field(default_factory=lambda: Reading(None))
     require_power: bool = False
+    external_fence: tuple | None = None
 
     def __post_init__(self) -> None:
         aware(self.now)

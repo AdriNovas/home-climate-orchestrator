@@ -65,7 +65,11 @@
           "permission_entity": "Permiso de estancia (on = permitido)",
           "heat_permission_entity": "Permiso de calor (opcional)",
           "cool_permission_entity": "Permiso de frío (opcional)",
-          "dry_permission_entity": "Permiso de secado (opcional)"
+          "dry_permission_entity": "Permiso de secado (opcional)",
+          "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
+          "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
+          "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas"
         }
       },
       "finish": {
@@ -126,7 +130,11 @@
           "permission_entity": "Permiso de estancia (on = permitido)",
           "heat_permission_entity": "Permiso de calor (opcional)",
           "cool_permission_entity": "Permiso de frío (opcional)",
-          "dry_permission_entity": "Permiso de secado (opcional)"
+          "dry_permission_entity": "Permiso de secado (opcional)",
+          "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
+          "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
+          "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas"
         }
       },
       "policy": {
@@ -224,6 +232,7 @@
           "presence_entity": "Ocupación (opcional)",
           "control_entity": "Permiso automático global (on = habilitado, opcional)",
           "critical_entity": "Corte crítico externo (on = apagar todos los equipos asignados)",
+          "external_cut_entity": "Barrera crítica persistente externa (JSON, opcional)",
           "control_states": "Estados que conceden permiso global",
           "presence_states": "Estados que indican ocupación"
         }
@@ -292,7 +301,11 @@
           "permission_entity": "Permiso de estancia (on = permitido)",
           "heat_permission_entity": "Permiso de calor (opcional)",
           "cool_permission_entity": "Permiso de frío (opcional)",
-          "dry_permission_entity": "Permiso de secado (opcional)"
+          "dry_permission_entity": "Permiso de secado (opcional)",
+          "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
+          "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
+          "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas"
         }
       },
       "zone_edit": {
@@ -319,7 +332,11 @@
           "permission_entity": "Permiso de estancia (on = permitido)",
           "heat_permission_entity": "Permiso de calor (opcional)",
           "cool_permission_entity": "Permiso de frío (opcional)",
-          "dry_permission_entity": "Permiso de secado (opcional)"
+          "dry_permission_entity": "Permiso de secado (opcional)",
+          "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
+          "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
+          "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas"
         }
       },
       "plant_edit": {
@@ -400,6 +417,9 @@
   },
   "entity": {
     "sensor": {
+      "execution_journal": {
+        "name": "Registro de ejecución"
+      },
       "meter_power": {
         "name": "Potencia medida"
       },

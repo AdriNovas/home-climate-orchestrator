@@ -5,7 +5,7 @@
 Planificador doméstico de temperatura y humedad según tarifa eléctrica, con
 sensores ambientales externos y splits de aire acondicionado agrupados por instalación.
 
-**0.2.0a0 · candidata de desarrollo, todavía sin publicar.** Añade ejecución
+**0.2.0a0 · candidata de desarrollo, sin release de actuación.** Añade ejecución
 opcional con registro/confirmación y medidores energéticos configurables. Toda
 entrada comienza en observación; actualizar no activa órdenes. La versión pública
 0.1.0a1 continúa siendo observadora. Sin promesa de ahorro ni compatibilidad universal.
@@ -45,6 +45,8 @@ Ver [compatibilidad y vinculación](docs/COMPATIBILITY.md).
 - Potencia/energía por vivienda, instalación o estancia, sin duplicar contadores.
 - Objetivos, desfases y permisos externos asignables, sin dependencias de una casa.
 - Ejecución opt-in con ACK, generaciones, Manual local y corte crítico independiente.
+- Journal nativo de solo lectura y compatibilidad con detectores externos,
+  sin sobrescribir sus registros ni conceder autoridad por reconocer un eco.
 - Entidades nativas con identificadores estables, áreas reales, etiquetas,
   categoría de diagnóstico y motivos legibles. Diagnóstico descargable redactado.
 

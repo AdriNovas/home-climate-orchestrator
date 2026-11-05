@@ -15,7 +15,7 @@ if "FILES" not in globals():
     FILES = {
         str(p.relative_to(root)): p.read_text()
         for p in (root / "custom_components").rglob("*")
-        if p.suffix in [".py", ".json"]
+        if p.suffix in [".py", ".json", ".jinja"]
     }
 
 
@@ -230,15 +230,59 @@ async def main():
             entities = []
             await sensor.async_setup_entry(h, entry, entities.extend)
             await binary_sensor.async_setup_entry(h, entry, entities.extend)
-            assert len(entities) == 9 and len({x.unique_id for x in entities}) == 9
+            assert len(entities) == 10 and len({x.unique_id for x in entities}) == 10
             assert all(x.entity_category.value == "diagnostic" for x in entities)
             for x in entities:
-                if isinstance(x, sensor.PlanSensor):
+                if isinstance(x, (sensor.PlanSensor, sensor.CommandSensor)):
                     x.native_value
                 else:
                     x.is_on
             checks.append(
-                "nine native entities have stable IDs, values and diagnostic categories"
+                "ten native entities have stable IDs, values and diagnostic categories"
+            )
+            from homeassistant.helpers.template import Template
+
+            macro = FILES[
+                "custom_components/climate_orchestrator/templates/execution_echo.jinja"
+            ]
+            expression = Template(
+                macro
+                + "\n{{ execution_echo(j, 'climate.demo', 'heat', 23, 1000, person) }}",
+                h,
+            )
+            journal = {
+                "schema_version": 1,
+                "actuator": "climate.demo",
+                "execution_mode": "control",
+                "temperature_unit": "°C",
+                "phase": "sending",
+                "expected": [{"mode": "heat", "target": 23, "until": 1020}],
+            }
+            assert expression.async_render({"j": journal, "person": None}) is True
+            assert (
+                expression.async_render({"j": journal, "person": "fictional-person"})
+                is False
+            )
+            assert (
+                expression.async_render(
+                    {"j": {**journal, "phase": "prepared"}, "person": None}
+                )
+                is False
+            )
+            assert (
+                expression.async_render(
+                    {
+                        "j": {
+                            **journal,
+                            "expected": [{"mode": "heat", "target": 23, "until": 999}],
+                        },
+                        "person": None,
+                    }
+                )
+                is False
+            )
+            checks.append(
+                "shipped Jinja journal contract recognizes only sent exact unexpired echoes without a person"
             )
             diag = await diagnostics.async_get_config_entry_diagnostics(h, entry)
             encoded = json.dumps(diag)

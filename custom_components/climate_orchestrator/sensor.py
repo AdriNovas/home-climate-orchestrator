@@ -25,6 +25,7 @@ KEYS = [
 async def async_setup_entry(hass, entry, async_add_entities):
     c = entry.runtime_data
     async_add_entities([PlanSensor(c, z, k) for z in c.house.zones for k in KEYS])
+    async_add_entities([CommandSensor(c, z) for z in c.house.zones])
     async_add_entities(
         [
             MeterSensor(c, m, key)
@@ -88,6 +89,40 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
             "external_temperature": o.temperature.value if o else None,
             "relative_humidity": o.humidity.value if o else None,
             "interpretation": "Decision; execution requires its own confirmed journal. HVAC mode is not measured compressor activity.",
+        }
+
+
+class CommandSensor(ClimateDiagnostic, SensorEntity):
+    """A read-only compatibility surface, not an authority switch or command API."""
+
+    def __init__(self, coordinator, zone):
+        super().__init__(coordinator, zone, "execution_journal")
+
+    @property
+    def native_value(self):
+        return (
+            self.coordinator.execution_snapshot.get("pending", {})
+            .get(self.zone.id, {})
+            .get("phase", "idle")
+        )
+
+    @property
+    def extra_state_attributes(self):
+        state = self.coordinator.execution_snapshot
+        row = state.get("pending", {}).get(self.zone.id, {})
+        return {
+            "schema_version": 1,
+            "actuator": self.zone.climate_entity,
+            "execution_mode": "control"
+            if self.coordinator.executor.enabled
+            else "shadow",
+            "temperature_unit": "°C",
+            "phase": row.get("phase", "idle"),
+            "command_id": row.get("id"),
+            "generation": row.get("generation"),
+            "expected": row.get("expected", []),
+            "critical_cut_active": state.get("critical", False),
+            "interpretation": "Expected echoes from persisted intentions; not measured physical effect or permission to control",
         }
 
 

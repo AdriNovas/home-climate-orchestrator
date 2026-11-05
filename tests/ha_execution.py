@@ -16,7 +16,7 @@ if "FILES" not in globals():
     FILES = {
         str(p.relative_to(root)): p.read_text()
         for p in (root / "custom_components").rglob("*")
-        if p.suffix in [".py", ".json"]
+        if p.suffix in [".py", ".json", ".jinja"]
     }
 
 
@@ -90,6 +90,8 @@ async def main():
                 ),
                 ("sensor.demo_supply", "2500", {"unit_of_measurement": "W"}),
                 ("input_boolean.demo_cut", "off", {}),
+                ("input_text.demo_expected", '{"q":[]}', {}),
+                ("input_text.demo_external_cut", "{}", {}),
             ]:
                 hass.states.async_set(entity, value, attrs)
             climate_attrs = {
@@ -103,8 +105,20 @@ async def main():
             }
             hass.states.async_set("climate.demo", "off", climate_attrs)
 
+            verify_journal = True
+
             async def simulated_service(call):
                 entity = call.data["entity_id"]
+                journals = [
+                    s
+                    for s in hass.states.async_all("sensor")
+                    if s.attributes.get("schema_version") == 1
+                    and s.attributes.get("actuator") == entity
+                ]
+                if verify_journal:
+                    assert len(journals) == 1, journals
+                    assert journals[0].state == "sending", journals[0]
+                    assert journals[0].attributes["expected"], journals[0]
                 state = hass.states.get(entity)
                 attrs = dict(state.attributes)
                 if "temperature" in call.data:
@@ -147,12 +161,14 @@ async def main():
                             "heat_goal_entity": "sensor.demo_goal",
                             "bias_entity": "input_number.demo_bias",
                             "heat_permission_entity": "binary_sensor.demo_heat",
+                            "expected_ledger_entity": "input_text.demo_expected",
                         }
                     ],
                 },
                 "tariff": {"type": "flat", "price": 0.15},
                 "control_entity": "input_boolean.demo_control",
                 "critical_entity": "input_boolean.demo_cut",
+                "external_cut_entity": "input_text.demo_external_cut",
                 "power_entity": "sensor.demo_supply",
                 "execution_mode": "control",
                 "exclusive_control": True,
@@ -217,6 +233,9 @@ async def main():
             assert c.executor.is_automatic("room")
             checks.append(
                 "native HA service dispatch confirms target before mode without falsely entering Manual"
+            )
+            checks.append(
+                "persisted journal is visible in HA before each simulated physical call"
             )
             assert c.data["metering"]["shared"] == {
                 "power": 1200,
@@ -324,6 +343,25 @@ async def main():
                 "native forms edit bindings and reject duplicate shared-meter assignments atomically"
             )
 
+            # A retained registered correction is not a person. Pause ordinary
+            # work while exercising the external detector interoperability.
+            hass.states.async_set("input_boolean.demo_control", "off")
+            await hass.async_block_till_done()
+            old_target = hass.states.get("climate.demo").attributes["temperature"]
+            ledger = {"q": [[1, old_target, 1, 23, dt.utcnow().timestamp() + 20, 0]]}
+            hass.states.async_set("input_text.demo_expected", json.dumps(ledger))
+            attrs = dict(hass.states.get("climate.demo").attributes)
+            attrs["temperature"] = 23
+            hass.states.async_set("climate.demo", "heat", attrs, context=Context())
+            await hass.async_block_till_done()
+            assert c.executor.is_automatic("room")
+            assert (
+                json.loads(hass.states.get("input_text.demo_expected").state) == ledger
+            )
+            checks.append(
+                "registered external correction preserves authority without writing or renewing its ledger"
+            )
+
             # Simulate a real user change with a distinct user context.
             attrs = dict(hass.states.get("climate.demo").attributes)
             attrs["temperature"] = 21
@@ -338,6 +376,15 @@ async def main():
             assert len(calls) == before
             checks.append(
                 "a user command latches local Manual and is not overwritten by the next review"
+            )
+            same_user = hass.states.get("climate.demo").context
+            await c.executor.resume("room")
+            attrs["temperature"] = calls[0]["data"]["temperature"]
+            hass.states.async_set("climate.demo", "heat", attrs, context=same_user)
+            await hass.async_block_till_done()
+            assert not c.executor.is_automatic("room")
+            checks.append(
+                "a second target change with the same human context cannot be consumed as an old automatic ACK"
             )
 
             hass.states.async_set("input_boolean.demo_cut", "on")
@@ -382,12 +429,16 @@ async def main():
             converted = c.snapshot().zones["room"]
             assert abs(converted.setpoint - 20) < 0.001
             assert abs(converted.step - 5 / 9) < 0.001
+            verify_journal = (
+                False  # Adapter-only conversion check, not executor dispatch.
+            )
             await c.emit(
                 c.house.zones[0],
                 "set_temperature",
                 {"temperature": 20},
                 "fictional-conversion",
             )
+            verify_journal = True
             assert calls[-1]["data"]["temperature"] == 68
             hass.config.units = metric_units
             hass.states.async_set("climate.demo", "off", climate_attrs)
