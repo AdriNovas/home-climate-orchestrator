@@ -1,5 +1,26 @@
 # Evidencia de la alfa
 
+## Candidata · alta y configuración nativas
+
+La candidata mantiene132pruebas de núcleo y añade `tests/ha_config_flow.py`:
+prueba los gestores reales de alta/opciones de HA, no solo llamadas directas a
+los métodos de los formularios. Verifica alta desde Añadir integración,
+vinculación rápida, duplicados, nombre/área reales, edición de cuatro tablas,
+eliminación efectiva de asignaciones opcionales, alta de otro split, recarga
+con IDs estables y retirada conservando el dispositivo de su driver original.
+
+Ensayo local enHA2026.11.0 temporal:11comprobaciones de flujo,14smoke,
+16ejecución/energía y ciclo completo setup/reload/unload/remove. Servicios
+físicos0, escrituras de configuración productiva0. CI ejecuta esas cuatro
+suites enHA2026.10.4 y2026.11.0; consultar el resultado del commit concreto.
+Ruff, compilación y revisión de secretos completan la validación técnica.
+
+Los diálogos y dispositivos usan UI nativa; este ensayo no sustituye una
+inspección visual ni una instalación HACS/Marketplace completa. No certifica
+actuación, confort, consumo o relevo de un controlador de vivienda.
+
+## Histórico de la primera alfa
+
 05-11-2026; núcleo en Python3.14 y smoke con HA2026.10.4 en directorio temporal.
 
 | Comprobación | Resultado observado |

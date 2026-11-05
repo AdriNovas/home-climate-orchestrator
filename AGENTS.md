@@ -14,3 +14,7 @@
 - Run `python -m unittest discover -s tests -v` and the isolated HA smoke test before
   release, plus `python tests/ha_lifecycle.py` for native setup/reload/removal.
   CI is not a production deployer. No public push without publication scope.
+- For config/options UI changes, run `python tests/ha_config_flow.py` in isolated
+  Home Assistant. Use the real flow managers, not only direct step calls: schema
+  defaults can silently restore optional bindings the user cleared. Verify
+  setup/edit/reload/removal, stable IDs and preservation of vendor devices.

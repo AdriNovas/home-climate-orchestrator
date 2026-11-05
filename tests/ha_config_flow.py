@@ -390,6 +390,35 @@ async def main():
             checks.append(
                 "optional shared inputs use suggestions rather than restoring cleared bindings"
             )
+            hass.states.async_set(
+                "climate.fictional_office",
+                "off",
+                {
+                    "friendly_name": "Fictional office AC",
+                    "temperature": 21,
+                    "current_temperature": 20,
+                    "hvac_modes": ["off", "heat", "cool"],
+                    "min_temp": 16,
+                    "max_temp": 30,
+                    "target_temp_step": 0.5,
+                },
+            )
+            option_id, result = await begin("splits", "add_split")
+            result = await options.async_configure(
+                option_id,
+                {
+                    "climate_entity": "climate.fictional_office",
+                    "temperature_entity": "sensor.fictional_external",
+                    "plant": plant_id,
+                },
+            )
+            assert result["type"] == "create_entry"
+            await hass.async_block_till_done()
+            zones = entry.runtime_data.house.zones
+            assert len(zones) == 2 and zones[0].id == zone_id and zones[1].id != zone_id
+            checks.append(
+                "linking another split from the integration options creates a distinct stable zone"
+            )
             assert not service_calls
             await hass.config_entries.async_remove(entry.entry_id)
             await hass.async_block_till_done()
