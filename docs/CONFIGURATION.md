@@ -69,6 +69,8 @@ fuera se mantienen datos inválidos. No usar para ocultar exportación real.
 Se normalizan W/kW antes de comparar. El sensor original, el contador/estadísticas
 de energía y el medidor independiente de protección general no cambian. La
 tolerancia queda visible en los atributos del diagnóstico energético.
+Volver a0 elimina el campo opcional del perfil, conservando el ID del medidor;
+hacerlo antes de volver a una revisión que todavía no admite esta tolerancia.
 
 ## Casa, instalación y estancia
 

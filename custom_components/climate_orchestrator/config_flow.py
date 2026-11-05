@@ -1129,6 +1129,10 @@ class ClimateOptions(config_entries.OptionsFlow):
                             ),
                         )
                     )
+                    if row["negative_power_tolerance_w"] == 0:
+                        # Keep strict/default profiles compatible with versions
+                        # predating the optional meter calibration field.
+                        row.pop("negative_power_tolerance_w")
                     rows.append(row)
                 self.profile["meters"] = rows
                 return self.save()
