@@ -22,3 +22,6 @@
   number services and rapid edits. Table-only changes must not unload entities
   between commands or lose a cell; revalidate and fence stale plans while
   preserving Manual, sessions, sources and execution authority.
+- Keep negative-power noise handling opt-in and meter-scoped. Never silently
+  relax supply protection, clamp energy counters, or accept real negative/net
+  export as consumption. Test unit conversion, bounds and plant feedback.

@@ -1,5 +1,14 @@
 # Evidencia de la alfa
 
+## Candidata0.2.0a2 · ruido negativo acotado
+
+134pruebas de núcleo y17verificaciones de ejecución HA temporal: la tolerancia
+por medidor está desactivada por defecto, convierte unidades antes del límite,
+rechaza negativos mayores y no alcanza energía/estadísticas ni protección del
+suministro. Diagnóstico y planta reciben la misma lectura. Se conservan9checks
+de números,11de formularios,14smoke y ciclo nativo; cero llamadas físicas.
+CI valida ambas versiones HA y el artefacto/secretos del commit concreto.
+
 ## Candidata0.2.0a1 · objetivos como entidades
 
 `tests/ha_number.py` usa el servicio real `number.set_value` en HA temporal:

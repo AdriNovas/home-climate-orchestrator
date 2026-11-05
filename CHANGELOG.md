@@ -1,5 +1,14 @@
 # Cambios
 
+## Candidata0.2.0a2 · sin release
+
+- Tolerancia opcional por medidor de consumo para pequeños negativos de
+  reposo: predeterminado0W, configurable0–20W. Unidades W/kW normalizadas antes
+  del umbral; valores más negativos siguen inválidos. No cambia fuente,
+  contadores, estadísticas ni protección de suministro.
+- Diagnóstico y coordinación de carga usan la misma lectura validada del
+  medidor; el ajuste está disponible en el formulario nativo de consumo.
+
 ## Candidata0.2.0a1 · sin release
 
 - Objetivos ambientales por split/precio/fase como entidades `number` nativas

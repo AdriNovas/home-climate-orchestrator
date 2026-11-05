@@ -60,6 +60,16 @@ la siguiente revisión con todas sus guardas; no es un servicio directo al AC.
 Humedad, horarios, prioridad, fuentes, consumos y límites de modulación se
 ajustan en los cinco grupos de Configurar, sin necesidad de editar YAML.
 
+### Ruido de cero del medidor
+
+**Consumo/medidores → medidor → Tolerancia a ruido negativo (W)** es opcional,
+predeterminada0 (estricta), máximo20W. Solo para un medidor conocido de consumo
+unidireccional con pequeño error alrededor de cero: dentro del margen se lee0W;
+fuera se mantienen datos inválidos. No usar para ocultar exportación real.
+Se normalizan W/kW antes de comparar. El sensor original, el contador/estadísticas
+de energía y el medidor independiente de protección general no cambian. La
+tolerancia queda visible en los atributos del diagnóstico energético.
+
 ## Casa, instalación y estancia
 
 | Nivel | Campos y significado |

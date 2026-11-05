@@ -1123,6 +1123,10 @@ class ClimateOptions(config_entries.OptionsFlow):
                             energy_fresh_s=user_input.get(
                                 "energy_fresh_s", old.get("energy_fresh_s", 86400)
                             ),
+                            negative_power_tolerance_w=user_input.get(
+                                "negative_power_tolerance_w",
+                                old.get("negative_power_tolerance_w", 0),
+                            ),
                         )
                     )
                     rows.append(row)
@@ -1161,6 +1165,10 @@ class ClimateOptions(config_entries.OptionsFlow):
                         "energy_fresh_s", default=old.get("energy_fresh_s", 86400)
                     ): number(10, 604800),
                     vol.Required("remove", default=False): bool,
+                    vol.Required(
+                        "negative_power_tolerance_w",
+                        default=old.get("negative_power_tolerance_w", 0),
+                    ): number(0, 20, 0.5),
                 }
             ),
             errors=errors,

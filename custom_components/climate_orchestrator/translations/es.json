@@ -415,7 +415,11 @@
           "energy_entity": "Sensor de energía acumulada (Wh/kWh/MWh)",
           "fresh_s": "Antigüedad máxima del informe (segundos)",
           "energy_fresh_s": "Antigüedad máxima del contador de energía (segundos)",
-          "remove": "Retirar esta asignación (nunca el sensor/historial original)"
+          "remove": "Retirar esta asignación (nunca el sensor/historial original)",
+          "negative_power_tolerance_w": "Tolerancia a ruido negativo (W)"
+        },
+        "data_description": {
+          "negative_power_tolerance_w": "Solo para ruido de cero de un medidor de consumo (0 desactiva). No modifica el sensor original, la energía ni la protección general; lecturas más negativas siguen sin datos."
         }
       },
       "init": {

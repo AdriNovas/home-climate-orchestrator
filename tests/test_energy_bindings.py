@@ -10,6 +10,47 @@ import unittest
 
 
 class EnergyTests(unittest.TestCase):
+    def test_negative_power_noise_is_explicit_unit_aware_and_bounded(self):
+        for value, unit in [(-1.5, "W"), (-0.0015, "kW"), (-5, "W")]:
+            with self.subTest(value=value, unit=unit):
+                self.assertEqual(
+                    normalize(value, unit, "power", negative_power_tolerance_w=5), 0
+                )
+        for value in [-0.01, -5.01, -100]:
+            with self.assertRaises(ValueError):
+                normalize(
+                    value,
+                    "W",
+                    "power",
+                    negative_power_tolerance_w=0 if value == -0.01 else 5,
+                )
+        self.assertEqual(
+            normalize(100, "W", "power", negative_power_tolerance_w=5), 100
+        )
+
+    def test_noise_tolerance_never_changes_energy_or_hides_export(self):
+        with self.assertRaises(ValueError):
+            normalize(-1, "kWh", "energy", negative_power_tolerance_w=5)
+        for tolerance in [True, -1, 21, float("nan"), float("inf")]:
+            with self.assertRaises(ValueError):
+                Meter(
+                    "m",
+                    "Meter",
+                    power_entity="sensor.power",
+                    negative_power_tolerance_w=tolerance,
+                )
+        with self.assertRaises(ValueError):
+            Meter(
+                "m",
+                "Energy only",
+                energy_entity="sensor.energy",
+                negative_power_tolerance_w=5,
+            )
+        self.assertEqual(
+            Meter("m", "Meter", power_entity="sensor.power").negative_power_tolerance_w,
+            0,
+        )
+
     def test_units_are_explicit_and_distinct(self):
         for value, unit, kind, result in [
             (1.2, "kW", "power", 1200),

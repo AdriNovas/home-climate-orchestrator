@@ -283,7 +283,14 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         if self.executor.enabled:
             self.hass.async_create_task(self.async_request_refresh())
 
-    def reading(self, entity: str | None, kind: str, configured_at=None) -> Reading:
+    def reading(
+        self,
+        entity: str | None,
+        kind: str,
+        configured_at=None,
+        *,
+        negative_power_tolerance_w=0,
+    ) -> Reading:
         state = self.hass.states.get(entity) if entity else None
         if state is None:
             return Reading(None)
@@ -309,7 +316,12 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 return Reading(None)
         elif kind == "power":
             try:
-                value = normalize(value, unit, kind)
+                value = normalize(
+                    value,
+                    unit,
+                    kind,
+                    negative_power_tolerance_w=negative_power_tolerance_w,
+                )
             except ValueError:
                 return Reading(None)
         elif kind == "energy":
@@ -325,6 +337,13 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             else state.last_reported.timestamp()
         )
         return Reading(value, at)
+
+    def meter_power(self, meter):
+        return self.reading(
+            meter.power_entity,
+            "power",
+            negative_power_tolerance_w=meter.negative_power_tolerance_w,
+        )
 
     def allowed(self, entity, states=("on",)):
         state = self.hass.states.get(entity) if entity else None
@@ -503,7 +522,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             bool(self.profile.get("power_entity")),
             (external_cut["at"], external_cut["released"]) if external_cut else None,
             {
-                plant.id: self.reading(matched[0].power_entity, "power")
+                plant.id: self.meter_power(matched[0])
                 for plant in self.house.plants
                 if len(
                     matched := [
@@ -517,7 +536,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 == 1
             },
             {
-                zone.id: self.reading(matched[0].power_entity, "power")
+                zone.id: self.meter_power(matched[0])
                 for zone in self.house.zones
                 if len(
                     matched := [
@@ -680,7 +699,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         self._store.async_delay_save(self._saved, 30)
         metering = {}
         for meter in self.meters:
-            power = self.reading(meter.power_entity, "power")
+            power = self.meter_power(meter)
             energy = self.reading(meter.energy_entity, "energy")
             watts = power.value if power.fresh(now.timestamp(), meter.fresh_s) else None
             kwh = (

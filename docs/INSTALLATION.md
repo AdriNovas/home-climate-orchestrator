@@ -1,4 +1,4 @@
-> Esta rama es la candidata0.2.0a1, no una release publicada. La instalación
+> Esta rama es la candidata0.2.0a2, no una release publicada. La instalación
 > pública0.1 sigue en observación. No cambiar la autoridad de una vivienda por
 > el solo hecho de actualizar archivos.
 

@@ -207,6 +207,9 @@ class MeterSensor(ClimateDiagnostic, SensorEntity):
             if self.metric == "energy"
             else self.meter.power_entity,
             "accounting": "Measured at this scope; never apportioned or summed with nested meters",
+            "negative_power_tolerance_w": self.meter.negative_power_tolerance_w
+            if self.metric != "energy"
+            else None,
             "cost_basis": "Current power × current energy price; not a bill or historical total"
             if self.metric == "cost_rate"
             else None,

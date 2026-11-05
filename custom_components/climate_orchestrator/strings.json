@@ -415,7 +415,11 @@
           "energy_entity": "Cumulative energy sensor (Wh/kWh/MWh)",
           "fresh_s": "Maximum report age (seconds)",
           "energy_fresh_s": "Maximum energy-counter report age (seconds)",
-          "remove": "Remove this assignment (never the original sensor/history)"
+          "remove": "Remove this assignment (never the original sensor/history)",
+          "negative_power_tolerance_w": "Negative power noise tolerance (W)"
+        },
+        "data_description": {
+          "negative_power_tolerance_w": "Only for near-zero consumption-meter noise (0 disables). Original source, energy and supply protection are unchanged; more negative readings stay invalid."
         }
       },
       "init": {

@@ -181,6 +181,7 @@ async def main():
                         "power_entity": "sensor.demo_power",
                         "energy_entity": "sensor.demo_energy",
                         "fresh_s": 120,
+                        "negative_power_tolerance_w": 5,
                     }
                 ],
             }
@@ -248,6 +249,25 @@ async def main():
             assert c.snapshot().power.value != c.snapshot().plant_power["plant"].value
             checks.append(
                 "shared-load feedback reads the assigned HVAC plant meter, never the supply guard meter"
+            )
+            original_power = hass.states.get("sensor.demo_power")
+            hass.states.async_set(
+                "sensor.demo_power", "-0.0015", dict(original_power.attributes)
+            )
+            await c.async_refresh()
+            assert c.data["metering"]["shared"]["power"] == 0
+            assert c.snapshot().plant_power["plant"].value == 0
+            assert c.reading("sensor.demo_power", "power").value is None
+            assert hass.states.get("sensor.demo_power").state == "-0.0015"
+            assert c.snapshot().power.value == 2500
+            hass.states.async_set(
+                "sensor.demo_power",
+                original_power.state,
+                dict(original_power.attributes),
+            )
+            await c.async_refresh()
+            checks.append(
+                "per-meter negative noise tolerance applies to diagnostics and shared-load feedback, never supply protection or original sources"
             )
             registry = entity_registry.async_get(hass)
             entities = [

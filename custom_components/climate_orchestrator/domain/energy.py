@@ -14,6 +14,7 @@ class Meter:
     energy_entity: str | None = None
     fresh_s: int = 120
     energy_fresh_s: int = 86400
+    negative_power_tolerance_w: float = 0
 
     def __post_init__(self):
         if not self.id or not self.name or self.scope not in ["house", "plant", "zone"]:
@@ -30,9 +31,18 @@ class Meter:
             "energy_fresh_s",
             int(bounded(self.energy_fresh_s, "energy freshness", 10, 604800)),
         )
+        object.__setattr__(
+            self,
+            "negative_power_tolerance_w",
+            bounded(
+                self.negative_power_tolerance_w, "negative power noise tolerance", 0, 20
+            ),
+        )
+        if self.negative_power_tolerance_w and not self.power_entity:
+            raise ValueError("Negative power noise tolerance requires a power source")
 
 
-def normalize(value, unit, kind):
+def normalize(value, unit, kind, *, negative_power_tolerance_w=0):
     value = finite(value, kind)
     factors = {
         "power": {"W": 1, "kW": 1000},
@@ -41,6 +51,12 @@ def normalize(value, unit, kind):
     if kind not in factors or unit not in factors[kind]:
         raise ValueError("Unsupported or ambiguous electrical unit")
     value *= factors[kind][unit]
+    if kind == "power":
+        tolerance = bounded(
+            negative_power_tolerance_w, "negative power noise tolerance", 0, 20
+        )
+        if -tolerance <= value < 0:
+            return 0.0
     if value < 0:
         raise ValueError(
             "Consumption source must be non-negative; use import, not net power"
