@@ -182,6 +182,8 @@ class Executor:
         snap, decisions = self.fresh(zone.id)
         if snap.external_fence != certificate[1]:
             return False
+        if certificate[1] is not None and certificate[2] <= max(certificate[1]):
+            return False
         obs = snap.zones[zone.id]
         current = decisions[zone.id]
         same = (
@@ -206,8 +208,12 @@ class Executor:
 
     async def execute(self, zone, decision, accepted=None):
         """One transaction per plant. Re-evaluate after every wait and persistence."""
-        certificate = (self.state["generation"], self.fresh(zone.id)[0].external_fence)
         submitted = self.clock()
+        certificate = (
+            self.state["generation"],
+            self.fresh(zone.id)[0].external_fence,
+            submitted,
+        )
         async with self.locks[zone.plant]:
             if self.clock() - submitted > 30 or not await self._ready(
                 zone, decision, certificate

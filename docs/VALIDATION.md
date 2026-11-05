@@ -31,7 +31,7 @@ una ejecución remota nueva.
 
 ## Candidata · journal e interoperabilidad externa
 
-Ensayo local05-11-2026: **111 pruebas de núcleo/protocolo**,12 verificaciones
+Ensayo local05-11-2026: **113 pruebas de núcleo/protocolo**,12 verificaciones
 smoke y15 de ejecución nativa en HA2026.11.0 temporal; setup/reload/unload/removal
 con identidades conservadas. Diez entidades diagnósticas por zona en el perfil
 observador de prueba;15 entidades en el ejemplo activo con medidor. Cuatro

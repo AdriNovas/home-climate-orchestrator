@@ -390,6 +390,17 @@ class ExecutionTests(unittest.IsolatedAsyncioTestCase):
         self.executor.observe(self.zone.id, "heat", 23, "off", 23)
         self.assertTrue(self.executor.is_automatic(self.zone.id))
 
+    async def test_external_fence_from_future_cannot_grant_a_new_start(self):
+        self.snap = replace(self.snap, external_fence=(0, self.executor.clock() + 10))
+        self.assertEqual(await self.run_zone(), "revoked")
+        self.assertFalse(self.calls)
+
+    async def test_intent_must_be_strictly_after_external_release(self):
+        self.executor.clock = lambda: 1000.123456
+        self.snap = replace(self.snap, external_fence=(900, 1000.123456))
+        self.assertEqual(await self.run_zone(), "revoked")
+        self.assertFalse(self.calls)
+
 
 if __name__ == "__main__":
     unittest.main()
