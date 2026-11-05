@@ -224,6 +224,105 @@ policy_labels = {
         "Frescura de potencia activa (segundos)",
     ),
 }
+for key, a, b in [
+    (
+        "authority_states",
+        "States granting automatic authority",
+        "Estados que conceden autoridad automática",
+    ),
+    (
+        "heat_goal_entity",
+        "External heating goal (optional)",
+        "Objetivo externo de calor (opcional)",
+    ),
+    (
+        "cool_goal_entity",
+        "External cooling goal (optional)",
+        "Objetivo externo de frío (opcional)",
+    ),
+    (
+        "bias_entity",
+        "External sensor bias (internal minus reference, °C)",
+        "Desfase externo (interna menos referencia, °C)",
+    ),
+    (
+        "internal_entity",
+        "Separate internal thermometer (optional)",
+        "Sonda interna separada (opcional)",
+    ),
+    (
+        "permission_entity",
+        "Zone permission (on = permitted)",
+        "Permiso de estancia (on = permitido)",
+    ),
+    (
+        "heat_permission_entity",
+        "Heating permission (optional)",
+        "Permiso de calor (opcional)",
+    ),
+    (
+        "cool_permission_entity",
+        "Cooling permission (optional)",
+        "Permiso de frío (opcional)",
+    ),
+    (
+        "dry_permission_entity",
+        "Drying permission (optional)",
+        "Permiso de secado (opcional)",
+    ),
+    (
+        "critical_entity",
+        "External critical cutoff (on = cut all assigned actuators)",
+        "Corte crítico externo (on = apagar todos los equipos asignados)",
+    ),
+    (
+        "control_states",
+        "States granting global permission",
+        "Estados que conceden permiso global",
+    ),
+    ("presence_states", "States meaning occupied", "Estados que indican ocupación"),
+    ("execution_mode", "Operating mode", "Modo de funcionamiento"),
+    (
+        "exclusive_control",
+        "Other automatic controllers are stopped for these actuators",
+        "Los demás controladores automáticos de estos equipos están detenidos",
+    ),
+    ("critical_w", "Critical supply power (W)", "Potencia crítica de suministro (W)"),
+    ("critical_s", "Critical persistence (seconds)", "Permanencia crítica (segundos)"),
+    ("release_w", "Release below (W)", "Liberar por debajo de (W)"),
+    (
+        "release_s",
+        "Release persistence (seconds)",
+        "Permanencia de recuperación (segundos)",
+    ),
+    ("meter", "Meter (＋ adds a new one)", "Medidor (＋ añade uno nuevo)"),
+    (
+        "scope_target",
+        "What this meter actually measures",
+        "Qué mide realmente este contador",
+    ),
+    (
+        "energy_entity",
+        "Cumulative energy sensor (Wh/kWh/MWh)",
+        "Sensor de energía acumulada (Wh/kWh/MWh)",
+    ),
+    (
+        "fresh_s",
+        "Maximum report age (seconds)",
+        "Antigüedad máxima del informe (segundos)",
+    ),
+    (
+        "energy_fresh_s",
+        "Maximum energy-counter report age (seconds)",
+        "Antigüedad máxima del contador de energía (segundos)",
+    ),
+    (
+        "remove",
+        "Remove this assignment (never the original sensor/history)",
+        "Retirar esta asignación (nunca el sensor/historial original)",
+    ),
+]:
+    en[key], es[key] = a, b
 for key, (a, b) in policy_labels.items():
     en[key] = a
     es[key] = b
@@ -314,7 +413,45 @@ steps["add_zone"] = steps["zone"]
 steps["zone_edit"] = steps["zone"]
 steps["plant_edit"] = steps["plant"]
 steps["add_plant"] = steps["plant"]
+steps["zone"].extend(
+    [
+        "authority_states",
+        "heat_goal_entity",
+        "cool_goal_entity",
+        "bias_entity",
+        "internal_entity",
+        "permission_entity",
+        "heat_permission_entity",
+        "cool_permission_entity",
+        "dry_permission_entity",
+    ]
+)
+steps["sources"].extend(["critical_entity", "control_states", "presence_states"])
+steps["execution"] = [
+    "execution_mode",
+    "exclusive_control",
+    "critical_w",
+    "critical_s",
+    "release_w",
+    "release_s",
+]
+steps["energy"] = ["meter"]
+steps["meter_edit"] = [
+    "name",
+    "scope_target",
+    "power_entity",
+    "energy_entity",
+    "fresh_s",
+    "energy_fresh_s",
+    "remove",
+]
 titles = {
+    "execution": (
+        "Execution and supply protection",
+        "Ejecución y protección eléctrica",
+    ),
+    "energy": ("Energy meter assignments", "Asignación de medidores energéticos"),
+    "meter_edit": ("Meter and measured scope", "Medidor y ámbito medido"),
     "user": ("Home", "Casa"),
     "tariff": ("Tariff source", "Fuente de tarifa"),
     "period": ("Fixed price period", "Periodo de precio fijo"),
@@ -338,6 +475,9 @@ titles = {
     "add_plant": ("Add plant", "Añadir planta"),
 }
 entities = {
+    "meter_power": ("Measured power", "Potencia medida"),
+    "meter_energy": ("Measured energy", "Energía medida"),
+    "meter_cost_rate": ("Current energy cost rate", "Coste energético instantáneo"),
     "planned_stage": ("Proposed strategy", "Estrategia propuesta"),
     "heat_goal": ("Proposed heating target", "Objetivo de calor previsto"),
     "cool_goal": ("Proposed cooling target", "Objetivo de frío previsto"),
@@ -381,14 +521,24 @@ for language, labels, index in [("en", en, 0), ("es", es, 1)]:
         for step, names in steps.items()
     }
     form["user"]["description"] = (
-        "Observation-only alpha: installation never controls devices."
+        "Starts in observation mode. Configure sources, energy meters and optional execution in Settings."
         if language == "en"
-        else "Alfa de observación: instalarla nunca controla los equipos."
+        else "Comienza en observación. Configura fuentes, medidores de energía y ejecución opcional en Ajustes."
     )
     form["period"]["description"] = (
         "Equal start/end means 24 hours on the selected days. Date exceptions override matching regular hours."
         if language == "en"
         else "Inicio y fin iguales significan 24 horas en los días elegidos. Las excepciones de fecha sustituyen las horas regulares coincidentes."
+    )
+    form["sources"]["data"]["power_entity"] = (
+        "Total supply/import active power (W/kW), not HVAC power"
+        if language == "en"
+        else "Potencia activa total del suministro/importación (W/kW), no la del clima"
+    )
+    form["meter_edit"]["data"]["power_entity"] = (
+        "Measured active power for this scope (W/kW)"
+        if language == "en"
+        else "Potencia activa medida de este ámbito (W/kW)"
     )
     form["finish"] = {
         "title": "Continue" if language == "en" else "Continuar",
@@ -416,6 +566,8 @@ for language, labels, index in [("en", en, 0), ("es", es, 1)]:
                 "sources",
                 "tariff",
                 "tariff_type",
+                "energy",
+                "execution",
             ]
         },
     }
@@ -452,8 +604,23 @@ for language, labels, index in [("en", en, 0), ("es", es, 1)]:
                 k: {"name": entities[k][index]}
                 for k in ["price_degraded", "source_degraded", "service_blocked"]
             },
+            "switch": {
+                "automatic_control": {
+                    "name": "Automatic authority"
+                    if language == "en"
+                    else "Autoridad automática"
+                }
+            },
         },
         "selector": {
+            "execution_modes": {
+                "options": {
+                    "shadow": "Observe only" if language == "en" else "Solo observar",
+                    "control": "Control assigned devices"
+                    if language == "en"
+                    else "Controlar equipos asignados",
+                }
+            },
             "weekdays": {
                 "options": dict(
                     zip(
@@ -496,6 +663,16 @@ for language, labels, index in [("en", en, 0), ("es", es, 1)]:
             },
         },
     }
+    data["entity"]["binary_sensor"]["execution_problem"] = {
+        "name": "Execution or metering needs attention"
+        if language == "en"
+        else "Revisar ejecución o medición energética"
+    }
+    data["options"]["step"]["execution"]["description"] = (
+        "Only enable after verifying exclusive control and global permission. Critical cuts include Manual but only the assigned climate entities. No contactors or unrelated loads are controlled."
+        if language == "en"
+        else "Activar solo tras verificar control exclusivo y permiso global. El corte crítico incluye Manual, solo en las entidades climate asignadas. No controla contactores ni otras cargas."
+    )
     data["entity"]["sensor"]["planned_stage"]["state"] = {
         k: v[index] for k, v in stages.items()
     }

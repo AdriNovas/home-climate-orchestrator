@@ -1,8 +1,12 @@
+> Esta rama es la candidata0.2.0a0, no una release publicada. La instalación
+> pública0.1 sigue en observación. No cambiar la autoridad de una vivienda por
+> el solo hecho de actualizar archivos.
+
 # Instalar con Marketplace o HACS
 
 Repositorio: [AdriNovas/home-climate-orchestrator](https://github.com/AdriNovas/home-climate-orchestrator).
 Dominio HA: `climate_orchestrator`. Versión inicial: **0.1.0a1, prerelease**.
-Requiere HA2026.10.4 o superior y Celsius; Marketplace está disponible desde2026.11.
+Requiere HA2026.10.4 o superior; Marketplace está disponible desde2026.11.
 
 **Alfa de observación:** instalar añade propuestas/diagnósticos. No envía órdenes
 al AC, no reemplaza el control existente ni cambia automáticamente su configuración.

@@ -3,32 +3,77 @@
 from homeassistant.helpers import entity_registry
 
 from .const import DOMAIN
+from .domain.models import house_from_dict
+from .domain.energy import meters_from_profile
+from .domain.safety import SupplyProtection
+
+
+ZONE_SOURCES = [
+    "temperature_entity",
+    "humidity_entity",
+    "climate_entity",
+    "authority_entity",
+    "heat_goal_entity",
+    "cool_goal_entity",
+    "bias_entity",
+    "internal_entity",
+    "permission_entity",
+    "heat_permission_entity",
+    "cool_permission_entity",
+    "dry_permission_entity",
+]
+HOUSE_SOURCES = [
+    "power_entity",
+    "outdoor_entity",
+    "presence_entity",
+    "control_entity",
+    "critical_entity",
+]
+
+
+def source_entities(profile):
+    sources = {profile.get(name) for name in HOUSE_SOURCES}
+    sources.add(profile["tariff"].get("entity"))
+    for zone in profile["house"]["zones"]:
+        sources.update(zone.get(name) for name in ZONE_SOURCES)
+    for meter in profile.get("meters", []):
+        sources.update(meter.get(name) for name in ["power_entity", "energy_entity"])
+    return sources - {None, ""}
 
 
 def validate_sources(hass, profile: dict) -> None:
     """Reject feedback loops through this integration's own diagnostic outputs."""
     registry = entity_registry.async_get(hass)
-    sources = {
-        profile.get(name)
-        for name in [
-            "power_entity",
-            "outdoor_entity",
-            "presence_entity",
-            "control_entity",
-        ]
-    }
-    sources.add(profile["tariff"].get("entity"))
-    for zone in profile["house"]["zones"]:
-        sources.update(
-            zone.get(name)
-            for name in [
-                "temperature_entity",
-                "humidity_entity",
-                "climate_entity",
-                "authority_entity",
-            ]
-        )
-    for source in sources - {None, ""}:
+    house = house_from_dict(profile["house"])
+    meters_from_profile(profile, house)
+    SupplyProtection(**profile.get("supply_protection", {}))
+    if profile.get("execution_mode", "shadow") not in ["shadow", "control"]:
+        raise ValueError("Unknown execution mode")
+    if profile.get("execution_mode") == "control" and not profile.get("control_entity"):
+        raise ValueError("Control requires an explicit global permission binding")
+    if (
+        profile.get("execution_mode") == "control"
+        and profile.get("exclusive_control") is not True
+    ):
+        raise ValueError("Confirm exclusive actuator control before activation")
+    for name in ["control_states", "presence_states"]:
+        values = profile.get(name, ["on"])
+        if (
+            not isinstance(values, (tuple, list))
+            or not values
+            or any(
+                not isinstance(x, str) or not x or x in ["unknown", "unavailable"]
+                for x in values
+            )
+        ):
+            raise ValueError("Explicit available permission states required")
+    for source in source_entities(profile):
+        if (
+            not isinstance(source, str)
+            or len(source.split(".")) != 2
+            or not all(x and x.replace("_", "").isalnum() for x in source.split("."))
+        ):
+            raise ValueError("Invalid entity binding")
         entry = registry.async_get(source)
         if entry and entry.platform == DOMAIN:
             raise ValueError("Planner outputs cannot be used as planner inputs")

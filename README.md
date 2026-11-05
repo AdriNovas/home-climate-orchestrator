@@ -5,10 +5,13 @@
 Planificador doméstico de temperatura y humedad según tarifa eléctrica, con
 sensores ambientales externos y splits de aire acondicionado agrupados por instalación.
 
-**0.1.0a1 · alfa pública, solo observación.** Genera propuestas y diagnósticos;
-**no envía órdenes**, no sustituye al termostato y no promete ahorro. El
-repositorio se distribuye como integración personalizada para HACS y el
-Marketplace de Home Assistant; **no está incluido en su catálogo oficial**.
+**0.2.0a0 · candidata de desarrollo, todavía sin publicar.** Añade ejecución
+opcional con registro/confirmación y medidores energéticos configurables. Toda
+entrada comienza en observación; actualizar no activa órdenes. La versión pública
+0.1.0a1 continúa siendo observadora. Sin promesa de ahorro ni compatibilidad universal.
+
+Se distribuye como repositorio personalizado HACS/Marketplace; no está en su catálogo.
+Ver [ejecución, energía y asignaciones portables](docs/EXECUTION_ENERGY.md).
 
 [Instalar con HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=AdriNovas&repository=home-climate-orchestrator&category=integration)
 · [Instalación Marketplace/HACS](docs/INSTALLATION.md)
@@ -39,6 +42,9 @@ Ver [compatibilidad y vinculación](docs/COMPATIBILITY.md).
 - Secado con temperatura prioritaria, suelo térmico independiente de la tarifa,
   presupuesto diario, espera entre intentos y deuda de humedad persistente.
 - Reservas de sentido para equipos que comparten exterior y arbitraje de potencia.
+- Potencia/energía por vivienda, instalación o estancia, sin duplicar contadores.
+- Objetivos, desfases y permisos externos asignables, sin dependencias de una casa.
+- Ejecución opt-in con ACK, generaciones, Manual local y corte crítico independiente.
 - Entidades nativas con identificadores estables, áreas reales, etiquetas,
   categoría de diagnóstico y motivos legibles. Diagnóstico descargable redactado.
 
@@ -49,14 +55,14 @@ estancia ni equivalencia entre temperatura interna y sensor ambiental.
 ## Límites importantes
 
 La alfa admite propuestas para `heat`, `cool` y `dry` en equipos `climate` con
-límites explícitos y HA configurado en Celsius. Sensores externos Fahrenheit se
-convierten; equipos nativos Fahrenheit todavía no se certifican. Radiadores,
+límites explícitos. El adaptador convierte °C/°F en sensores y consignas; los
+ensayos sintéticos no certifican un modelo físico concreto. Radiadores,
 calderas, suelo radiante, ventilación, deshumidificadores dedicados y bombas de
 calor por agua requieren adaptadores y ensayos propios: **no son compatibles por
 el mero hecho de aparecer como entidad**.
 
-No hay ejecutor físico, aprendizaje térmico automático, cálculo de COP, modelo
-predictivo de la vivienda ni optimización global del consumo. El planificador
+El ejecutor opcional está separado del núcleo; no hay aprendizaje térmico
+automático, cálculo de COP, modelo predictivo ni optimización global del consumo. El planificador
 tarifario de esta versión compara bloques completos de secado; los objetivos
 térmicos siguen la banda actual. No simula una temperatura futura alcanzada.
 
@@ -68,8 +74,8 @@ térmicos siguen la banda actual. No simula una temperatura futura alcanzada.
    → Añadir integración → Climate Orchestrator**.
 3. Consultar [configuración](docs/CONFIGURATION.md), especialmente sensores,
    Manual, unidades, tramos y significados de los umbrales de humedad.
-4. Revisar propuestas sin conectarlas a automatizaciones de actuación.
-5. Para una futura migración, cumplir [puertas de aceptación y reversión](docs/MIGRATION.md).
+4. Asignar fuentes y medidores en Opciones; revisar propuestas en observación.
+5. Antes de habilitar control, cumplir [puertas de aceptación y reversión](docs/MIGRATION.md).
 
 Documentación técnica: [arquitectura](docs/ARCHITECTURE.md),
 [decisiones de diseño](docs/DECISIONS.md), [privacidad y contribución](CONTRIBUTING.md),
@@ -83,6 +89,7 @@ python3 -m compileall -q custom_components tests
 # Solo en un entorno desechable con HA 2026.10 instalado:
 python3 tests/ha_smoke.py
 python3 tests/ha_lifecycle.py
+python3 tests/ha_execution.py
 ```
 
 `ha_smoke.py` usa un directorio temporal y un Home Assistant aislado; no carga
@@ -91,8 +98,9 @@ visual y de una instalación HACS real son comprobaciones distintas y pendientes
 
 ### English summary
 
-Observation-only Home Assistant alpha for tariff-aware temperature and humidity
-planning. Configurable PVPC/fixed/flat/interval tariffs, zones and shared plants.
-No actuator commands, no measured savings, no universal HVAC compatibility claim.
+Development candidate for tariff-aware climate planning, optional journaled
+execution, and explicitly scoped power/energy sources. Configurable PVPC/fixed/flat/interval tariffs, zones and shared plants.
+Observation remains the default; no automatic takeover on upgrade. No measured
+savings or universal HVAC compatibility claim.
 Installable as a custom repository, not included in the HACS/Marketplace catalog.
 Keep real home profiles and histories outside this repo.

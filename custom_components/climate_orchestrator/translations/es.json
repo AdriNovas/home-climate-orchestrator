@@ -9,7 +9,7 @@
           "timezone": "Zona horaria",
           "tariff_type": "Tipo de tarifa"
         },
-        "description": "Alfa de observación: instalarla nunca controla los equipos."
+        "description": "Comienza en observación. Configura fuentes, medidores de energía y ejecución opcional en Ajustes."
       },
       "tariff": {
         "title": "Fuente de tarifa",
@@ -56,7 +56,16 @@
           "priority": "Prioridad relativa",
           "allow_dry": "Modelar oportunidades de secado",
           "night_allowed": "Permitir esta estancia durante sueño",
-          "enabled": "Incluir esta estancia en las propuestas"
+          "enabled": "Incluir esta estancia en las propuestas",
+          "authority_states": "Estados que conceden autoridad automática",
+          "heat_goal_entity": "Objetivo externo de calor (opcional)",
+          "cool_goal_entity": "Objetivo externo de frío (opcional)",
+          "bias_entity": "Desfase externo (interna menos referencia, °C)",
+          "internal_entity": "Sonda interna separada (opcional)",
+          "permission_entity": "Permiso de estancia (on = permitido)",
+          "heat_permission_entity": "Permiso de calor (opcional)",
+          "cool_permission_entity": "Permiso de frío (opcional)",
+          "dry_permission_entity": "Permiso de secado (opcional)"
         }
       },
       "finish": {
@@ -108,7 +117,16 @@
           "priority": "Prioridad relativa",
           "allow_dry": "Modelar oportunidades de secado",
           "night_allowed": "Permitir esta estancia durante sueño",
-          "enabled": "Incluir esta estancia en las propuestas"
+          "enabled": "Incluir esta estancia en las propuestas",
+          "authority_states": "Estados que conceden autoridad automática",
+          "heat_goal_entity": "Objetivo externo de calor (opcional)",
+          "cool_goal_entity": "Objetivo externo de frío (opcional)",
+          "bias_entity": "Desfase externo (interna menos referencia, °C)",
+          "internal_entity": "Sonda interna separada (opcional)",
+          "permission_entity": "Permiso de estancia (on = permitido)",
+          "heat_permission_entity": "Permiso de calor (opcional)",
+          "cool_permission_entity": "Permiso de frío (opcional)",
+          "dry_permission_entity": "Permiso de secado (opcional)"
         }
       },
       "policy": {
@@ -201,10 +219,13 @@
       "sources": {
         "title": "Medidas opcionales",
         "data": {
-          "power_entity": "Potencia activa medida (W/kW, opcional)",
+          "power_entity": "Potencia activa total del suministro/importación (W/kW), no la del clima",
           "outdoor_entity": "Temperatura exterior (opcional)",
           "presence_entity": "Ocupación (opcional)",
-          "control_entity": "Permiso automático global (on = habilitado, opcional)"
+          "control_entity": "Permiso automático global (on = habilitado, opcional)",
+          "critical_entity": "Corte crítico externo (on = apagar todos los equipos asignados)",
+          "control_states": "Estados que conceden permiso global",
+          "presence_states": "Estados que indican ocupación"
         }
       },
       "fixed_select": {
@@ -262,7 +283,16 @@
           "priority": "Prioridad relativa",
           "allow_dry": "Modelar oportunidades de secado",
           "night_allowed": "Permitir esta estancia durante sueño",
-          "enabled": "Incluir esta estancia en las propuestas"
+          "enabled": "Incluir esta estancia en las propuestas",
+          "authority_states": "Estados que conceden autoridad automática",
+          "heat_goal_entity": "Objetivo externo de calor (opcional)",
+          "cool_goal_entity": "Objetivo externo de frío (opcional)",
+          "bias_entity": "Desfase externo (interna menos referencia, °C)",
+          "internal_entity": "Sonda interna separada (opcional)",
+          "permission_entity": "Permiso de estancia (on = permitido)",
+          "heat_permission_entity": "Permiso de calor (opcional)",
+          "cool_permission_entity": "Permiso de frío (opcional)",
+          "dry_permission_entity": "Permiso de secado (opcional)"
         }
       },
       "zone_edit": {
@@ -280,7 +310,16 @@
           "priority": "Prioridad relativa",
           "allow_dry": "Modelar oportunidades de secado",
           "night_allowed": "Permitir esta estancia durante sueño",
-          "enabled": "Incluir esta estancia en las propuestas"
+          "enabled": "Incluir esta estancia en las propuestas",
+          "authority_states": "Estados que conceden autoridad automática",
+          "heat_goal_entity": "Objetivo externo de calor (opcional)",
+          "cool_goal_entity": "Objetivo externo de frío (opcional)",
+          "bias_entity": "Desfase externo (interna menos referencia, °C)",
+          "internal_entity": "Sonda interna separada (opcional)",
+          "permission_entity": "Permiso de estancia (on = permitido)",
+          "heat_permission_entity": "Permiso de calor (opcional)",
+          "cool_permission_entity": "Permiso de frío (opcional)",
+          "dry_permission_entity": "Permiso de secado (opcional)"
         }
       },
       "plant_edit": {
@@ -305,6 +344,36 @@
           "reversal_gap_min": "Separación entre inversiones (minutos)"
         }
       },
+      "execution": {
+        "title": "Ejecución y protección eléctrica",
+        "data": {
+          "execution_mode": "Modo de funcionamiento",
+          "exclusive_control": "Los demás controladores automáticos de estos equipos están detenidos",
+          "critical_w": "Potencia crítica de suministro (W)",
+          "critical_s": "Permanencia crítica (segundos)",
+          "release_w": "Liberar por debajo de (W)",
+          "release_s": "Permanencia de recuperación (segundos)"
+        },
+        "description": "Activar solo tras verificar control exclusivo y permiso global. El corte crítico incluye Manual, solo en las entidades climate asignadas. No controla contactores ni otras cargas."
+      },
+      "energy": {
+        "title": "Asignación de medidores energéticos",
+        "data": {
+          "meter": "Medidor (＋ añade uno nuevo)"
+        }
+      },
+      "meter_edit": {
+        "title": "Medidor y ámbito medido",
+        "data": {
+          "name": "Nombre",
+          "scope_target": "Qué mide realmente este contador",
+          "power_entity": "Potencia activa medida de este ámbito (W/kW)",
+          "energy_entity": "Sensor de energía acumulada (Wh/kWh/MWh)",
+          "fresh_s": "Antigüedad máxima del informe (segundos)",
+          "energy_fresh_s": "Antigüedad máxima del contador de energía (segundos)",
+          "remove": "Retirar esta asignación (nunca el sensor/historial original)"
+        }
+      },
       "init": {
         "title": "Ajustes",
         "menu_options": {
@@ -318,7 +387,9 @@
           "add_plant": "Añadir planta",
           "sources": "Medidas opcionales",
           "tariff": "Fuente de tarifa",
-          "tariff_type": "Cambiar tipo de tarifa"
+          "tariff_type": "Cambiar tipo de tarifa",
+          "energy": "Asignación de medidores energéticos",
+          "execution": "Ejecución y protección eléctrica"
         }
       }
     },
@@ -329,6 +400,15 @@
   },
   "entity": {
     "sensor": {
+      "meter_power": {
+        "name": "Potencia medida"
+      },
+      "meter_energy": {
+        "name": "Energía medida"
+      },
+      "meter_cost_rate": {
+        "name": "Coste energético instantáneo"
+      },
       "planned_stage": {
         "name": "Estrategia propuesta",
         "state": {
@@ -375,10 +455,24 @@
       },
       "service_blocked": {
         "name": "Servicio de humedad persistente bloqueado"
+      },
+      "execution_problem": {
+        "name": "Revisar ejecución o medición energética"
+      }
+    },
+    "switch": {
+      "automatic_control": {
+        "name": "Autoridad automática"
       }
     }
   },
   "selector": {
+    "execution_modes": {
+      "options": {
+        "shadow": "Solo observar",
+        "control": "Controlar equipos asignados"
+      }
+    },
     "weekdays": {
       "options": {
         "0": "Lunes",

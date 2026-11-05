@@ -1,0 +1,50 @@
+{
+  "house": {
+    "name": "Demo home",
+    "timezone": "Europe/Madrid",
+    "plants": [
+      {
+        "id": "demo-plant",
+        "name": "Demo outdoor",
+        "shared_mode": true
+      }
+    ],
+    "zones": [
+      {
+        "id": "demo-zone",
+        "name": "Demo room",
+        "plant": "demo-plant",
+        "temperature_entity": "sensor.demo_temperature",
+        "humidity_entity": "sensor.demo_humidity",
+        "climate_entity": "climate.demo_unit",
+        "authority_entity": "input_select.room_authority",
+        "allow_dry": true,
+        "authority_states": [
+          "Automatic"
+        ],
+        "heat_goal_entity": "sensor.room_heating_goal",
+        "heat_permission_entity": "binary_sensor.room_heating_permitted"
+      }
+    ]
+  },
+  "outdoor_entity": "sensor.demo_outdoor_temperature",
+  "power_entity": "sensor.demo_hvac_power",
+  "tariff": {
+    "type": "flat",
+    "price": 0.15
+  },
+  "execution_mode": "shadow",
+  "meters": [
+    {
+      "id": "hvac-main",
+      "name": "Shared outdoor meter",
+      "scope": "plant",
+      "target": "demo-plant",
+      "power_entity": "sensor.hvac_active_power",
+      "energy_entity": "sensor.hvac_import_energy",
+      "fresh_s": 120,
+      "energy_fresh_s": 86400
+    }
+  ],
+  "control_entity": "input_boolean.climate_automatic_permission"
+}

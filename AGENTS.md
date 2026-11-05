@@ -2,8 +2,9 @@
 
 - This is an instance-neutral product repository. Never copy private home profiles,
   Recorder exports, device IDs, presence, endpoints, credentials, or workspace history.
-- Version 0.1 is observation-only. No Home Assistant actuator service calls belong
-  in its runtime. Control takeover is a later version gated by the migration ADR.
+- Released version 0.1 remains observation-only. Develop opt-in execution in the
+  0.2 candidate, separated from the pure planner and gated by the migration ADR.
+  Never enable control as a side effect of upgrading an observation entry.
 - Keep the domain engine free of Home Assistant imports, I/O and wall-clock reads.
   Pass time and immutable snapshots explicitly. Test failures and boundaries.
 - Keep configuration versioned and validated; reject NaN, ambiguous price units,

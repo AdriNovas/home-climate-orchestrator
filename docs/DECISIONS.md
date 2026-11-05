@@ -9,8 +9,8 @@ configuración HA privada no es publicar un producto HACS.
 ## ADR002 · Observación primero, un solo escritor después
 
 0.1 no contiene actuación. Las propuestas no son órdenes aceptadas ni estados de
-equipos. Un ejecutor futuro será una frontera explícita, con pruebas de protocolo
-y migración por instalación, no un `async_call` añadido al coordinator.
+equipos. La candidata0.2 mantiene el ejecutor como frontera explícita, con journal,
+pruebas de protocolo y migración por instalación; actualizar no activa control.
 
 ## ADR003 · Confort local no depende del forecast
 
@@ -40,7 +40,13 @@ ambiguas y datos viejos son bloqueos diagnosticables, nunca ceros convenientes.
 
 ## Pendientes de producto
 
-Ejecutor y bloqueo global entre entradas, adaptadores por tecnología, calendarios
+Adaptadores por tecnología, certificación de perfiles, calendarios
 avanzados, objetivos propios de frío/noche por estancia, import/export de perfiles,
 aprendizaje robusto de respuesta, virtual climate, reparaciones nativas y pruebas
 en segunda vivienda. Ninguno se anuncia como terminado en0.1.
+
+## ADR007 · Ámbitos eléctricos explícitos
+
+Separar suministro total de los medidores de consumo. Una fuente compartida tiene
+un único ámbito; no se suman padres/hijos ni se reparte potencia entre cabezas.
+Los contadores originales nunca se reescriben. Ver [contrato](EXECUTION_ENERGY.md).

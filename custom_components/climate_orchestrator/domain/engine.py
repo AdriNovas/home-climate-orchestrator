@@ -52,7 +52,15 @@ def hardware_target(
     )
     correction = max(
         -p.correction_limit,
-        min(p.correction_limit, zone.bias + (effort if mode == "heat" else -effort)),
+        min(
+            p.correction_limit,
+            (
+                obs.bias.value
+                if obs.bias.fresh(now, p.temperature_fresh_s)
+                else zone.bias
+            )
+            + (effort if mode == "heat" else -effort),
+        ),
     )
     target = goal + correction
     if deficit <= p.hold_delta and obs.internal.fresh(now, p.internal_fresh_s):
@@ -62,7 +70,10 @@ def hardware_target(
             else max(target, obs.internal.value + 0.5)
         )
     step = obs.step if obs.step > 0 else 0.5
-    return max(obs.minimum, min(obs.maximum, round(target / step) * step))
+    return max(
+        obs.minimum,
+        min(obs.maximum, obs.minimum + round((target - obs.minimum) / step) * step),
+    )
 
 
 def begin_dry(
@@ -105,6 +116,10 @@ def evaluate(
             band.heat_sleep if sleep else z.heat_targets.get(band.name, band.heat_day)
         )
         cool = band.cool_sleep if sleep else band.cool_day
+        if o.heat_goal.fresh(now, p.temperature_fresh_s):
+            heat = o.heat_goal.value
+        if o.cool_goal.fresh(now, p.temperature_fresh_s):
+            cool = o.cool_goal.value
         d = Decision(
             z.id,
             "idle",
@@ -121,6 +136,7 @@ def evaluate(
             and z.enabled
             and temp_ok
             and not snap.paused
+            and o.permitted
             and (not sleep or z.night_allowed)
             and snap.occupied is True
             and o.mode in ["off", "heat", "cool"]
@@ -209,14 +225,26 @@ def evaluate(
         if not z.enabled:
             result[z.id] = replace(d, stage="paused", reason="zone_disabled")
             continue
+        if not o.goals_valid or heat >= cool:
+            result[z.id] = replace(
+                d, stage="blocked", reason="external_goal_unavailable"
+            )
+            continue
         if not temp_ok:
             result[z.id] = replace(d, stage="blocked", reason="temperature_stale")
             continue
         if o.mode == "dry":
             result[z.id] = replace(d, stage="external", reason="unowned_drying")
             continue
-        if snap.paused or (sleep and not z.night_allowed):
+        if snap.paused or not o.permitted or (sleep and not z.night_allowed):
             result[z.id] = replace(d, stage="paused", reason="pause_or_schedule")
+            continue
+        if (o.mode == "heat" and not o.heat_allowed) or (
+            o.mode == "cool" and not o.cool_allowed
+        ):
+            result[z.id] = replace(
+                d, stage="blocked", reason="external_mode_permission"
+            )
             continue
         t = o.temperature.value
         excess = (o.mode == "heat" and t >= heat + p.overshoot_delta) or (
@@ -299,6 +327,11 @@ def evaluate(
         )
         desired = "heat" if heat_needed else "cool" if cool_needed else None
         if desired:
+            if not (o.heat_allowed if desired == "heat" else o.cool_allowed):
+                result[z.id] = replace(
+                    d, stage="blocked", reason="external_mode_permission"
+                )
+                continue
             goal = heat if desired == "heat" else cool
             if desired not in o.supported_modes:
                 result[z.id] = replace(d, stage="blocked", reason="unsupported_mode")
@@ -336,7 +369,7 @@ def evaluate(
                 )
         elif (high and now - m.high_since >= p.humidity_stable_s) or urgent:
             floor = p.dry_floor_sleep if sleep else p.dry_floor_day
-            if not z.allow_dry or "dry" not in o.supported_modes:
+            if not z.allow_dry or not o.dry_allowed or "dry" not in o.supported_modes:
                 result[z.id] = replace(
                     d, stage="blocked", reason="no_drying_capability"
                 )

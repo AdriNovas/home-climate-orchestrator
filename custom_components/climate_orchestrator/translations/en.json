@@ -9,7 +9,7 @@
           "timezone": "Time zone",
           "tariff_type": "Tariff type"
         },
-        "description": "Observation-only alpha: installation never controls devices."
+        "description": "Starts in observation mode. Configure sources, energy meters and optional execution in Settings."
       },
       "tariff": {
         "title": "Tariff source",
@@ -56,7 +56,16 @@
           "priority": "Relative priority",
           "allow_dry": "Model drying opportunities",
           "night_allowed": "Allow this zone during sleep",
-          "enabled": "Include this zone in proposals"
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)"
         }
       },
       "finish": {
@@ -108,7 +117,16 @@
           "priority": "Relative priority",
           "allow_dry": "Model drying opportunities",
           "night_allowed": "Allow this zone during sleep",
-          "enabled": "Include this zone in proposals"
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)"
         }
       },
       "policy": {
@@ -201,10 +219,13 @@
       "sources": {
         "title": "Optional observations",
         "data": {
-          "power_entity": "Measured active power (W/kW, optional)",
+          "power_entity": "Total supply/import active power (W/kW), not HVAC power",
           "outdoor_entity": "Outdoor temperature sensor (optional)",
           "presence_entity": "Occupancy (optional)",
-          "control_entity": "Global automatic permission (on = enabled, optional)"
+          "control_entity": "Global automatic permission (on = enabled, optional)",
+          "critical_entity": "External critical cutoff (on = cut all assigned actuators)",
+          "control_states": "States granting global permission",
+          "presence_states": "States meaning occupied"
         }
       },
       "fixed_select": {
@@ -262,7 +283,16 @@
           "priority": "Relative priority",
           "allow_dry": "Model drying opportunities",
           "night_allowed": "Allow this zone during sleep",
-          "enabled": "Include this zone in proposals"
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)"
         }
       },
       "zone_edit": {
@@ -280,7 +310,16 @@
           "priority": "Relative priority",
           "allow_dry": "Model drying opportunities",
           "night_allowed": "Allow this zone during sleep",
-          "enabled": "Include this zone in proposals"
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)"
         }
       },
       "plant_edit": {
@@ -305,6 +344,36 @@
           "reversal_gap_min": "Minimum between reversals (minutes)"
         }
       },
+      "execution": {
+        "title": "Execution and supply protection",
+        "data": {
+          "execution_mode": "Operating mode",
+          "exclusive_control": "Other automatic controllers are stopped for these actuators",
+          "critical_w": "Critical supply power (W)",
+          "critical_s": "Critical persistence (seconds)",
+          "release_w": "Release below (W)",
+          "release_s": "Release persistence (seconds)"
+        },
+        "description": "Only enable after verifying exclusive control and global permission. Critical cuts include Manual but only the assigned climate entities. No contactors or unrelated loads are controlled."
+      },
+      "energy": {
+        "title": "Energy meter assignments",
+        "data": {
+          "meter": "Meter (＋ adds a new one)"
+        }
+      },
+      "meter_edit": {
+        "title": "Meter and measured scope",
+        "data": {
+          "name": "Name",
+          "scope_target": "What this meter actually measures",
+          "power_entity": "Measured active power for this scope (W/kW)",
+          "energy_entity": "Cumulative energy sensor (Wh/kWh/MWh)",
+          "fresh_s": "Maximum report age (seconds)",
+          "energy_fresh_s": "Maximum energy-counter report age (seconds)",
+          "remove": "Remove this assignment (never the original sensor/history)"
+        }
+      },
       "init": {
         "title": "Settings",
         "menu_options": {
@@ -318,7 +387,9 @@
           "add_plant": "Add plant",
           "sources": "Optional observations",
           "tariff": "Tariff source",
-          "tariff_type": "Replace tariff type"
+          "tariff_type": "Replace tariff type",
+          "energy": "Energy meter assignments",
+          "execution": "Execution and supply protection"
         }
       }
     },
@@ -329,6 +400,15 @@
   },
   "entity": {
     "sensor": {
+      "meter_power": {
+        "name": "Measured power"
+      },
+      "meter_energy": {
+        "name": "Measured energy"
+      },
+      "meter_cost_rate": {
+        "name": "Current energy cost rate"
+      },
       "planned_stage": {
         "name": "Proposed strategy",
         "state": {
@@ -375,10 +455,24 @@
       },
       "service_blocked": {
         "name": "Persistent humidity service blocked"
+      },
+      "execution_problem": {
+        "name": "Execution or metering needs attention"
+      }
+    },
+    "switch": {
+      "automatic_control": {
+        "name": "Automatic authority"
       }
     }
   },
   "selector": {
+    "execution_modes": {
+      "options": {
+        "shadow": "Observe only",
+        "control": "Control assigned devices"
+      }
+    },
     "weekdays": {
       "options": {
         "0": "Monday",

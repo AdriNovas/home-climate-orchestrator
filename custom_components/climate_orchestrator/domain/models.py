@@ -268,6 +268,15 @@ class Zone:
     night_allowed: bool = True
     enabled: bool = True
     heat_targets: dict[str, float] = field(default_factory=dict)
+    authority_states: tuple[str, ...] = ("on",)
+    heat_goal_entity: str | None = None
+    cool_goal_entity: str | None = None
+    bias_entity: str | None = None
+    internal_entity: str | None = None
+    permission_entity: str | None = None
+    heat_permission_entity: str | None = None
+    cool_permission_entity: str | None = None
+    dry_permission_entity: str | None = None
 
     def __post_init__(self) -> None:
         if not all([self.id, self.name, self.plant, self.temperature_entity]):
@@ -278,6 +287,12 @@ class Zone:
         )
         for value in self.heat_targets.values():
             bounded(value, "zone heat target", 5, 30)
+        if not self.authority_states or any(
+            not isinstance(x, str) or not x or x in ["unknown", "unavailable"]
+            for x in self.authority_states
+        ):
+            raise ValueError("Explicit available automatic-authority states required")
+        object.__setattr__(self, "authority_states", tuple(self.authority_states))
 
 
 @dataclass(frozen=True)
@@ -363,6 +378,14 @@ class Observation:
     maximum: float = 30
     step: float = 0.5
     automatic: bool = True
+    heat_goal: Reading = field(default_factory=lambda: Reading(None))
+    cool_goal: Reading = field(default_factory=lambda: Reading(None))
+    bias: Reading = field(default_factory=lambda: Reading(None))
+    heat_allowed: bool = True
+    cool_allowed: bool = True
+    dry_allowed: bool = True
+    goals_valid: bool = True
+    permitted: bool = True
 
     def __post_init__(self) -> None:
         for name in ["minimum", "maximum", "step", "mode_since"]:

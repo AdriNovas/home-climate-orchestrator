@@ -25,7 +25,7 @@ pendiente; no se hacen pruebas físicas para rellenar una cuota.
   causal. Separar consumos medidos, estimaciones y simulaciones de decisiones.
 - No instalar un segundo controlador sobre el mismo exterior para probarlo.
 
-## Contrato del futuro ejecutor
+## Contrato del ejecutor opcional
 
 Antes de habilitar actuación: intención identificada/persistida antes de enviar;
 lectura fresca y autoridad por generación; reserva de instalación y presupuesto;
@@ -49,12 +49,19 @@ normalizado es una propuesta de API futura, no una entidad de esta alfa.
 
 Una casa debe seguir siendo manejable manualmente aunque el planificador falle.
 
-## Estado de preparación de la candidata térmica
+## Estado de la candidata 0.2
 
-La candidata añade permiso global que falla cerrado y propuestas opt-in de
-mantenimiento modulado y corte económico con estabilidad. **No añade ejecutor.**
-Autorizar el traspaso no crea ese componente: siguen pendientes persistencia de
-intenciones, ACK/reconciliación, autoridad por generación y corte independiente,
-además de validar el calendario y las protecciones del perfil de destino.
-No deshabilitar al controlador existente ni conectar las salidas de la alfa
-directamente a climate.set_temperature/set_hvac_mode para suplir esa ausencia.
+Incluye protocolo de ejecución, estado persistente separado, confirmación,
+generaciones, corte independiente y medición con ámbito explícito. Se prueba
+con dispositivos simulados y no se activa en instalaciones existentes.
+
+Antes de traspasar una vivienda hay que certificar **su perfil completo**:
+calendario, presencia/excepciones, objetivos, compensación, Manual y sus plazos,
+protecciones y todos los emisores. Los selectores asignados no sustituyen esa
+comparación. Un detector Manual externo basado en procedencia puede requerir un
+backend adaptador; no se deben puentear sus guardas con llamadas directas.
+No apagar el controlador útil hasta validar esa adaptación, instalación,
+reversión y observación natural. La autorización existente no se pide de nuevo:
+la falta de esas comprobaciones es una puerta técnica, no falta de permiso.
+
+Detalles: [ejecución y energía](EXECUTION_ENERGY.md).

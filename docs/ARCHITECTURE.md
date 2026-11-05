@@ -2,7 +2,7 @@
 
 ```mermaid
 flowchart LR
-  S[Sensores, capacidades y autoridad] --> A[Adaptador HA: solo lectura]
+  S[Sensores, capacidades y autoridad] --> A[Adaptador de observaciones HA]
   T[PVPC / tramos / intervalos] --> N[Normalización UTC]
   A --> C[Núcleo determinista]
   N --> C
@@ -10,7 +10,10 @@ flowchart LR
   M[Memoria observada persistente] --> C
   C --> D[Propuestas y motivos]
   D --> E[Entidades diagnósticas]
-  D -. futura versión .-> X[Ejecutor exclusivo con certificados]
+  D --> X[Ejecutor opcional con journal y certificados]
+  X --> H[Servicios climate y estado confirmado]
+  S --> G[Protección independiente off-only]
+  G --> H
 ```
 
 ## Separación
@@ -21,7 +24,8 @@ flowchart LR
 - `domain/engine.py`: demanda local, mantenimiento, secado, presupuesto y arbitraje
   por instalación. Función reproducible con hora, instantánea y memoria dadas.
 - `coordinator.py`: lee HA, convierte unidades, restaura memoria versionada y
-  actualiza a60s o cambio relevante. No llama servicios de actuadores.
+  actualiza a60s o cambio relevante. Un worker coalescido entrega al ejecutor
+  separado; los cortes no esperan a ese worker.
 - `config_flow.py`: formularios nativos; opciones recargan la entrada. Ediciones
   inválidas no contaminan el siguiente intento. Se impide realimentar propuestas.
 - `sensor.py`, `binary_sensor.py`, `entity.py`: salidas diagnósticas traducidas,
@@ -47,13 +51,15 @@ observable con motivo, no el estado engañoso de «todo bien».
 `Store` esquema1 guarda deuda/timers/presupuesto por UUID y dirección observada de
 instalación. No escribe un objetivo propuesto como si se hubiese ejecutado.
 Datos incompatibles se descartan por objeto; recarga elimina listeners y guarda
-memoria. La alfa no reserva sesiones ni actualiza `last_sent`: esas operaciones
-pertenecerán al futuro ejecutor, tras aceptación real.
+memoria. En observación no se reservan sesiones ni se actualiza `last_sent`.
+En control se persisten presupuesto/plazo de sesión e intención antes de emitir;
+el journal de ejecución tiene su propio almacén. Al reiniciar no se repiten
+arranques inciertos y se conserva Manual. La propiedad dry incluye límite
+absoluto y tiene salida independiente, sin adoptar una sesión humana.
 
-La persistencia de presupuesto aquí es una base, **no** una certificación de
-exactly-once ni una protección autónoma ante caída de HA. Un futuro ejecutor
-requerirá registro transaccional previo al envío, ACK, reconciliación y autoridad
-por generación. No debe reutilizar sin más la memoria del observador.
+La persistencia no es garantía exactly-once ni protección autónoma con HA caído.
+Las órdenes ya transmitidas se reconcilian, no se describen como canceladas.
+Protocolo, ámbitos y límites: [EXECUTION_ENERGY.md](EXECUTION_ENERGY.md).
 
 ## Capacidades, no marcas
 

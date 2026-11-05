@@ -24,7 +24,7 @@ class ClimateDiagnostic(CoordinatorEntity):
             },
             name=zone.name if zone else coordinator.house.name,
             manufacturer="Home Climate Orchestrator",
-            model="Observation-only climate planner",
+            model="Tariff-aware climate orchestrator",
         )
 
     async def async_added_to_hass(self):

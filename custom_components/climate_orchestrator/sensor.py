@@ -8,6 +8,9 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import UnitOfTemperature, PERCENTAGE
 from .entity import ClimateDiagnostic
+from .const import DOMAIN
+from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.util import dt
 
 KEYS = [
     "planned_stage",
@@ -22,6 +25,15 @@ KEYS = [
 async def async_setup_entry(hass, entry, async_add_entities):
     c = entry.runtime_data
     async_add_entities([PlanSensor(c, z, k) for z in c.house.zones for k in KEYS])
+    async_add_entities(
+        [
+            MeterSensor(c, m, key)
+            for m in c.meters
+            for key in ["power", "energy", "cost_rate"]
+            if key != "energy" or m.energy_entity
+            if key not in ["power", "cost_rate"] or m.power_entity
+        ]
+    )
 
 
 class PlanSensor(ClimateDiagnostic, SensorEntity):
@@ -71,9 +83,86 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
         o = self.coordinator.data["observations"].get(self.zone.id)
         return {
             **(asdict(d) if d else {}),
-            "physical_control": False,
+            "physical_control": self.coordinator.executor.enabled,
             "observed_mode": o.mode if o else "unknown",
             "external_temperature": o.temperature.value if o else None,
             "relative_humidity": o.humidity.value if o else None,
-            "interpretation": "Proposal, not a command or measured compressor operation",
+            "interpretation": "Decision; execution requires its own confirmed journal. HVAC mode is not measured compressor activity.",
+        }
+
+
+class MeterSensor(ClimateDiagnostic, SensorEntity):
+    def __init__(self, c, meter, key):
+        zone = next(
+            (
+                z
+                for z in c.house.zones
+                if meter.scope == "zone" and z.id == meter.target
+            ),
+            None,
+        )
+        super().__init__(c, zone, "meter_" + key)
+        self.meter = meter
+        self._attr_unique_id = f"{c.entry.entry_id}_meter_{meter.id}_{key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, f"{c.entry.entry_id}:meter:{meter.id}")},
+            name=meter.name,
+            manufacturer="Home Climate Orchestrator",
+            model="Explicitly scoped energy meter",
+        )
+        self._attr_native_unit_of_measurement = {
+            "power": "W",
+            "energy": "kWh",
+            "cost_rate": "EUR/h",
+        }[key]
+        if key in ["power", "energy"]:
+            self._attr_device_class = (
+                SensorDeviceClass.POWER if key == "power" else SensorDeviceClass.ENERGY
+            )
+        if key == "energy":
+            source = c.hass.states.get(meter.energy_entity)
+            state_class = source.attributes.get("state_class") if source else None
+            self._attr_state_class = (
+                state_class if state_class in ["total", "total_increasing"] else None
+            )
+        else:
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+        self.metric = key
+
+    @property
+    def state_class(self):
+        if self.metric != "energy":
+            return SensorStateClass.MEASUREMENT
+        source = self.hass.states.get(self.meter.energy_entity)
+        value = source.attributes.get("state_class") if source else None
+        return value if value in ["total", "total_increasing"] else None
+
+    @property
+    def last_reset(self):
+        if self.metric != "energy" or self.state_class != "total":
+            return None
+        source = self.hass.states.get(self.meter.energy_entity)
+        value = source.attributes.get("last_reset") if source else None
+        return dt.parse_datetime(value) if isinstance(value, str) else value
+
+    @property
+    def native_value(self):
+        return (
+            self.coordinator.data.get("metering", {})
+            .get(self.meter.id, {})
+            .get(self.metric)
+        )
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "scope": self.meter.scope,
+            "scope_id": self.meter.target or None,
+            "source_entity": self.meter.energy_entity
+            if self.metric == "energy"
+            else self.meter.power_entity,
+            "accounting": "Measured at this scope; never apportioned or summed with nested meters",
+            "cost_basis": "Current power × current energy price; not a bill or historical total"
+            if self.metric == "cost_rate"
+            else None,
         }

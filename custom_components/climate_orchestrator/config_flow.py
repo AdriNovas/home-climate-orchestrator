@@ -12,6 +12,8 @@ from .const import DOMAIN
 from .domain.models import Policy, house_from_dict
 from .domain.tariffs import FixedPeriod, validate_fixed
 from .validation import validate_sources
+from .domain.energy import Meter
+from .domain.safety import SupplyProtection
 
 
 def number(low, high, step=1):
@@ -27,6 +29,14 @@ def number(low, high, step=1):
 
 def entity(domain):
     return selector.EntitySelector(selector.EntitySelectorConfig(domain=domain))
+
+
+def states_selector():
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=["on", "home", "auto", "AI"], multiple=True, custom_value=True
+        )
+    )
 
 
 def zone_schema(plants, defaults=None):
@@ -51,7 +61,44 @@ def zone_schema(plants, defaults=None):
         ): entity("climate"),
         vol.Optional(
             "authority_entity", default=d.get("authority_entity", vol.UNDEFINED)
-        ): entity("input_boolean"),
+        ): entity(
+            [
+                "input_boolean",
+                "binary_sensor",
+                "switch",
+                "input_select",
+                "select",
+                "schedule",
+            ]
+        ),
+        vol.Required(
+            "authority_states", default=list(d.get("authority_states", ["on"]))
+        ): states_selector(),
+        **{
+            vol.Optional(n, default=d.get(n, vol.UNDEFINED)): entity(domains)
+            for n, domains in [
+                ("heat_goal_entity", ["sensor", "input_number", "number"]),
+                ("cool_goal_entity", ["sensor", "input_number", "number"]),
+                ("bias_entity", ["sensor", "input_number", "number"]),
+                ("internal_entity", "sensor"),
+                (
+                    "permission_entity",
+                    ["binary_sensor", "input_boolean", "switch", "schedule"],
+                ),
+                (
+                    "heat_permission_entity",
+                    ["binary_sensor", "input_boolean", "schedule"],
+                ),
+                (
+                    "cool_permission_entity",
+                    ["binary_sensor", "input_boolean", "schedule"],
+                ),
+                (
+                    "dry_permission_entity",
+                    ["binary_sensor", "input_boolean", "schedule"],
+                ),
+            ]
+        },
         vol.Optional(
             "area", default=d.get("area", vol.UNDEFINED)
         ): selector.AreaSelector(),
@@ -268,6 +315,8 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "sources",
                 "tariff",
                 "tariff_type",
+                "energy",
+                "execution",
             ],
         )
 
@@ -557,6 +606,14 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "authority_entity",
                 "area",
                 "labels",
+                "heat_goal_entity",
+                "cool_goal_entity",
+                "bias_entity",
+                "internal_entity",
+                "permission_entity",
+                "heat_permission_entity",
+                "cool_permission_entity",
+                "dry_permission_entity",
             }
             zones[index] = {
                 **{k: v for k, v in zones[index].items() if k not in optional},
@@ -622,6 +679,7 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "outdoor_entity",
                 "presence_entity",
                 "control_entity",
+                "critical_entity",
             ]:
                 self.profile.pop(name, None)
             self.profile.update(user_input)
@@ -639,9 +697,165 @@ class ClimateOptions(config_entries.OptionsFlow):
                     for n, d in [
                         ("power_entity", "sensor"),
                         ("outdoor_entity", "sensor"),
-                        ("presence_entity", "binary_sensor"),
-                        ("control_entity", "input_boolean"),
+                        (
+                            "presence_entity",
+                            [
+                                "binary_sensor",
+                                "input_boolean",
+                                "person",
+                                "group",
+                                "schedule",
+                            ],
+                        ),
+                        (
+                            "control_entity",
+                            [
+                                "input_boolean",
+                                "binary_sensor",
+                                "switch",
+                                "input_select",
+                                "select",
+                                "schedule",
+                            ],
+                        ),
+                        ("critical_entity", ["binary_sensor", "input_boolean"]),
                     ]
+                }
+                | {
+                    vol.Required(
+                        n, default=list(self.profile.get(n, ["on"]))
+                    ): states_selector()
+                    for n in ["control_states", "presence_states"]
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_execution(self, user_input=None):
+        errors = {}
+        policy = SupplyProtection(**self.profile.get("supply_protection", {}))
+        if user_input:
+            self.profile.update(
+                execution_mode=user_input["execution_mode"],
+                exclusive_control=user_input["exclusive_control"],
+            )
+            self.profile["supply_protection"] = {
+                key: user_input[key]
+                for key in ["critical_w", "critical_s", "release_w", "release_s"]
+            }
+            try:
+                return self.save()
+            except (ValueError, TypeError):
+                errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="execution",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "execution_mode",
+                        default=self.profile.get("execution_mode", "shadow"),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=["shadow", "control"],
+                            translation_key="execution_modes",
+                        )
+                    ),
+                    vol.Required(
+                        "exclusive_control",
+                        default=self.profile.get("exclusive_control", False),
+                    ): bool,
+                    **{
+                        vol.Required(k, default=getattr(policy, k)): number(
+                            100 if k.endswith("_w") else 1,
+                            100000 if k.endswith("_w") else 3600,
+                        )
+                        for k in ["critical_w", "critical_s", "release_w", "release_s"]
+                    },
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_energy(self, user_input=None):
+        if user_input:
+            self.selection = user_input["meter"]
+            return await self.async_step_meter_edit()
+        return self.async_show_form(
+            step_id="energy",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("meter"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[{"value": "new", "label": "＋"}]
+                            + [
+                                {"value": m["id"], "label": m["name"]}
+                                for m in self.profile.get("meters", [])
+                            ]
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_meter_edit(self, user_input=None):
+        errors = {}
+        meters = self.profile.get("meters", [])
+        old = next((m for m in meters if m["id"] == self.selection), {})
+        if user_input:
+            try:
+                rows = [m for m in meters if m["id"] != self.selection]
+                if not user_input.get("remove"):
+                    scope, _, target = user_input["scope_target"].partition(":")
+                    row = asdict(
+                        Meter(
+                            id=old.get("id", uuid4().hex),
+                            name=user_input["name"],
+                            scope=scope,
+                            target=target,
+                            power_entity=user_input.get("power_entity"),
+                            energy_entity=user_input.get("energy_entity"),
+                            fresh_s=user_input["fresh_s"],
+                            energy_fresh_s=user_input.get(
+                                "energy_fresh_s", old.get("energy_fresh_s", 86400)
+                            ),
+                        )
+                    )
+                    rows.append(row)
+                self.profile["meters"] = rows
+                return self.save()
+            except (ValueError, TypeError, KeyError):
+                errors["base"] = "invalid_configuration"
+        options = [{"value": "house", "label": self.profile["house"]["name"]}] + [
+            {"value": kind + ":" + x["id"], "label": x["name"]}
+            for kind, key in [("plant", "plants"), ("zone", "zones")]
+            for x in self.profile["house"][key]
+        ]
+        return self.async_show_form(
+            step_id="meter_edit",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("name", default=old.get("name", "")): str,
+                    vol.Required(
+                        "scope_target",
+                        default=old.get("scope", "house")
+                        + (":" + old["target"] if old.get("target") else ""),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(options=options)
+                    ),
+                    vol.Optional(
+                        "power_entity", default=old.get("power_entity") or vol.UNDEFINED
+                    ): entity("sensor"),
+                    vol.Optional(
+                        "energy_entity",
+                        default=old.get("energy_entity") or vol.UNDEFINED,
+                    ): entity("sensor"),
+                    vol.Required("fresh_s", default=old.get("fresh_s", 120)): number(
+                        10, 86400
+                    ),
+                    vol.Required(
+                        "energy_fresh_s", default=old.get("energy_fresh_s", 86400)
+                    ): number(10, 604800),
+                    vol.Required("remove", default=False): bool,
                 }
             ),
             errors=errors,

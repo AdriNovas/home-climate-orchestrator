@@ -16,19 +16,20 @@ importador JSON en la interfaz de la alfa**.
 Los UUID se crean una vez y se conservan al editar nombres o sensores. No se puede
 asignar el mismo actuador a dos estancias dentro de una entrada. No hay borrado
 de estancias en la alfa: deshabilitar conserva identidad e histórico. Para varias
-entradas, evitar duplicar una misma casa; el futuro ejecutor necesitará bloqueo
+entradas, evitar duplicar una misma casa; el ejecutor0.2 aplica bloqueo
 global de actuador antes de permitir control.
 
-`authority_entity` es un `input_boolean`: **on = automático autorizado**;
-off/desconocido = Manual. Sin selector se presupone autorizado para proponer.
-Esto solo controla propuestas en la alfa, no cambia el control existente.
-`control_entity`, opcional, es el permiso global `input_boolean`: on habilita
-propuestas; off, unknown, unavailable o entidad ausente las pausa. Es independiente
-de la autoridad por estancia. Sin configurarlo no se presume que exista una pausa
-externa. No presentar una pausa de propuestas como apagado físico.
-`presence_entity`, opcional, es un `binary_sensor` ya normalizado: on = ocupado;
-off/desconocido impide nuevas propuestas de servicio. No se infiere presencia de
-un teléfono ni se modifica su asociación.
+`authority_entity` puede ser un ayudante, selector o señal nativa; los valores
+que conceden automático se eligen con `authority_states` (por defecto `on`).
+Desconocido/indisponible nunca concede permiso. Sin selector externo, la
+candidata de control usa además su interruptor nativo de autoridad por estancia.
+`control_entity` es el permiso global con estados permitidos configurables;
+si está asignado y falta/falla, pausa. En `control` es obligatorio. En `shadow`
+pausar propuestas no equivale a un apagado físico.
+`presence_entity` es una señal nativa con `presence_states` explícitos, también
+puede ser `person`/grupo/schedule. No se reasignan trackers ni se infiere una
+ubicación fiable por el nombre de una entidad. Véanse las fuentes opcionales,
+objetivos externos y medidores en [EXECUTION_ENERGY.md](EXECUTION_ENERGY.md).
 
 Áreas y etiquetas se seleccionan del registro nativo. No se crean áreas falsas.
 Las etiquetas se añaden sin borrar las personales. Los cambios posteriores de
@@ -90,7 +91,7 @@ demanda permanente. Nunca eliminar la deuda/urgencia al cambiar de banda.
 | `start_delta` / `hold_delta` / `overshoot_delta` | 0,5 / 0,2 / 0,5 °C | Arranque, mantenimiento, protección por exceso. |
 | `proportional_gain` / `boost_limit` | 0,7 / 1 °C | Esfuerzo transitorio proporcional y limitado. |
 | `correction_limit` / `bias` | 6 °C / 0 por estancia | Tope combinado y corrección estable del sensor interno. |
-| `command_interval` | 300 s | Cadencia mínima entre futuras órdenes; el observador no emite ninguna. |
+| `command_interval` | 300 s | Cadencia mínima entre órdenes; en observación no se emite ninguna. |
 | Instalación: mínimo off/on | 1200 / 1200 s | Evitar ciclos cortos, salvo protección por exceso. |
 | Permanencia / separación inversión | 3600 / 7200 s | Restricciones de sentido compartido. |
 
@@ -158,7 +159,7 @@ El suelo de secado no aumenta al subir el objetivo térmico por precio.
 Se compara el coste medio ponderado del **bloque completo de duración máxima**,
 no solo su primer minuto. Si otro bloque cercano mejora el precio suficientemente,
 se espera; urgencia/deuda evita aplazar indefinidamente, pero no salta seguridad.
-Una sesión futura aceptada conservará máximo absoluto, suelo y presupuesto aun
+Una sesión propia aceptada conserva máximo absoluto, suelo y presupuesto aun
 con precio/sensor/pausa cambiantes. Manual cancela la propiedad del planificador,
 no borra intentos consumidos. La alfa no adopta sesiones `dry` ajenas.
 
@@ -177,3 +178,9 @@ certificada ni un reparto de W medidos por split. No se inventa consumo por zona
 Los parámetros avanzados se editan en **Política**; todos tienen validación de
 rango y las relaciones principales se verifican juntas. Restablecer selectores
 opcionales elimina el vínculo; no conserva silenciosamente el sensor anterior.
+
+## Asignaciones energéticas y actuación opcional
+
+La candidata0.2 añade los menús Medidores energéticos y Ejecución, y fuentes
+externas por estancia. Contrato completo y límites en
+[EXECUTION_ENERGY.md](EXECUTION_ENERGY.md).
