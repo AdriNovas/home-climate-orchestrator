@@ -107,3 +107,9 @@ indica observación/control **configurado**, no que el compresor esté activo.
 Leer esta superficie no concede permiso para controlar ni sustituye los
 interbloqueos del consumidor. Nunca leer `.storage` desde plantillas para
 obtener ajustes de una integración.
+
+Publica también, por ID estable de zona, su actuador, sondas y habilitación.
+Un consumidor debe verificar esas identidades y su propio permiso antes de
+usar metas; no deducir correspondencias por el nombre ni convertir una fuente
+no disponible en autorización. No publica helpers de autoridad, credenciales
+ni contenido del journal; los diagnósticos descargables siguen redactados.

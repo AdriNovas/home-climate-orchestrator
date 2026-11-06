@@ -360,6 +360,15 @@ class ConfigurationSensor(ClimateDiagnostic, SensorEntity):
                 }
                 for plant in c.house.plants
             ],
+            "zones": {
+                zone.id: {
+                    "actuator_entity": zone.actuator_entity,
+                    "temperature_entity": zone.temperature_entity,
+                    "humidity_entity": zone.humidity_entity,
+                    "enabled": zone.enabled,
+                }
+                for zone in c.house.zones
+            },
             "physical_control": c.executor.enabled,
             "interpretation": "Validated read-only configuration for dashboards and explicit consumers; never grants actuator authority or exposes credentials.",
         }

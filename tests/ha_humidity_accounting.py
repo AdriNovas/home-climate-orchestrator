@@ -278,6 +278,13 @@ async def main():
             assert config.state == "shadow" and config.attributes["schema_version"] == 1
             assert config.attributes["policy"]["dry_min_s"] == 1200
             assert "control_entity" not in config.attributes
+            published = config.attributes["zones"][zone["id"]]
+            assert published == {
+                "actuator_entity": "humidifier.demo",
+                "temperature_entity": "sensor.bath_temperature",
+                "humidity_entity": "sensor.bath_humidity",
+                "enabled": False,
+            }
             checks.append(
                 "read-only validated policy surface supports explicit external consumers without granting authority or exposing credentials"
             )
