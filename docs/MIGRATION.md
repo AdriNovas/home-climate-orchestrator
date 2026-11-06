@@ -25,7 +25,7 @@ pendiente; no se hacen pruebas físicas para rellenar una cuota.
   causal. Separar consumos medidos, estimaciones y simulaciones de decisiones.
 - No instalar un segundo controlador sobre el mismo exterior para probarlo.
 
-## Contrato del futuro ejecutor
+## Contrato del ejecutor opcional
 
 Antes de habilitar actuación: intención identificada/persistida antes de enviar;
 lectura fresca y autoridad por generación; reserva de instalación y presupuesto;
@@ -48,3 +48,23 @@ normalizado es una propuesta de API futura, no una entidad de esta alfa.
    una observación natural. No llamar «rollback probado» a tener un backup.
 
 Una casa debe seguir siendo manejable manualmente aunque el planificador falle.
+
+## Estado de la candidata 0.2
+
+Incluye protocolo de ejecución, estado persistente separado, confirmación,
+generaciones, corte independiente y medición con ámbito explícito. Se prueba
+con dispositivos simulados y no se activa en instalaciones existentes.
+
+Antes de traspasar una vivienda hay que certificar **su perfil completo**:
+calendario, presencia/excepciones, objetivos, compensación, Manual y sus plazos,
+protecciones y todos los emisores. Los selectores asignados no sustituyen esa
+comparación. Un detector Manual externo basado en procedencia puede requerir un
+backend adaptador; no se deben puentear sus guardas con llamadas directas.
+No apagar el controlador útil hasta validar esa adaptación, instalación,
+reversión y observación natural. La autorización existente no se pide de nuevo:
+la falta de esas comprobaciones es una puerta técnica, no falta de permiso.
+
+Detalles: [ejecución y energía](EXECUTION_ENERGY.md).
+Interoperabilidad opcional: [journal y detectores externos](EXTERNAL_MANUAL.md).
+Publicar el journal antes de emitir y reconocerlo no equivale a certificar las
+excepciones Manual o las fases de una instalación: comparar esos contratos aparte.

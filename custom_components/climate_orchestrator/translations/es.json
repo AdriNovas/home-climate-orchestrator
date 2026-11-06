@@ -9,7 +9,7 @@
           "timezone": "Zona horaria",
           "tariff_type": "Tipo de tarifa"
         },
-        "description": "Alfa de observación: instalarla nunca controla los equipos."
+        "description": "Comienza en observación. Configura fuentes, medidores de energía y ejecución opcional en Ajustes."
       },
       "tariff": {
         "title": "Fuente de tarifa",
@@ -31,15 +31,17 @@
         "description": "Inicio y fin iguales significan 24 horas en los días elegidos. Las excepciones de fecha sustituyen las horas regulares coincidentes."
       },
       "plant": {
-        "title": "Planta climática",
+        "title": "Unidad exterior",
         "data": {
           "name": "Nombre",
           "shared_mode": "Exterior compartido: un único sentido térmico",
           "minimum_off_min": "Reposo mínimo (minutos)",
           "minimum_on_min": "Marcha mínima (minutos)",
           "direction_hold_min": "Permanencia del sentido (minutos)",
-          "reversal_gap_min": "Separación entre inversiones (minutos)"
-        }
+          "reversal_gap_min": "Separación entre inversiones (minutos)",
+          "coil_drain_min": "Reposo/drenaje antes de volver a calor (min)"
+        },
+        "description": "Agrupa aquí solo equipos que comparten realmente unidad exterior. Para equipos independientes crea otra instalación. Los tiempos mínimos se pueden ajustar después."
       },
       "zone": {
         "title": "Estancia",
@@ -56,21 +58,69 @@
           "priority": "Prioridad relativa",
           "allow_dry": "Modelar oportunidades de secado",
           "night_allowed": "Permitir esta estancia durante sueño",
-          "enabled": "Incluir esta estancia en las propuestas"
+          "enabled": "Incluir esta estancia en las propuestas",
+          "authority_states": "Estados que conceden autoridad automática",
+          "heat_goal_entity": "Objetivo externo de calor (opcional)",
+          "cool_goal_entity": "Objetivo externo de frío (opcional)",
+          "bias_entity": "Desfase externo (interna menos referencia, °C)",
+          "internal_entity": "Sonda interna separada (opcional)",
+          "permission_entity": "Permiso de estancia (on = permitido)",
+          "heat_permission_entity": "Permiso de calor (opcional)",
+          "cool_permission_entity": "Permiso de frío (opcional)",
+          "dry_permission_entity": "Permiso de secado (opcional)",
+          "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
+          "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
+          "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
         }
       },
       "finish": {
         "title": "Continuar",
         "menu_options": {
-          "zone": "Añadir estancia",
-          "plant": "Añadir planta",
-          "create": "Crear entrada de observación"
+          "split": "Añadir otro split",
+          "plant": "Añadir unidad exterior",
+          "create": "Finalizar en observación",
+          "dehumidifier": "Añadir deshumidificador"
+        }
+      },
+      "split": {
+        "title": "Vincular split",
+        "description": "Vincula un equipo y una sonda ambiental ya integrados en Home Assistant. La humedad es opcional. Si dejas el nombre vacío, se usa el del equipo. Empieza en observación, sin órdenes al AC.",
+        "data": {
+          "name": "Nombre (opcional)",
+          "climate_entity": "Entidad del equipo climático",
+          "temperature_entity": "Sonda de temperatura de referencia",
+          "humidity_entity": "Sonda de humedad",
+          "plant": "Planta",
+          "area": "Área real",
+          "labels": "Etiquetas funcionales existentes"
+        }
+      },
+      "dehumidifier": {
+        "title": "Añadir deshumidificador independiente",
+        "description": "Vincula un aparato que extrae agua, con sus sondas ambientales. Tiene un compresor independiente de los splits y comienza pausado salvo que lo habilites.",
+        "data": {
+          "name": "Nombre (opcional)",
+          "temperature_entity": "Sonda de temperatura de referencia",
+          "humidity_entity": "Sonda de humedad",
+          "area": "Área real",
+          "labels": "Etiquetas funcionales existentes",
+          "humidifier_entity": "Deshumidificador existente",
+          "enabled": "Habilitar planificación"
         }
       }
     },
     "error": {
       "invalid_configuration": "Ajustes inválidos u objetivos incompatibles",
-      "invalid_tariff": "Periodos solapados o tarifa con huecos"
+      "invalid_tariff": "Periodos solapados o tarifa con huecos",
+      "invalid_source": "Elige una entidad del tipo requerido",
+      "entity_not_found": "La entidad no existe en Home Assistant",
+      "invalid_unit": "Unidad incompatible con esta medida",
+      "already_configured": "Este split ya está vinculado a otra estancia",
+      "name_required": "Indica un nombre para la estancia",
+      "not_dehumidifier": "El aparato debe extraer agua; no puede ser un humidificador."
     }
   },
   "options": {
@@ -90,7 +140,8 @@
           "minimum_off_min": "Reposo mínimo (minutos)",
           "minimum_on_min": "Marcha mínima (minutos)",
           "direction_hold_min": "Permanencia del sentido (minutos)",
-          "reversal_gap_min": "Separación entre inversiones (minutos)"
+          "reversal_gap_min": "Separación entre inversiones (minutos)",
+          "coil_drain_min": "Reposo/drenaje antes de volver a calor (min)"
         }
       },
       "zone": {
@@ -108,12 +159,47 @@
           "priority": "Prioridad relativa",
           "allow_dry": "Modelar oportunidades de secado",
           "night_allowed": "Permitir esta estancia durante sueño",
-          "enabled": "Incluir esta estancia en las propuestas"
+          "enabled": "Incluir esta estancia en las propuestas",
+          "authority_states": "Estados que conceden autoridad automática",
+          "heat_goal_entity": "Objetivo externo de calor (opcional)",
+          "cool_goal_entity": "Objetivo externo de frío (opcional)",
+          "bias_entity": "Desfase externo (interna menos referencia, °C)",
+          "internal_entity": "Sonda interna separada (opcional)",
+          "permission_entity": "Permiso de estancia (on = permitido)",
+          "heat_permission_entity": "Permiso de calor (opcional)",
+          "cool_permission_entity": "Permiso de frío (opcional)",
+          "dry_permission_entity": "Permiso de secado (opcional)",
+          "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
+          "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
+          "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas",
+          "humidifier_entity": "Deshumidificador existente",
+          "dehumidifier_min_s": "Secado independiente · mínimo (s)",
+          "dehumidifier_max_s": "Secado independiente · máximo (s)",
+          "dehumidifier_cooldown_s": "Secado independiente · reposo entre sesiones (s)",
+          "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
+          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
         }
       },
       "policy": {
         "title": "Regulación avanzada",
         "data": {
+          "continuous_hold": "Mantener encendido regulando la consigna del equipo",
+          "shared_load_management": "Adaptar carga conjunta con un medidor real de planta",
+          "relaxation_limit": "Relajación suave máxima (°C)",
+          "shared_load_idle_w": "Referencia inicial de baja carga agregada (W)",
+          "shared_load_high_w": "Umbral inicial de carga agregada alta (W)",
+          "shared_load_observe_s": "Observar carga alta con confort antes de retirar una cabeza (s)",
+          "shared_load_retry_s": "Mínimo entre intentos de retirada de la misma cabeza (s)",
+          "modulated_hold_s": "Espera suave propuesta máxima (segundos; 0 desactiva)",
+          "extreme_price_enabled": "Modelar parada por precio extremo",
+          "extreme_price": "Entrada en precio extremo (€/kWh)",
+          "extreme_price_hysteresis": "Margen de salida de precio extremo (€/kWh)",
+          "thermal_stable_s": "Estabilidad observada necesaria (segundos)",
+          "thermal_stability_delta": "Rango térmico máximo estable (°C)",
+          "thermal_sample_gap_s": "Hueco máximo entre muestras estables (segundos)",
           "start_delta": "Desviación para arrancar (°C)",
           "hold_delta": "Tolerancia de mantenimiento (°C)",
           "overshoot_delta": "Protección por sobrepaso (°C)",
@@ -174,15 +260,16 @@
         }
       },
       "zone_targets": {
-        "title": "Objetivos de calor por estancia",
+        "title": "Tablas de temperatura por estancia",
         "data": {
-          "zone": "Estancia"
+          "zone": "Estancia",
+          "target_table": "Estación y fase que quieres editar"
         }
       },
       "zone_targets_edit": {
-        "title": "Objetivos diurnos de calor",
+        "title": "Objetivos de {name}",
         "data": {
-          "override": "Objetivos diurnos de calor propios para esta estancia",
+          "override": "Usar tabla propia de la estancia en vez de heredar objetivos",
           "negative": "Precio negativo",
           "very_low": "Precio muy bajo",
           "low": "Precio bajo",
@@ -194,9 +281,14 @@
       "sources": {
         "title": "Medidas opcionales",
         "data": {
-          "power_entity": "Potencia activa medida (W/kW, opcional)",
+          "power_entity": "Potencia activa total del suministro/importación (W/kW), no la del clima",
           "outdoor_entity": "Temperatura exterior (opcional)",
-          "presence_entity": "Ocupación (opcional)"
+          "presence_entity": "Ocupación (opcional)",
+          "control_entity": "Permiso automático global (on = habilitado, opcional)",
+          "critical_entity": "Corte crítico externo (on = apagar todos los equipos asignados)",
+          "external_cut_entity": "Barrera crítica persistente externa (JSON, opcional)",
+          "control_states": "Estados que conceden permiso global",
+          "presence_states": "Estados que indican ocupación"
         }
       },
       "fixed_select": {
@@ -254,7 +346,28 @@
           "priority": "Prioridad relativa",
           "allow_dry": "Modelar oportunidades de secado",
           "night_allowed": "Permitir esta estancia durante sueño",
-          "enabled": "Incluir esta estancia en las propuestas"
+          "enabled": "Incluir esta estancia en las propuestas",
+          "authority_states": "Estados que conceden autoridad automática",
+          "heat_goal_entity": "Objetivo externo de calor (opcional)",
+          "cool_goal_entity": "Objetivo externo de frío (opcional)",
+          "bias_entity": "Desfase externo (interna menos referencia, °C)",
+          "internal_entity": "Sonda interna separada (opcional)",
+          "permission_entity": "Permiso de estancia (on = permitido)",
+          "heat_permission_entity": "Permiso de calor (opcional)",
+          "cool_permission_entity": "Permiso de frío (opcional)",
+          "dry_permission_entity": "Permiso de secado (opcional)",
+          "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
+          "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
+          "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas",
+          "humidifier_entity": "Deshumidificador existente",
+          "dehumidifier_min_s": "Secado independiente · mínimo (s)",
+          "dehumidifier_max_s": "Secado independiente · máximo (s)",
+          "dehumidifier_cooldown_s": "Secado independiente · reposo entre sesiones (s)",
+          "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
+          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
         }
       },
       "zone_edit": {
@@ -272,7 +385,28 @@
           "priority": "Prioridad relativa",
           "allow_dry": "Modelar oportunidades de secado",
           "night_allowed": "Permitir esta estancia durante sueño",
-          "enabled": "Incluir esta estancia en las propuestas"
+          "enabled": "Incluir esta estancia en las propuestas",
+          "authority_states": "Estados que conceden autoridad automática",
+          "heat_goal_entity": "Objetivo externo de calor (opcional)",
+          "cool_goal_entity": "Objetivo externo de frío (opcional)",
+          "bias_entity": "Desfase externo (interna menos referencia, °C)",
+          "internal_entity": "Sonda interna separada (opcional)",
+          "permission_entity": "Permiso de estancia (on = permitido)",
+          "heat_permission_entity": "Permiso de calor (opcional)",
+          "cool_permission_entity": "Permiso de frío (opcional)",
+          "dry_permission_entity": "Permiso de secado (opcional)",
+          "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
+          "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
+          "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas",
+          "humidifier_entity": "Deshumidificador existente",
+          "dehumidifier_min_s": "Secado independiente · mínimo (s)",
+          "dehumidifier_max_s": "Secado independiente · máximo (s)",
+          "dehumidifier_cooldown_s": "Secado independiente · reposo entre sesiones (s)",
+          "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
+          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
         }
       },
       "plant_edit": {
@@ -283,7 +417,8 @@
           "minimum_off_min": "Reposo mínimo (minutos)",
           "minimum_on_min": "Marcha mínima (minutos)",
           "direction_hold_min": "Permanencia del sentido (minutos)",
-          "reversal_gap_min": "Separación entre inversiones (minutos)"
+          "reversal_gap_min": "Separación entre inversiones (minutos)",
+          "coil_drain_min": "Reposo/drenaje antes de volver a calor (min)"
         }
       },
       "add_plant": {
@@ -294,33 +429,222 @@
           "minimum_off_min": "Reposo mínimo (minutos)",
           "minimum_on_min": "Marcha mínima (minutos)",
           "direction_hold_min": "Permanencia del sentido (minutos)",
-          "reversal_gap_min": "Separación entre inversiones (minutos)"
+          "reversal_gap_min": "Separación entre inversiones (minutos)",
+          "coil_drain_min": "Reposo/drenaje antes de volver a calor (min)"
         }
+      },
+      "execution": {
+        "title": "Ejecución y protección eléctrica",
+        "data": {
+          "execution_mode": "Modo de funcionamiento",
+          "exclusive_control": "Los demás controladores automáticos de estos equipos están detenidos",
+          "critical_w": "Potencia crítica de suministro (W)",
+          "critical_s": "Permanencia crítica (segundos)",
+          "release_w": "Liberar por debajo de (W)",
+          "release_s": "Permanencia de recuperación (segundos)"
+        },
+        "description": "Activar solo tras verificar control exclusivo y permiso global. El corte crítico incluye Manual, solo en las entidades climate asignadas. No controla contactores ni otras cargas."
+      },
+      "energy": {
+        "title": "Asignación de medidores energéticos",
+        "data": {
+          "meter": "Medidor (＋ añade uno nuevo)"
+        }
+      },
+      "meter_edit": {
+        "title": "Medidor y ámbito medido",
+        "data": {
+          "name": "Nombre",
+          "scope_target": "Qué mide realmente este contador",
+          "power_entity": "Potencia activa medida de este ámbito (W/kW)",
+          "energy_entity": "Sensor de energía acumulada (Wh/kWh/MWh)",
+          "fresh_s": "Antigüedad máxima del informe (segundos)",
+          "energy_fresh_s": "Antigüedad máxima del contador de energía (segundos)",
+          "remove": "Retirar esta asignación (nunca el sensor/historial original)",
+          "negative_power_tolerance_w": "Tolerancia a ruido negativo (W)",
+          "include_in_system": "Incluir en total medido (sin solapar otros medidores)"
+        },
+        "data_description": {
+          "negative_power_tolerance_w": "Solo para ruido de cero de un medidor de consumo (0 desactiva). No modifica el sensor original, la energía ni la protección general; lecturas más negativas siguen sin datos."
+        },
+        "description": "Los periodos integran potencia activa medida desde el alta, sin reconstruir datos anteriores. No sumes medidores padres e hijos; los huecos y la cobertura se muestran en los sensores."
       },
       "init": {
         "title": "Ajustes",
         "menu_options": {
-          "policy": "Regulación avanzada",
-          "schedule": "Uso y sueño",
-          "band": "Tramo de precio",
-          "zone": "Estancia",
-          "zone_targets": "Objetivos de calor por estancia",
-          "add_zone": "Añadir estancia",
-          "plant": "Planta climática",
-          "add_plant": "Añadir planta",
-          "sources": "Medidas opcionales",
-          "tariff": "Fuente de tarifa",
-          "tariff_type": "Cambiar tipo de tarifa"
+          "splits": "Equipos y sondas",
+          "plants": "Unidades exteriores",
+          "comfort": "Confort y horarios",
+          "energy": "Consumo y medidores",
+          "system": "Fuentes y funcionamiento"
+        }
+      },
+      "splits": {
+        "title": "Splits y estancias",
+        "menu_options": {
+          "add_split": "Vincular otro split",
+          "zone": "Configurar un split o estancia",
+          "zone_targets": "Objetivos por estancia y precio",
+          "add_dehumidifier": "Vincular deshumidificador"
+        }
+      },
+      "plants": {
+        "title": "Unidades exteriores",
+        "menu_options": {
+          "plant": "Configurar unidad y coordinación",
+          "add_plant": "Añadir unidad exterior"
+        }
+      },
+      "comfort": {
+        "title": "Confort y horarios",
+        "menu_options": {
+          "zone_targets": "Temperaturas por split y precio",
+          "band": "Tramos de precio y objetivos comunes",
+          "schedule": "Día y sueño",
+          "policy": "Regulación avanzada"
+        }
+      },
+      "system": {
+        "title": "Fuentes y funcionamiento",
+        "menu_options": {
+          "sources": "Exterior, presencia y permisos",
+          "tariff": "Fuente de precio actual",
+          "tariff_type": "Cambiar tipo de tarifa",
+          "execution": "Observación, control y protección"
+        }
+      },
+      "zone_settings": {
+        "title": "Ajustes de {name}",
+        "menu_options": {
+          "zone_binding": "Equipo, sondas y área",
+          "zone_targets_menu": "Temperaturas por precio",
+          "zone_advanced": "Prioridad, permisos y compensación"
+        }
+      },
+      "zone_targets_menu": {
+        "title": "Temperatura por precio",
+        "menu_options": {
+          "heat_day": "Calor · día",
+          "cool_day": "Frío · día",
+          "heat_sleep": "Calor · sueño",
+          "cool_sleep": "Frío · sueño",
+          "humidity": "Humedad por precio"
+        }
+      },
+      "add_split": {
+        "title": "Vincular split",
+        "description": "Vincula un equipo y una sonda ambiental ya integrados en Home Assistant. La humedad es opcional. Si dejas el nombre vacío, se usa el del equipo. Empieza en observación, sin órdenes al AC.",
+        "data": {
+          "name": "Nombre (opcional)",
+          "climate_entity": "Entidad del equipo climático",
+          "temperature_entity": "Sonda de temperatura de referencia",
+          "humidity_entity": "Sonda de humedad",
+          "plant": "Planta",
+          "area": "Área real",
+          "labels": "Etiquetas funcionales existentes"
+        }
+      },
+      "zone_binding": {
+        "title": "Equipo y sondas",
+        "data": {
+          "name": "Nombre (opcional)",
+          "climate_entity": "Entidad del equipo climático",
+          "temperature_entity": "Sonda de temperatura de referencia",
+          "humidity_entity": "Sonda de humedad",
+          "plant": "Planta",
+          "area": "Área real",
+          "labels": "Etiquetas funcionales existentes",
+          "humidifier_entity": "Deshumidificador existente"
+        },
+        "description": "Conserva la identidad y las cuatro tablas de objetivos al cambiar equipos o sondas."
+      },
+      "zone_advanced": {
+        "title": "Prioridad y permisos del split",
+        "data": {
+          "authority_entity": "Ayudante de autoridad automática (on = automático)",
+          "bias": "Desfase de la sonda interna (°C)",
+          "priority": "Prioridad relativa",
+          "allow_dry": "Modelar oportunidades de secado",
+          "night_allowed": "Permitir esta estancia durante sueño",
+          "enabled": "Incluir esta estancia en las propuestas",
+          "authority_states": "Estados que conceden autoridad automática",
+          "heat_goal_entity": "Objetivo externo de calor (opcional)",
+          "cool_goal_entity": "Objetivo externo de frío (opcional)",
+          "bias_entity": "Desfase externo (interna menos referencia, °C)",
+          "internal_entity": "Sonda interna separada (opcional)",
+          "permission_entity": "Permiso de estancia (on = permitido)",
+          "heat_permission_entity": "Permiso de calor (opcional)",
+          "cool_permission_entity": "Permiso de frío (opcional)",
+          "dry_permission_entity": "Permiso de secado (opcional)",
+          "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
+          "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
+          "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas",
+          "humidifier_entity": "Deshumidificador existente",
+          "dehumidifier_min_s": "Secado independiente · mínimo (s)",
+          "dehumidifier_max_s": "Secado independiente · máximo (s)",
+          "dehumidifier_cooldown_s": "Secado independiente · reposo entre sesiones (s)",
+          "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
+          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
+        }
+      },
+      "add_dehumidifier": {
+        "title": "Añadir deshumidificador independiente",
+        "description": "Vincula un aparato que extrae agua, con sus sondas ambientales. Tiene un compresor independiente de los splits y comienza pausado salvo que lo habilites.",
+        "data": {
+          "name": "Nombre (opcional)",
+          "temperature_entity": "Sonda de temperatura de referencia",
+          "humidity_entity": "Sonda de humedad",
+          "area": "Área real",
+          "labels": "Etiquetas funcionales existentes",
+          "humidifier_entity": "Deshumidificador existente",
+          "enabled": "Habilitar planificación"
+        }
+      },
+      "humidity": {
+        "title": "Humedad · elegir precio",
+        "data": {
+          "band": "Rango de precio"
+        }
+      },
+      "humidity_pair": {
+        "title": "Humedad de {name}",
+        "description": "Ajusta inicio y fin juntos. La histéresis evita encendidos y apagados repetidos. Una sesión iniciada conserva su objetivo hasta terminar.",
+        "data": {
+          "humidity_start": "Iniciar a partir de (%)",
+          "humidity_stop": "Terminar al bajar a (%)",
+          "use_common": "Volver a los valores comunes de este precio"
         }
       }
     },
     "error": {
       "invalid_configuration": "Ajustes inválidos u objetivos incompatibles",
-      "invalid_tariff": "Periodos solapados o tarifa con huecos"
+      "invalid_tariff": "Periodos solapados o tarifa con huecos",
+      "invalid_source": "Elige una entidad del tipo requerido",
+      "entity_not_found": "La entidad no existe en Home Assistant",
+      "invalid_unit": "Unidad incompatible con esta medida",
+      "already_configured": "Este split ya está vinculado a otra estancia",
+      "name_required": "Indica un nombre para la estancia",
+      "not_dehumidifier": "El aparato debe extraer agua; no puede ser un humidificador.",
+      "invalid_humidity_pair": "El porcentaje de fin debe ser menor que el de inicio, dentro de los rangos indicados."
     }
   },
   "entity": {
     "sensor": {
+      "execution_journal": {
+        "name": "Registro de ejecución"
+      },
+      "meter_power": {
+        "name": "Potencia medida"
+      },
+      "meter_energy": {
+        "name": "Energía medida"
+      },
+      "meter_cost_rate": {
+        "name": "Coste energético instantáneo"
+      },
       "planned_stage": {
         "name": "Estrategia propuesta",
         "state": {
@@ -331,6 +655,7 @@
           "paused": "Pausado",
           "recovering": "Recuperaría temperatura",
           "maintaining": "Mantendría temperatura",
+          "holding": "Esperaría con consigna suave",
           "settling": "Respetaría marcha mínima",
           "protect": "Pararía por protección",
           "coasting": "Pasaría a reposo",
@@ -354,7 +679,47 @@
         "name": "Umbral de fin de secado"
       },
       "physical_target": {
-        "name": "Consigna física propuesta"
+        "name": "Consigna del equipo propuesta"
+      },
+      "dew_point": {
+        "name": "Punto de rocío ambiental"
+      },
+      "period_energy_today": {
+        "name": "Energía medida · hoy"
+      },
+      "period_energy_yesterday": {
+        "name": "Energía medida · ayer"
+      },
+      "period_energy_week": {
+        "name": "Energía medida · esta semana"
+      },
+      "period_energy_month": {
+        "name": "Energía medida · este mes"
+      },
+      "period_energy_year": {
+        "name": "Energía medida · este año"
+      },
+      "period_cost_today": {
+        "name": "Coste de energía medido · hoy"
+      },
+      "period_cost_yesterday": {
+        "name": "Coste de energía medido · ayer"
+      },
+      "period_cost_week": {
+        "name": "Coste de energía medido · esta semana"
+      },
+      "period_cost_month": {
+        "name": "Coste de energía medido · este mes"
+      },
+      "period_cost_year": {
+        "name": "Coste de energía medido · este año"
+      },
+      "configuration": {
+        "name": "Configuración efectiva del orquestador",
+        "state": {
+          "shadow": "Observación",
+          "control": "Control configurado"
+        }
       }
     },
     "binary_sensor": {
@@ -366,10 +731,54 @@
       },
       "service_blocked": {
         "name": "Servicio de humedad persistente bloqueado"
+      },
+      "execution_problem": {
+        "name": "Revisar ejecución o medición energética"
+      }
+    },
+    "switch": {
+      "automatic_control": {
+        "name": "Autoridad automática"
+      }
+    },
+    "number": {
+      "heat_day_target": {
+        "name": "Calor · día · {price_range}"
+      },
+      "cool_day_target": {
+        "name": "Frío · día · {price_range}"
+      },
+      "heat_sleep_target": {
+        "name": "Calor · sueño · {price_range}"
+      },
+      "cool_sleep_target": {
+        "name": "Frío · sueño · {price_range}"
+      },
+      "humidity_start_target": {
+        "name": "Humedad · iniciar · {price_range}"
+      },
+      "humidity_stop_target": {
+        "name": "Humedad · terminar · {price_range}"
       }
     }
   },
   "selector": {
+    "target_tables": {
+      "options": {
+        "heat_targets": "Calor · día",
+        "cool_targets": "Frío · día",
+        "heat_sleep_targets": "Calor · sueño",
+        "cool_sleep_targets": "Frío · sueño",
+        "humidity_start_targets": "Humedad · iniciar",
+        "humidity_stop_targets": "Humedad · terminar"
+      }
+    },
+    "execution_modes": {
+      "options": {
+        "shadow": "Solo observar",
+        "control": "Controlar equipos asignados"
+      }
+    },
     "weekdays": {
       "options": {
         "0": "Lunes",
@@ -388,6 +797,20 @@
         "flat": "Precio fijo único",
         "generic": "Intervalos de sensor genérico"
       }
+    },
+    "feedback_loss_actions": {
+      "options": {
+        "hold": "Bloquear órdenes térmicas",
+        "stop": "Parar calor/frío automático"
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_target": {
+      "message": "Objetivos fuera de rango o incompatibles: calor debe ser menor que frío y humedad de fin menor que inicio."
+    },
+    "external_target": {
+      "message": "El objetivo lo controla {entity}. Cambia esa fuente o retírala en Configurar antes de editar la tabla."
     }
   }
 }

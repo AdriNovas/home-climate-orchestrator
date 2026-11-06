@@ -5,6 +5,73 @@ no hay que editar constantes Python ni rellenar entidades de una casa concreta.
 Los perfiles JSON de `examples/` documentan el esquema interno; **no existe
 importador JSON en la interfaz de la alfa**.
 
+## Desde Dispositivos y servicios
+
+Tras instalar el código con HACS/Marketplace, abrir **Ajustes → Dispositivos y
+servicios → Añadir integración → Home Climate Orchestrator**. El asistente pide
+nombre/zona horaria/tarifa, unidad exterior y los splits con sus sondas. No se
+configura a través de un dashboard ni requiere YAML. La candidata añade un alta
+rápida de siete campos, sin registros internos ni parámetros avanzados obligatorios.
+
+Desde la ficha de integración, **Configurar** abre:
+
+| Grupo | Ajustes |
+|---|---|
+| Equipos y sondas | Vincular split o deshumidificador; editar equipo, sondas/área, objetivos o prioridad/permisos/compensación. |
+| Unidades exteriores | Añadir y editar instalaciones, sentido compartido y tiempos mínimos. |
+| Confort y horarios | Cuatro tablas térmicas y dos de humedad por split; objetivos comunes por precio, día/sueño y regulación avanzada. |
+| Consumo y medidores | W/kW y energía al ámbito real; selección sin solapes para subtotal y contadores por periodo con cobertura. |
+| Fuentes y funcionamiento | Exterior, presencia y permisos globales, fuente/tipo de tarifa, observación/control y protección. |
+
+El nombre y área vacíos se pueden completar desde el registro del equipo
+seleccionado; no se deduce un área por el nombre de una entidad. Se comprueban
+los tipos/unidades conocidos y se rechaza un split duplicado en la misma casa.
+Las asignaciones opcionales pueden borrarse de verdad: lo mostrado es una
+sugerencia de interfaz, no un valor que se restaura al enviarlo vacío.
+
+Los dispositivos de regulación son servicios lógicos con acceso a la configuración
+nativa. El equipo físico permanece en su integración original: no se reempareja,
+no se apropian sus identificadores ni se sustituye el driver del fabricante.
+
+## Objetivos editables como entidades
+
+Cada split expone cuatro tablas como entidades nativas `number`, con categoría
+**Configuración**, área y etiquetas de la zona: calor/frío × día/sueño, una
+celda por tramo (24 ajustes con los seis tramos predeterminados). El nombre
+indica el rango de precio. Los objetivos previstos y la consigna propuesta
+continúan como sensores diagnósticos separados, no mandos falsos.
+
+Estas entidades y **Configurar → Splits → Temperaturas por precio** comparten
+el mismo perfil persistente. Editar una celda crea una excepción de esa zona;
+los demás tramos siguen heredando cuando no tienen excepción. El formulario
+permite volver a la tabla común. Un objetivo externo configurado tiene la
+autoridad y deja sus números de tabla no disponibles para evitar ajustes sin
+efecto; se cambia la fuente o se retira su binding en Configurar.
+
+Se rechazan valores no finitos/fuera de5–35°C y calor≥frío en cada fase/tramo,
+sin guardar medias configuraciones. Los cambios sucesivos de objetivos no
+descargan las plataformas: se aplica el perfil validado, revoca decisiones
+antiguas y solicita la revisión normal, preservando Manual, memoria y fuentes.
+Los demás cambios de configuración conservan su recarga nativa habitual.
+
+**En observación, editar objetivos solo cambia propuestas.** No activa la
+ejecución ni modifica la consigna física. En modo control autorizado, orienta
+la siguiente revisión con todas sus guardas; no es un servicio directo al AC.
+Humedad, horarios, prioridad, fuentes, consumos y límites de modulación se
+ajustan en los cinco grupos de Configurar, sin necesidad de editar YAML.
+
+### Ruido de cero del medidor
+
+**Consumo/medidores → medidor → Tolerancia a ruido negativo (W)** es opcional,
+predeterminada0 (estricta), máximo20W. Solo para un medidor conocido de consumo
+unidireccional con pequeño error alrededor de cero: dentro del margen se lee0W;
+fuera se mantienen datos inválidos. No usar para ocultar exportación real.
+Se normalizan W/kW antes de comparar. El sensor original, el contador/estadísticas
+de energía y el medidor independiente de protección general no cambian. La
+tolerancia queda visible en los atributos del diagnóstico energético.
+Volver a0 elimina el campo opcional del perfil, conservando el ID del medidor;
+hacerlo antes de volver a una revisión que todavía no admite esta tolerancia.
+
 ## Casa, instalación y estancia
 
 | Nivel | Campos y significado |
@@ -16,15 +83,20 @@ importador JSON en la interfaz de la alfa**.
 Los UUID se crean una vez y se conservan al editar nombres o sensores. No se puede
 asignar el mismo actuador a dos estancias dentro de una entrada. No hay borrado
 de estancias en la alfa: deshabilitar conserva identidad e histórico. Para varias
-entradas, evitar duplicar una misma casa; el futuro ejecutor necesitará bloqueo
+entradas, evitar duplicar una misma casa; el ejecutor0.2 aplica bloqueo
 global de actuador antes de permitir control.
 
-`authority_entity` es un `input_boolean`: **on = automático autorizado**;
-off/desconocido = Manual. Sin selector se presupone autorizado para proponer.
-Esto solo controla propuestas en la alfa, no cambia el control existente.
-`presence_entity`, opcional, es un `binary_sensor` ya normalizado: on = ocupado;
-off/desconocido impide nuevas propuestas de servicio. No se infiere presencia de
-un teléfono ni se modifica su asociación.
+`authority_entity` puede ser un ayudante, selector o señal nativa; los valores
+que conceden automático se eligen con `authority_states` (por defecto `on`).
+Desconocido/indisponible nunca concede permiso. Sin selector externo, la
+candidata de control usa además su interruptor nativo de autoridad por estancia.
+`control_entity` es el permiso global con estados permitidos configurables;
+si está asignado y falta/falla, pausa. En `control` es obligatorio. En `shadow`
+pausar propuestas no equivale a un apagado físico.
+`presence_entity` es una señal nativa con `presence_states` explícitos, también
+puede ser `person`/grupo/schedule. No se reasignan trackers ni se infiere una
+ubicación fiable por el nombre de una entidad. Véanse las fuentes opcionales,
+objetivos externos y medidores en [EXECUTION_ENERGY.md](EXECUTION_ENERGY.md).
 
 Áreas y etiquetas se seleccionan del registro nativo. No se crean áreas falsas.
 Las etiquetas se añaden sin borrar las personales. Los cambios posteriores de
@@ -70,8 +142,9 @@ Fronteras exclusivas por arriba; son editables en Opciones:
 | very_high | ≥0,30 | 18,5 / 18 | 28 / 28 | 65 / 60 |
 
 Son valores iniciales editables, no prescripción de confort ni regla certificada
-para una vivienda. Opciones permite objetivos de calor **diurnos** por estancia y
-banda; noche/frío siguen la matriz común en esta alfa. Franjas: laborable 07–22,
+para una vivienda. La candidata permite cuatro tablas por estancia y banda:
+**calor día, frío día, calor sueño y frío sueño**, con herencia independiente de
+la política común y validación de compatibilidad calor/frío. Franjas: laborable 07–22,
 fin de semana empieza09; viernes/sábado terminan23. Se editan cuatro horas;
 no hay todavía calendario de vacaciones ni tres fases nocturnas.
 
@@ -86,7 +159,7 @@ demanda permanente. Nunca eliminar la deuda/urgencia al cambiar de banda.
 | `start_delta` / `hold_delta` / `overshoot_delta` | 0,5 / 0,2 / 0,5 °C | Arranque, mantenimiento, protección por exceso. |
 | `proportional_gain` / `boost_limit` | 0,7 / 1 °C | Esfuerzo transitorio proporcional y limitado. |
 | `correction_limit` / `bias` | 6 °C / 0 por estancia | Tope combinado y corrección estable del sensor interno. |
-| `command_interval` | 300 s | Cadencia mínima entre futuras órdenes; el observador no emite ninguna. |
+| `command_interval` | 300 s | Cadencia mínima entre órdenes; en observación no se emite ninguna. |
 | Instalación: mínimo off/on | 1200 / 1200 s | Evitar ciclos cortos, salvo protección por exceso. |
 | Permanencia / separación inversión | 3600 / 7200 s | Restricciones de sentido compartido. |
 
@@ -99,6 +172,39 @@ su consigna igual al Aqara no asegura mantener la temperatura ambiental.
 Ya estar en modo/consigna correctos significa mantener, no una nueva orden.
 No se introduce `fan_only` como paso económico rutinario. No se puede deducir un
 ciclo del compresor de un cambio de modo HA.
+
+### Mantenimiento modulado y corte económico opcionales
+
+Las dos estrategias siguientes vienen **desactivadas** y siguen siendo propuestas
+sin órdenes. Las bandas de objetivos por precio continúan siendo la referencia.
+
+| Parámetro | Inicial | Significado |
+|---|---|---|
+| `modulated_hold_s` | 0 | Duración máxima propuesta con consigna relajada; 0 desactiva, máximo7200s. |
+| `extreme_price_enabled` | false | Modelar corte económico ante precio extremo. |
+| `extreme_price` / `extreme_price_hysteresis` | 0,30 / 0,02 EUR/kWh | Entrada y margen de salida del tramo extremo; no son valores certificados para una vivienda. |
+| `thermal_stable_s` | 900s | Estabilidad mínima sustentada en informes distintos de la sonda. |
+| `thermal_stability_delta` | 0,3°C | Rango máximo de temperatura de esa secuencia estable. |
+| `thermal_sample_gap_s` | 1200s | Hueco máximo entre evaluaciones e informes para no reiniciar continuidad. |
+
+En espera se mantiene el sentido ya activo, sin arrancar una cabeza apagada.
+Calor reduce su consigna y frío la eleva, sin aumentar la exigencia frente a la
+consigna observada y con sonda interna fresca. Se retira el empuje, no se fuerza
+el número del Aqara como consigna física universal. Se conserva el presupuesto
+de espera al recargar; un cambio de precio no lo renueva por sí mismo. Al agotar
+la espera propone off, respetando el mínimo de marcha. Déficit real retoma
+regulación; sobrepaso protector conserva prioridad. Manual/pausa invalidan la espera.
+
+El corte económico requiere precio conocido, estabilidad medida y temperatura
+dentro de la banda de confort activa. Un déficit impide cortar solo por precio.
+Un informe repetido no acumula estabilidad; hueco, reloj regresivo o deriva
+reinician la continuidad. El precio debe bajar del umbral menos su margen para
+liberar el estado extremo. No se salta el mínimo de marcha por tarifa sola.
+
+`holding` significa **propondría una consigna relajada**: no es un modo standby
+nativo, reserva aceptada, potencia cero ni ahorro medido. Todavía no se estima
+la inercia futura ni el coste de recuperación; compararlos sigue siendo requisito
+de validación del ejecutor y del ensayo por vivienda.
 
 ## Humedad y ventanas útiles
 
@@ -121,7 +227,7 @@ El suelo de secado no aumenta al subir el objetivo térmico por precio.
 Se compara el coste medio ponderado del **bloque completo de duración máxima**,
 no solo su primer minuto. Si otro bloque cercano mejora el precio suficientemente,
 se espera; urgencia/deuda evita aplazar indefinidamente, pero no salta seguridad.
-Una sesión futura aceptada conservará máximo absoluto, suelo y presupuesto aun
+Una sesión propia aceptada conserva máximo absoluto, suelo y presupuesto aun
 con precio/sensor/pausa cambiantes. Manual cancela la propiedad del planificador,
 no borra intentos consumidos. La alfa no adopta sesiones `dry` ajenas.
 
@@ -140,3 +246,74 @@ certificada ni un reparto de W medidos por split. No se inventa consumo por zona
 Los parámetros avanzados se editan en **Política**; todos tienen validación de
 rango y las relaciones principales se verifican juntas. Restablecer selectores
 opcionales elimina el vínculo; no conserva silenciosamente el sensor anterior.
+
+## Asignaciones energéticas y actuación opcional
+
+La candidata0.2 añade los menús Medidores energéticos y Ejecución, y fuentes
+externas por estancia. Contrato completo y límites en
+[EXECUTION_ENERGY.md](EXECUTION_ENERGY.md).
+
+## Objetivos por split, estación y precio
+
+En **Objetivos por estancia** selecciona el split y una de cuatro tablas:
+calor/día, frío/día, calor/sueño o frío/sueño. Cada fila corresponde a un tramo
+de precio. Puedes heredar la tabla general o activar una propia sin cambiar
+las otras tres. Los tramos ausentes en un perfil JSON se heredan.
+
+Las claves son `heat_targets` (calor/día, compatible con perfiles anteriores),
+`cool_targets`, `heat_sleep_targets` y `cool_sleep_targets`. Una fuente externa
+de objetivo válida tiene precedencia. Si está asignada pero ausente, bloquea
+la zona: no se sustituye silenciosamente por la tabla. Se rechaza calor ≥ frío
+en cualquier fase/tramo. `priority` resuelve demanda competidora, no reparte
+vatios del medidor.
+
+Una **planta** representa la unidad exterior física, no la planta del edificio.
+`shared_mode: true` coordina sus cabezas en un único sentido y conserva los
+mínimos de marcha, reposo e inversión. Los equipos independientes se asignan
+a plantas independientes y pueden calentar/enfriar simultáneamente.
+
+## Modulación continua opcional · candidata 0.2
+
+`continuous_hold: true` mantiene una cabeza ya activa y autorizada en calor/frío
+al alcanzar confort, sin plazo rutinario de apagado ni `fan_only` económico.
+No arranca un aparato satisfecho solo para mantenerlo encendido. El objetivo
+ambiental sigue la tabla/precio; la consigna física utiliza sesgo, déficit,
+respuesta ambiental y relajación progresiva. La sonda interna puede relajar
+la demanda cerca del objetivo, nunca se persigue la batería caliente para
+aumentar potencia. El esfuerzo y la relajación requieren reportes ambientales
+distintos: cada evaluación no fabrica aprendizaje.
+
+`overshoot_delta` permite parar ante exceso aun antes del mínimo de marcha.
+No cambia automáticamente: por defecto sigue en0,5°C; configura otro margen
+explícitamente si el ensayo lo requiere. `relaxation_limit` acota la relajación
+física (3,5°C por defecto), siempre dentro del paso y límites reales del equipo.
+
+`shared_load_management: true` añade realimentación del **medidor de la unidad
+exterior**, no del suministro. No suma padres/hijos ni divide potencia entre
+cabezas. Un split independiente puede usar su medidor de zona cuando es el
+único miembro de su planta y no hay medidor de planta. Dos medidores de potencia
+competidores para el mismo ámbito no permiten inferir cuál debe gobernar.
+
+Aprende referencias agregadas por número de cabezas activas. Solo propone retirar
+**una** cabeza si todas las activas son automáticas, tienen confort satisfecho,
+consignas relajadas, datos frescos y temperatura estable durante un episodio de
+carga alta. La propuesta caduca90s después de publicarse, se revalida al ejecutar
+y consume presupuesto por cabeza incluso si falla. Otra retirada requiere
+observar el efecto y un nuevo episodio. Nueva demanda, objetivos, Manual, pausa,
+datos ausentes o cambios de configuración invalidan la propuesta. Una diferencia
+de potencia tras retirar servicio es agregada, no consumo causal de esa cabeza.
+
+| Parámetro | Valor inicial |
+|---|---:|
+| `shared_load_idle_w` / `shared_load_high_w` |150/250W|
+| `shared_load_observe_s` |1200s|
+| `shared_load_retry_s` |7200s por cabeza|
+
+Son editables en **Política**. Continuidad y gestión compartida vienen apagadas;
+la segunda requiere continuidad.100W no es una orden al compresor ni una garantía:
+depende del equipo y se comprueba con potencia activa medida. Manual, permisos
+y corte independiente siguen limitando al controlador.
+
+Ejemplo ficticio de multisplit más equipo independiente, prioridades y tablas:
+[versatile-zones.json](../examples/versatile-zones.json). Sigue en sombra hasta
+superar [la migración de autoridad](MIGRATION.md).

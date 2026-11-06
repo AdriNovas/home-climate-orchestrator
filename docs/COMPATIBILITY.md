@@ -24,7 +24,7 @@ Las marcas anteriores son ejemplos de posibles fuentes, no una lista certificada
 | Referencia ambiental | `sensor` numérico con unidad°C o°F; el valor externo gobierna la demanda, no se sustituye por el sensor del split. |
 | Humedad | `sensor` opcional numérico0–100%; sin él no se modela secado por humedad, pero sigue la demanda térmica. |
 | Temperatura interna | `current_temperature` del equipo cuando exista y esté reciente; sirve para aliviar/corregir la propuesta, no como referencia ambiental universal. |
-| Autoridad | `input_boolean` opcional: on autoriza propuestas; off/desconocido conserva Manual. |
+| Autoridad | Ayudante/selector/señal opcional con estados de permiso explícitos; desconocido no concede autoridad. |
 | Potencia | `sensor` opcional W/kW agregado; no se inventa consumo por split ni se usan VA. |
 | Tarifa | Independiente del equipo y de sus sensores; seleccionar uno de los proveedores documentados. |
 
@@ -44,15 +44,15 @@ El comportamiento físico de un multisplit debe confirmarse con su fabricante.
 6. Examinar propuestas/motivos con datos válidos, incluidos pérdida de sensor,
    ausencia de precios futuros, noche y Manual.
 
-## Límites de la alfa
+## Límites de compatibilidad
 
-- No envía órdenes, aunque los equipos y sensores sean compatibles.
-- HA nativo en Celsius; sensores Fahrenheit externos se convierten. El control
+- La release0.1 solo observa. La candidata0.2 permite ejecución opt-in; compatibilidad de formato no es certificación física.
+- El adaptador convierte sensores y consignas nativas °C/°F. El control
   con HA configurado en Fahrenheit no está certificado.
 - Un equipo solo frío no recibe propuesta de calor; sin `dry` no recibe propuesta
   de secado. No se supone que `fan_only` quite agua.
 - Un remoto IR sin retorno de estado no acredita modo, mínimo de reposo ni ACK.
-  No habilitar un futuro ejecutor físico sin resolver esas limitaciones.
+  No habilitar el ejecutor opcional sin resolver esas limitaciones.
 - Falta de sensor, mala unidad o dato antiguo se muestra como bloqueo/degradación;
   no se inventan valores para que la propuesta salga verde.
 - Calderas, válvulas, suelo radiante y deshumidificadores dedicados requieren

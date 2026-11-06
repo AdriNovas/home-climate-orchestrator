@@ -9,7 +9,7 @@
           "timezone": "Time zone",
           "tariff_type": "Tariff type"
         },
-        "description": "Observation-only alpha: installation never controls devices."
+        "description": "Starts in observation mode. Configure sources, energy meters and optional execution in Settings."
       },
       "tariff": {
         "title": "Tariff source",
@@ -31,15 +31,17 @@
         "description": "Equal start/end means 24 hours on the selected days. Date exceptions override matching regular hours."
       },
       "plant": {
-        "title": "Climate plant",
+        "title": "Outdoor unit",
         "data": {
           "name": "Name",
           "shared_mode": "Shared outdoor unit: one thermal mode",
           "minimum_off_min": "Minimum off (minutes)",
           "minimum_on_min": "Minimum on (minutes)",
           "direction_hold_min": "Minimum direction hold (minutes)",
-          "reversal_gap_min": "Minimum between reversals (minutes)"
-        }
+          "reversal_gap_min": "Minimum between reversals (minutes)",
+          "coil_drain_min": "Off/drain wait before returning to heat (min)"
+        },
+        "description": "Group only heads that physically share an outdoor unit. Use another installation for independent equipment. Minimum times can be adjusted later."
       },
       "zone": {
         "title": "Zone",
@@ -56,21 +58,69 @@
           "priority": "Relative priority",
           "allow_dry": "Model drying opportunities",
           "night_allowed": "Allow this zone during sleep",
-          "enabled": "Include this zone in proposals"
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
         }
       },
       "finish": {
         "title": "Continue",
         "menu_options": {
-          "zone": "Add zone",
-          "plant": "Add plant",
-          "create": "Create observation entry"
+          "split": "Add another split",
+          "plant": "Add outdoor unit",
+          "create": "Finish in observation",
+          "dehumidifier": "Add dehumidifier"
+        }
+      },
+      "split": {
+        "title": "Link a split",
+        "description": "Link an existing Home Assistant climate entity and external temperature probe. Humidity is optional. An empty name uses the existing equipment name. Starts in observation without AC commands.",
+        "data": {
+          "name": "Name (optional)",
+          "climate_entity": "Underlying climate entity",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "plant": "Plant",
+          "area": "Real area",
+          "labels": "Existing functional labels"
+        }
+      },
+      "dehumidifier": {
+        "title": "Add standalone dehumidifier",
+        "description": "Link a water-removing appliance and its room sensors. Its compressor is independent of the splits; it starts paused unless enabled.",
+        "data": {
+          "name": "Name (optional)",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "area": "Real area",
+          "labels": "Existing functional labels",
+          "humidifier_entity": "Existing dehumidifier",
+          "enabled": "Enable planning"
         }
       }
     },
     "error": {
       "invalid_configuration": "Invalid settings or conflicting targets",
-      "invalid_tariff": "Overlapping or uncovered tariff periods"
+      "invalid_tariff": "Overlapping or uncovered tariff periods",
+      "invalid_source": "Choose an entity of the required type",
+      "entity_not_found": "The entity does not exist in Home Assistant",
+      "invalid_unit": "Unit is incompatible with this measurement",
+      "already_configured": "This split is already linked to another room",
+      "name_required": "Enter a name for the room",
+      "not_dehumidifier": "Select a water-removing dehumidifier, not a humidifier."
     }
   },
   "options": {
@@ -90,7 +140,8 @@
           "minimum_off_min": "Minimum off (minutes)",
           "minimum_on_min": "Minimum on (minutes)",
           "direction_hold_min": "Minimum direction hold (minutes)",
-          "reversal_gap_min": "Minimum between reversals (minutes)"
+          "reversal_gap_min": "Minimum between reversals (minutes)",
+          "coil_drain_min": "Off/drain wait before returning to heat (min)"
         }
       },
       "zone": {
@@ -108,12 +159,47 @@
           "priority": "Relative priority",
           "allow_dry": "Model drying opportunities",
           "night_allowed": "Allow this zone during sleep",
-          "enabled": "Include this zone in proposals"
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "humidifier_entity": "Existing dehumidifier",
+          "dehumidifier_min_s": "Independent drying · minimum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
+          "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
         }
       },
       "policy": {
         "title": "Advanced regulation",
         "data": {
+          "continuous_hold": "Keep enabled and regulate the thermostat setpoint",
+          "shared_load_management": "Adapt shared load using an actual plant meter",
+          "relaxation_limit": "Maximum soft relaxation (°C)",
+          "shared_load_idle_w": "Initial aggregate low-load reference (W)",
+          "shared_load_high_w": "Initial aggregate high-load threshold (W)",
+          "shared_load_observe_s": "Observe comfortable high load before one withdrawal (s)",
+          "shared_load_retry_s": "Minimum before another withdrawal attempt on the same head (s)",
+          "modulated_hold_s": "Maximum proposed soft hold (seconds; 0 disables)",
+          "extreme_price_enabled": "Model an extreme-price shutdown",
+          "extreme_price": "Extreme-price entry (EUR/kWh)",
+          "extreme_price_hysteresis": "Extreme-price exit margin (EUR/kWh)",
+          "thermal_stable_s": "Required observed stability (seconds)",
+          "thermal_stability_delta": "Maximum stable temperature range (°C)",
+          "thermal_sample_gap_s": "Maximum stability sample gap (seconds)",
           "start_delta": "Start deviation (°C)",
           "hold_delta": "Maintenance tolerance (°C)",
           "overshoot_delta": "Overshoot protection (°C)",
@@ -174,15 +260,16 @@
         }
       },
       "zone_targets": {
-        "title": "Zone-specific heat targets",
+        "title": "Zone-specific temperature tables",
         "data": {
-          "zone": "Zone"
+          "zone": "Zone",
+          "target_table": "Season and phase to edit"
         }
       },
       "zone_targets_edit": {
-        "title": "Daytime heat targets",
+        "title": "Targets for {name}",
         "data": {
-          "override": "Override daytime heat targets for this zone",
+          "override": "Use a zone-specific table instead of inherited targets",
           "negative": "Negative price",
           "very_low": "Very low price",
           "low": "Low price",
@@ -194,9 +281,14 @@
       "sources": {
         "title": "Optional observations",
         "data": {
-          "power_entity": "Measured active power (W/kW, optional)",
+          "power_entity": "Total supply/import active power (W/kW), not HVAC power",
           "outdoor_entity": "Outdoor temperature sensor (optional)",
-          "presence_entity": "Occupancy (optional)"
+          "presence_entity": "Occupancy (optional)",
+          "control_entity": "Global automatic permission (on = enabled, optional)",
+          "critical_entity": "External critical cutoff (on = cut all assigned actuators)",
+          "external_cut_entity": "External persistent cut fence (JSON, optional)",
+          "control_states": "States granting global permission",
+          "presence_states": "States meaning occupied"
         }
       },
       "fixed_select": {
@@ -254,7 +346,28 @@
           "priority": "Relative priority",
           "allow_dry": "Model drying opportunities",
           "night_allowed": "Allow this zone during sleep",
-          "enabled": "Include this zone in proposals"
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "humidifier_entity": "Existing dehumidifier",
+          "dehumidifier_min_s": "Independent drying · minimum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
+          "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
         }
       },
       "zone_edit": {
@@ -272,7 +385,28 @@
           "priority": "Relative priority",
           "allow_dry": "Model drying opportunities",
           "night_allowed": "Allow this zone during sleep",
-          "enabled": "Include this zone in proposals"
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "humidifier_entity": "Existing dehumidifier",
+          "dehumidifier_min_s": "Independent drying · minimum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
+          "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
         }
       },
       "plant_edit": {
@@ -283,7 +417,8 @@
           "minimum_off_min": "Minimum off (minutes)",
           "minimum_on_min": "Minimum on (minutes)",
           "direction_hold_min": "Minimum direction hold (minutes)",
-          "reversal_gap_min": "Minimum between reversals (minutes)"
+          "reversal_gap_min": "Minimum between reversals (minutes)",
+          "coil_drain_min": "Off/drain wait before returning to heat (min)"
         }
       },
       "add_plant": {
@@ -294,33 +429,222 @@
           "minimum_off_min": "Minimum off (minutes)",
           "minimum_on_min": "Minimum on (minutes)",
           "direction_hold_min": "Minimum direction hold (minutes)",
-          "reversal_gap_min": "Minimum between reversals (minutes)"
+          "reversal_gap_min": "Minimum between reversals (minutes)",
+          "coil_drain_min": "Off/drain wait before returning to heat (min)"
         }
+      },
+      "execution": {
+        "title": "Execution and supply protection",
+        "data": {
+          "execution_mode": "Operating mode",
+          "exclusive_control": "Other automatic controllers are stopped for these actuators",
+          "critical_w": "Critical supply power (W)",
+          "critical_s": "Critical persistence (seconds)",
+          "release_w": "Release below (W)",
+          "release_s": "Release persistence (seconds)"
+        },
+        "description": "Only enable after verifying exclusive control and global permission. Critical cuts include Manual but only the assigned climate entities. No contactors or unrelated loads are controlled."
+      },
+      "energy": {
+        "title": "Energy meter assignments",
+        "data": {
+          "meter": "Meter (＋ adds a new one)"
+        }
+      },
+      "meter_edit": {
+        "title": "Meter and measured scope",
+        "data": {
+          "name": "Name",
+          "scope_target": "What this meter actually measures",
+          "power_entity": "Measured active power for this scope (W/kW)",
+          "energy_entity": "Cumulative energy sensor (Wh/kWh/MWh)",
+          "fresh_s": "Maximum report age (seconds)",
+          "energy_fresh_s": "Maximum energy-counter report age (seconds)",
+          "remove": "Remove this assignment (never the original sensor/history)",
+          "negative_power_tolerance_w": "Negative power noise tolerance (W)",
+          "include_in_system": "Include in measured total (no overlapping meters)"
+        },
+        "data_description": {
+          "negative_power_tolerance_w": "Only for near-zero consumption-meter noise (0 disables). Original source, energy and supply protection are unchanged; more negative readings stay invalid."
+        },
+        "description": "Periods integrate measured active power since setup, not reconstructed past. Do not sum parent and child meters; sensors expose gaps and coverage."
       },
       "init": {
         "title": "Settings",
         "menu_options": {
-          "policy": "Advanced regulation",
-          "schedule": "Use and sleep",
-          "band": "Price band",
-          "zone": "Zone",
-          "zone_targets": "Zone-specific heat targets",
-          "add_zone": "Add zone",
-          "plant": "Climate plant",
-          "add_plant": "Add plant",
-          "sources": "Optional observations",
-          "tariff": "Tariff source",
-          "tariff_type": "Replace tariff type"
+          "splits": "Devices and room sensors",
+          "plants": "Outdoor units",
+          "comfort": "Comfort and schedules",
+          "energy": "Energy and meters",
+          "system": "Sources and operation"
+        }
+      },
+      "splits": {
+        "title": "Splits and rooms",
+        "menu_options": {
+          "add_split": "Link another split",
+          "zone": "Configure a split or room",
+          "zone_targets": "Room and price targets",
+          "add_dehumidifier": "Link dehumidifier"
+        }
+      },
+      "plants": {
+        "title": "Outdoor units",
+        "menu_options": {
+          "plant": "Configure a unit and coordination",
+          "add_plant": "Add outdoor unit"
+        }
+      },
+      "comfort": {
+        "title": "Comfort and schedules",
+        "menu_options": {
+          "zone_targets": "Split and price temperatures",
+          "band": "Price bands and shared targets",
+          "schedule": "Day and sleep",
+          "policy": "Advanced regulation"
+        }
+      },
+      "system": {
+        "title": "Sources and operation",
+        "menu_options": {
+          "sources": "Outdoor conditions, presence and permissions",
+          "tariff": "Current price source",
+          "tariff_type": "Change tariff type",
+          "execution": "Observation, control and protection"
+        }
+      },
+      "zone_settings": {
+        "title": "Settings for {name}",
+        "menu_options": {
+          "zone_binding": "Equipment, probes and area",
+          "zone_targets_menu": "Temperatures by price",
+          "zone_advanced": "Priority, permissions and compensation"
+        }
+      },
+      "zone_targets_menu": {
+        "title": "Temperature by price",
+        "menu_options": {
+          "heat_day": "Heating · day",
+          "cool_day": "Cooling · day",
+          "heat_sleep": "Heating · sleep",
+          "cool_sleep": "Cooling · sleep",
+          "humidity": "Humidity by price"
+        }
+      },
+      "add_split": {
+        "title": "Link a split",
+        "description": "Link an existing Home Assistant climate entity and external temperature probe. Humidity is optional. An empty name uses the existing equipment name. Starts in observation without AC commands.",
+        "data": {
+          "name": "Name (optional)",
+          "climate_entity": "Underlying climate entity",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "plant": "Plant",
+          "area": "Real area",
+          "labels": "Existing functional labels"
+        }
+      },
+      "zone_binding": {
+        "title": "Equipment and probes",
+        "data": {
+          "name": "Name (optional)",
+          "climate_entity": "Underlying climate entity",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "plant": "Plant",
+          "area": "Real area",
+          "labels": "Existing functional labels",
+          "humidifier_entity": "Existing dehumidifier"
+        },
+        "description": "Changing equipment or probes preserves the zone identity and all four target tables."
+      },
+      "zone_advanced": {
+        "title": "Split priority and permissions",
+        "data": {
+          "authority_entity": "Automatic-authority helper (on = automatic)",
+          "bias": "Internal sensor bias (°C)",
+          "priority": "Relative priority",
+          "allow_dry": "Model drying opportunities",
+          "night_allowed": "Allow this zone during sleep",
+          "enabled": "Include this zone in proposals",
+          "authority_states": "States granting automatic authority",
+          "heat_goal_entity": "External heating goal (optional)",
+          "cool_goal_entity": "External cooling goal (optional)",
+          "bias_entity": "External sensor bias (internal minus reference, °C)",
+          "internal_entity": "Separate internal thermometer (optional)",
+          "permission_entity": "Zone permission (on = permitted)",
+          "heat_permission_entity": "Heating permission (optional)",
+          "cool_permission_entity": "Cooling permission (optional)",
+          "dry_permission_entity": "Drying permission (optional)",
+          "response_entity": "Measured response record (compact v1, optional)",
+          "expected_ledger_entity": "External expected-transition ledger (optional)",
+          "critical_ledger_entity": "External critical echo ledger (optional)",
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "humidifier_entity": "Existing dehumidifier",
+          "dehumidifier_min_s": "Independent drying · minimum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
+          "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
+        }
+      },
+      "add_dehumidifier": {
+        "title": "Add standalone dehumidifier",
+        "description": "Link a water-removing appliance and its room sensors. Its compressor is independent of the splits; it starts paused unless enabled.",
+        "data": {
+          "name": "Name (optional)",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "area": "Real area",
+          "labels": "Existing functional labels",
+          "humidifier_entity": "Existing dehumidifier",
+          "enabled": "Enable planning"
+        }
+      },
+      "humidity": {
+        "title": "Humidity · choose price",
+        "data": {
+          "band": "Price range"
+        }
+      },
+      "humidity_pair": {
+        "title": "Humidity for {name}",
+        "description": "Edit start and stop together. Hysteresis avoids repeated switching. An accepted session keeps its endpoint until completion.",
+        "data": {
+          "humidity_start": "Start at (%)",
+          "humidity_stop": "Stop after falling to (%)",
+          "use_common": "Return to common values for this price"
         }
       }
     },
     "error": {
       "invalid_configuration": "Invalid settings or conflicting targets",
-      "invalid_tariff": "Overlapping or uncovered tariff periods"
+      "invalid_tariff": "Overlapping or uncovered tariff periods",
+      "invalid_source": "Choose an entity of the required type",
+      "entity_not_found": "The entity does not exist in Home Assistant",
+      "invalid_unit": "Unit is incompatible with this measurement",
+      "already_configured": "This split is already linked to another room",
+      "name_required": "Enter a name for the room",
+      "not_dehumidifier": "Select a water-removing dehumidifier, not a humidifier.",
+      "invalid_humidity_pair": "Stop humidity must be lower than start humidity, within the displayed ranges."
     }
   },
   "entity": {
     "sensor": {
+      "execution_journal": {
+        "name": "Execution journal"
+      },
+      "meter_power": {
+        "name": "Measured power"
+      },
+      "meter_energy": {
+        "name": "Measured energy"
+      },
+      "meter_cost_rate": {
+        "name": "Current energy cost rate"
+      },
       "planned_stage": {
         "name": "Proposed strategy",
         "state": {
@@ -331,6 +655,7 @@
           "paused": "Paused",
           "recovering": "Would recover temperature",
           "maintaining": "Would maintain temperature",
+          "holding": "Would use a relaxed setpoint",
           "settling": "Minimum run settling",
           "protect": "Would stop for protection",
           "coasting": "Would coast",
@@ -354,7 +679,47 @@
         "name": "Drying end threshold"
       },
       "physical_target": {
-        "name": "Proposed hardware setpoint"
+        "name": "Proposed appliance setpoint"
+      },
+      "dew_point": {
+        "name": "Room dew point"
+      },
+      "period_energy_today": {
+        "name": "Measured energy · today"
+      },
+      "period_energy_yesterday": {
+        "name": "Measured energy · yesterday"
+      },
+      "period_energy_week": {
+        "name": "Measured energy · this week"
+      },
+      "period_energy_month": {
+        "name": "Measured energy · this month"
+      },
+      "period_energy_year": {
+        "name": "Measured energy · this year"
+      },
+      "period_cost_today": {
+        "name": "Measured energy cost · today"
+      },
+      "period_cost_yesterday": {
+        "name": "Measured energy cost · yesterday"
+      },
+      "period_cost_week": {
+        "name": "Measured energy cost · this week"
+      },
+      "period_cost_month": {
+        "name": "Measured energy cost · this month"
+      },
+      "period_cost_year": {
+        "name": "Measured energy cost · this year"
+      },
+      "configuration": {
+        "name": "Effective orchestrator configuration",
+        "state": {
+          "shadow": "Observation",
+          "control": "Control configured"
+        }
       }
     },
     "binary_sensor": {
@@ -366,10 +731,54 @@
       },
       "service_blocked": {
         "name": "Persistent humidity service blocked"
+      },
+      "execution_problem": {
+        "name": "Execution or metering needs attention"
+      }
+    },
+    "switch": {
+      "automatic_control": {
+        "name": "Automatic authority"
+      }
+    },
+    "number": {
+      "heat_day_target": {
+        "name": "Heat · day · {price_range}"
+      },
+      "cool_day_target": {
+        "name": "Cool · day · {price_range}"
+      },
+      "heat_sleep_target": {
+        "name": "Heat · sleep · {price_range}"
+      },
+      "cool_sleep_target": {
+        "name": "Cool · sleep · {price_range}"
+      },
+      "humidity_start_target": {
+        "name": "Humidity · start · {price_range}"
+      },
+      "humidity_stop_target": {
+        "name": "Humidity · stop · {price_range}"
       }
     }
   },
   "selector": {
+    "target_tables": {
+      "options": {
+        "heat_targets": "Heating · day",
+        "cool_targets": "Cooling · day",
+        "heat_sleep_targets": "Heating · sleep",
+        "cool_sleep_targets": "Cooling · sleep",
+        "humidity_start_targets": "Humidity · start",
+        "humidity_stop_targets": "Humidity · stop"
+      }
+    },
+    "execution_modes": {
+      "options": {
+        "shadow": "Observe only",
+        "control": "Control assigned devices"
+      }
+    },
     "weekdays": {
       "options": {
         "0": "Monday",
@@ -388,6 +797,20 @@
         "flat": "One fixed price",
         "generic": "Generic price intervals"
       }
+    },
+    "feedback_loss_actions": {
+      "options": {
+        "hold": "Block thermal commands",
+        "stop": "Stop automatic heating/cooling"
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_target": {
+      "message": "Goals outside their range or conflicting: heat must remain below cool and stop humidity below start humidity."
+    },
+    "external_target": {
+      "message": "The goal is controlled by {entity}. Edit that source or remove its binding in Configure before editing this table."
     }
   }
 }

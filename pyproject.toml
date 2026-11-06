@@ -1,7 +1,7 @@
 [project]
 name = "home-climate-orchestrator"
-version = "0.1.0a1"
-description = "Observation-only, tariff-aware home climate planner for Home Assistant"
+version = "0.2.0a5"
+description = "Tariff-aware climate planner with opt-in journaled control and scoped energy bindings"
 requires-python = ">=3.13"
 license = "MIT"
 

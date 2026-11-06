@@ -15,7 +15,7 @@ if "FILES" not in globals():
     FILES = {
         str(p.relative_to(root)): p.read_text()
         for p in (root / "custom_components").rglob("*")
-        if p.suffix in [".py", ".json"]
+        if p.suffix in [".py", ".json", ".jinja"]
     }
 
 
@@ -110,8 +110,9 @@ async def main():
                 for e in registry.entities.values()
                 if e.config_entry_id == entry.entry_id
             ]
-            assert len(entities) == 9
-            assert all(e.entity_category.value == "diagnostic" for e in entities)
+            assert len(entities) == 48
+            assert sum(e.entity_category.value == "diagnostic" for e in entities) == 12
+            assert sum(e.entity_category.value == "config" for e in entities) == 36
             assert all(hass.states.get(e.entity_id) for e in entities)
             identities = {e.entity_id: e.unique_id for e in entities}
             assert entry.runtime_data.data["physical_control"] is False

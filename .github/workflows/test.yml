@@ -38,6 +38,36 @@ jobs:
           --entrypoint python
           ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
           tests/ha_lifecycle.py
+      - name: Native integration and split configuration flows
+        run: >-
+          timeout 90s docker run --rm --pull=never -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo
+          --entrypoint python
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_config_flow.py
+      - name: Native execution and energy (fictional appliances only)
+        run: >-
+          timeout 90s docker run --rm --pull=never -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo
+          --entrypoint python
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_execution.py
+      - name: Native editable ambient targets (no physical control)
+        run: >-
+          timeout 90s docker run --rm --pull=never -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo
+          --entrypoint python
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_number.py
+      - name: Native humidity, dehumidifier and accounting (fictional devices only)
+        run: >-
+          timeout 90s docker run --rm --pull=never --network none --memory 512m --cpus 1
+          -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo --entrypoint python
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_humidity_accounting.py
+      - name: Native feedback loss and OFF display (fictional devices only)
+        run: >-
+          timeout 90s docker run --rm --pull=never --network none --memory 512m --cpus 1
+          -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo --entrypoint python
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_feedback_display.py
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 5

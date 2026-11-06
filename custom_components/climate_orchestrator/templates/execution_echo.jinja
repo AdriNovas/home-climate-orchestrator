@@ -1,0 +1,21 @@
+{# Read-only journal v1 matcher for external Manual detectors. All targets are °C.
+   This macro recognizes an exact bounded echo; it never grants permission.
+   Inline this macro when building the consumer; no custom_templates install needed. #}
+{% macro execution_echo(journal, actuator, mode, target, at, user_id=none) %}
+{% set ns = namespace(match=false) %}
+{% if not user_id and journal is mapping
+   and journal.get('schema_version') == 1 and journal.get('schema_version') is not boolean
+   and journal.get('actuator') == actuator and journal.get('execution_mode') == 'control'
+   and journal.get('temperature_unit') == '°C'
+   and journal.get('phase') in ['sending','acked','uncertain'] %}
+{% set rows = journal.get('expected', []) %}
+{% if rows is sequence and rows is not string and rows|count <= 4 %}
+{% for row in rows if row is mapping %}
+{% set until = row.get('until') %}{% set wanted = row.get('target') %}
+{% if until is number and until is not boolean and 0 <= until-at <= 60
+   and row.get('mode') == mode
+   and (wanted is none or (wanted is number and wanted is not boolean and target == wanted)) %}
+{% set ns.match = true %}
+{% endif %}{% endfor %}{% endif %}{% endif %}
+{{ ns.match }}
+{% endmacro %}

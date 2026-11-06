@@ -17,6 +17,10 @@ from .models import (
     minute,
 )
 from .tariffs import current_price, opportunities
+from .thermal import observe_stability, extreme_price, relaxed_target
+from .provenance import number
+from .modulation import soft_correction, observe_shared_load, observe_room
+from .models import Reading
 
 
 def dew_point(temperature: float, humidity: float) -> float:
@@ -49,19 +53,66 @@ def hardware_target(
         if deficit > 0.3
         else 0
     )
+    response = obs.response
+    extra_effort, trim = 0, 0
+    # Compact measured-response v1. A stale or mismatched response adds no effort;
+    # it does not replace the independent environmental reference or base bias.
+    if (
+        (zone.response_entity or p.continuous_hold)
+        and deficit > 0.3
+        and isinstance(response, dict)
+    ):
+        at, extra = response.get("at"), response.get("b")
+        if (
+            response.get("m") == mode
+            and response.get("g") == goal
+            and number(at)
+            and 0 <= now - at <= 660
+            and number(extra)
+            and 0 <= extra <= 2.5
+        ):
+            effort += extra
+            extra_effort = extra
+    if (
+        isinstance(response, dict)
+        and response.get("m") == mode
+        and response.get("g") == goal
+        and number(response.get("at"))
+        and 0 <= now - response["at"] <= 660
+        and number(response.get("h"))
+    ):
+        trim = max(0, min(2.5, response["h"]))
     correction = max(
         -p.correction_limit,
-        min(p.correction_limit, zone.bias + (effort if mode == "heat" else -effort)),
+        min(
+            p.correction_limit,
+            (
+                obs.bias.value
+                if obs.bias.fresh(now, p.temperature_fresh_s)
+                else zone.bias
+            )
+            + (effort if mode == "heat" else -effort),
+        ),
     )
     target = goal + correction
-    if deficit <= p.hold_delta and obs.internal.fresh(now, p.internal_fresh_s):
+    if p.continuous_hold:
+        bias = (
+            obs.bias.value if obs.bias.fresh(now, p.temperature_fresh_s) else zone.bias
+        )
+        target = goal + soft_correction(deficit, bias, mode, extra_effort, trim, p)
+    if deficit <= (0.3 if p.continuous_hold else p.hold_delta) and obs.internal.fresh(
+        now, p.internal_fresh_s
+    ):
         target = (
             min(target, obs.internal.value - 0.5)
             if mode == "heat"
             else max(target, obs.internal.value + 0.5)
         )
     step = obs.step if obs.step > 0 else 0.5
-    return max(obs.minimum, min(obs.maximum, round(target / step) * step))
+    return max(
+        obs.minimum,
+        min(obs.maximum, obs.minimum + round((target - obs.minimum) / step) * step),
+    )
 
 
 def begin_dry(
@@ -75,6 +126,62 @@ def begin_dry(
     memory.last_attempt = now
     memory.attempts += 1
     memory.low_since = 0
+
+
+def independent_drying(zone, obs, memory, decision, snap, house, high, rh_ok):
+    """Standalone refrigerant dryer: no inversion or thermal preheating cycle."""
+    p, now = house.policy, snap.now.timestamp()
+    if not zone.enabled or snap.paused or not obs.permitted:
+        return replace(decision, stage="paused", reason="pause_or_schedule")
+    if not obs.temperature.fresh(now, p.temperature_fresh_s) or not rh_ok:
+        return replace(
+            decision, stage="blocked", reason="humidity_or_temperature_stale"
+        )
+    if obs.mode == "dry":
+        return replace(decision, stage="external", reason="unowned_drying")
+    if obs.mode != "off" or "dry" not in obs.supported_modes:
+        return replace(decision, stage="blocked", reason="dehumidifier_unavailable")
+    if (
+        not zone.allow_dry
+        or not obs.dry_allowed
+        or snap.occupied is not True
+        or (sleeping(house, snap) and not zone.night_allowed)
+    ):
+        return replace(decision, stage="waiting", reason="dry_permission_or_occupancy")
+    if (
+        not zone.dehumidifier_min_temperature
+        <= obs.temperature.value
+        <= zone.dehumidifier_max_temperature
+    ):
+        return replace(
+            decision, stage="blocked", reason="dehumidifier_temperature_limit"
+        )
+    if memory.dry_episode_blocked:
+        return replace(
+            decision, stage="waiting", reason="dry_episode_recovery_required"
+        )
+    if not obs.minimum <= decision.humidity_stop <= obs.maximum:
+        return replace(
+            decision, stage="blocked", reason="humidity_target_outside_actuator"
+        )
+    if not decision.urgent and not (
+        high and now - memory.high_since >= p.humidity_stable_s
+    ):
+        return decision
+    until = max(
+        obs.mode_since
+        + next(x for x in house.plants if x.id == zone.plant).minimum_off_s,
+        memory.last_attempt + zone.dehumidifier_cooldown_s,
+    )
+    if now < until:
+        return replace(decision, stage="waiting", reason="minimum_off", next_at=until)
+    return replace(
+        decision,
+        stage="dry_ready",
+        reason="independent_humidity_demand",
+        mode="dry",
+        physical_target=decision.humidity_stop,
+    )
 
 
 def evaluate(
@@ -101,9 +208,19 @@ def evaluate(
             m.day = day
             m.attempts = 0
         heat = (
-            band.heat_sleep if sleep else z.heat_targets.get(band.name, band.heat_day)
+            z.heat_sleep_targets.get(band.name, band.heat_sleep)
+            if sleep
+            else z.heat_targets.get(band.name, band.heat_day)
         )
-        cool = band.cool_sleep if sleep else band.cool_day
+        cool = (
+            z.cool_sleep_targets.get(band.name, band.cool_sleep)
+            if sleep
+            else z.cool_targets.get(band.name, band.cool_day)
+        )
+        if o.heat_goal.fresh(now, p.temperature_fresh_s):
+            heat = o.heat_goal.value
+        if o.cool_goal.fresh(now, p.temperature_fresh_s):
+            cool = o.cool_goal.value
         d = Decision(
             z.id,
             "idle",
@@ -111,14 +228,42 @@ def evaluate(
             None,
             heat,
             cool,
-            band.humidity_start,
-            band.humidity_stop,
+            z.humidity_start_targets.get(band.name, band.humidity_start),
+            z.humidity_stop_targets.get(band.name, band.humidity_stop),
         )
         temp_ok = o.temperature.fresh(now, p.temperature_fresh_s)
+        eligible = (
+            o.automatic
+            and z.enabled
+            and temp_ok
+            and not snap.paused
+            and o.permitted
+            and (not sleep or z.night_allowed)
+            and snap.occupied is True
+            and o.mode in ["off", "heat", "cool"]
+        )
+        stable = observe_stability(m, o, p, now, eligible)
+        if p.continuous_hold and not z.response_entity:
+            m.regulation = observe_room(
+                o,
+                heat if o.mode == "heat" else cool,
+                snap.zone_power.get(z.id, snap.plant_power.get(z.plant, Reading(None))),
+                m.regulation,
+                now,
+                p,
+                eligible,
+            )
+            o = replace(o, response=m.regulation)
+        expensive = extreme_price(m, p, price)
+        if not eligible or o.mode != m.hold_mode or m.hold_since > now:
+            m.hold_since = 0
+            m.hold_mode = None
         rh_ok = (
             o.humidity.fresh(now, p.humidity_fresh_s) and 0 < o.humidity.value <= 100
         )
-        high = rh_ok and o.humidity.value >= band.humidity_start
+        high = rh_ok and o.humidity.value >= d.humidity_start
+        if rh_ok and o.humidity.value <= d.humidity_stop:
+            m.dry_episode_blocked = False
         m.high_since = (m.high_since or now) if high else 0
         m.urgent_since = (
             (m.urgent_since or now)
@@ -159,17 +304,30 @@ def evaluate(
                 or not temp_ok
                 or not rh_ok
                 or o.temperature.value < m.dry_floor
+                or snap.paused
+                or not o.permitted
+                or not o.dry_allowed
+                or not z.enabled
+                or (
+                    z.independent_drying
+                    and o.temperature.value > z.dehumidifier_max_temperature
+                )
             )
             recovered = (
                 m.low_since > 0
                 and now - m.low_since >= p.humidity_recovery_s
-                and now - m.dry_start >= p.dry_min_s
+                and now - m.dry_start
+                >= (z.dehumidifier_min_s if z.independent_drying else p.dry_min_s)
             )
             if o.mode == "off" and now >= m.dry_start + 80:
+                if z.independent_drying:
+                    m.dry_episode_blocked = True
                 m.dry_start = 0
                 m.dry_until = 0
                 m.low_since = 0
             elif stop or recovered:
+                if z.independent_drying and now >= m.dry_until:
+                    m.dry_episode_blocked = True
                 result[z.id] = replace(
                     d, stage="dry_stop", reason="session_limit_or_recovery", mode="off"
                 )
@@ -180,6 +338,7 @@ def evaluate(
                     stage="drying",
                     reason="owned_session",
                     mode="dry",
+                    physical_target=m.dry_target if z.independent_drying else None,
                     next_at=m.dry_until,
                 )
                 continue
@@ -191,8 +350,43 @@ def evaluate(
                     next_at=m.dry_start + 80,
                 )
                 continue
+        if z.independent_drying:
+            independent = independent_drying(z, o, m, d, snap, house, high, rh_ok)
+            if independent.mode == "dry":
+                wanted[z.id] = ("dry", z.priority + (10 if urgent else 0), independent)
+            else:
+                result[z.id] = independent
+            continue
         if not z.enabled:
             result[z.id] = replace(d, stage="paused", reason="zone_disabled")
+            continue
+        # Optional, explicit fail-safe for installations whose automatic thermal
+        # operation must stop without its reference. Never seize Manual, stop an
+        # unowned dry cycle, or turn a global pause into a thermal shutdown.
+        feedback_lost = (
+            not temp_ok
+            or (
+                z.require_internal_feedback
+                and not o.internal.fresh(now, p.internal_fresh_s)
+            )
+            or (z.bias_entity and not o.bias.fresh(now, p.temperature_fresh_s))
+        )
+        if (
+            z.feedback_loss_action == "stop"
+            and feedback_lost
+            and not snap.paused
+            and o.permitted
+            and o.mode in ["heat", "cool"]
+            and "off" in o.supported_modes
+        ):
+            result[z.id] = replace(
+                d, stage="protect", reason="thermal_feedback_lost", mode="off"
+            )
+            continue
+        if not o.goals_valid or heat >= cool:
+            result[z.id] = replace(
+                d, stage="blocked", reason="external_goal_unavailable"
+            )
             continue
         if not temp_ok:
             result[z.id] = replace(d, stage="blocked", reason="temperature_stale")
@@ -200,8 +394,15 @@ def evaluate(
         if o.mode == "dry":
             result[z.id] = replace(d, stage="external", reason="unowned_drying")
             continue
-        if snap.paused or (sleep and not z.night_allowed):
+        if snap.paused or not o.permitted or (sleep and not z.night_allowed):
             result[z.id] = replace(d, stage="paused", reason="pause_or_schedule")
+            continue
+        if (o.mode == "heat" and not o.heat_allowed) or (
+            o.mode == "cool" and not o.cool_allowed
+        ):
+            result[z.id] = replace(
+                d, stage="blocked", reason="external_mode_permission"
+            )
             continue
         t = o.temperature.value
         excess = (o.mode == "heat" and t >= heat + p.overshoot_delta) or (
@@ -215,6 +416,85 @@ def evaluate(
         if snap.occupied is not True:
             result[z.id] = replace(d, stage="waiting", reason="occupancy_unconfirmed")
             continue
+        plant = next(x for x in house.plants if x.id == z.plant)
+        near_goal = (
+            o.mode == "heat" and heat - p.hold_delta <= t < heat + p.overshoot_delta
+        ) or (o.mode == "cool" and cool - p.overshoot_delta < t <= cool + p.hold_delta)
+        target = (
+            relaxed_target(
+                o,
+                hardware_target(
+                    z, o, heat if o.mode == "heat" else cool, o.mode, house, now
+                ),
+                now,
+                p,
+            )
+            if near_goal and o.mode in o.supported_modes
+            else None
+        )
+        economic_coast = (
+            expensive and stable and heat - p.hold_delta <= t <= cool + p.hold_delta
+        )
+        if economic_coast:
+            if o.mode in ["heat", "cool"] and now - o.mode_since < plant.minimum_on_s:
+                wanted[z.id] = (
+                    o.mode,
+                    z.priority,
+                    replace(
+                        d,
+                        stage="settling",
+                        reason="economic_minimum_run",
+                        mode=o.mode,
+                        physical_target=target,
+                        next_at=o.mode_since + plant.minimum_on_s,
+                    ),
+                )
+            else:
+                result[z.id] = replace(
+                    d, stage="coasting", reason="extreme_price_stable", mode="off"
+                )
+            continue
+        if p.continuous_hold and near_goal:
+            # A thermostat may have to raise its physical setpoint again when
+            # the coil cools; continuity is not restricted to monotonic commands.
+            target = hardware_target(
+                z, o, heat if o.mode == "heat" else cool, o.mode, house, now
+            )
+        if (p.modulated_hold_s or p.continuous_hold) and target is not None:
+            if not m.hold_since:
+                m.hold_since, m.hold_mode = now, o.mode
+            until = m.hold_since + p.modulated_hold_s
+            if (
+                p.continuous_hold
+                or now < until
+                or now - o.mode_since < plant.minimum_on_s
+            ):
+                wanted[z.id] = (
+                    o.mode,
+                    z.priority,
+                    replace(
+                        d,
+                        stage="holding"
+                        if p.continuous_hold or now < until
+                        else "settling",
+                        reason="continuous_modulation"
+                        if p.continuous_hold
+                        else "modulated_hold"
+                        if now < until
+                        else "minimum_run",
+                        mode=o.mode,
+                        physical_target=target,
+                        next_at=None
+                        if p.continuous_hold
+                        else max(until, o.mode_since + plant.minimum_on_s),
+                    ),
+                )
+            else:
+                result[z.id] = replace(
+                    d, stage="coasting", reason="hold_budget_expired", mode="off"
+                )
+            continue
+        m.hold_since, m.hold_mode = 0, None
         heat_needed = t <= heat - p.start_delta or (
             o.mode == "heat" and t < heat + p.hold_delta
         )
@@ -223,6 +503,11 @@ def evaluate(
         )
         desired = "heat" if heat_needed else "cool" if cool_needed else None
         if desired:
+            if not (o.heat_allowed if desired == "heat" else o.cool_allowed):
+                result[z.id] = replace(
+                    d, stage="blocked", reason="external_mode_permission"
+                )
+                continue
             goal = heat if desired == "heat" else cool
             if desired not in o.supported_modes:
                 result[z.id] = replace(d, stage="blocked", reason="unsupported_mode")
@@ -260,7 +545,7 @@ def evaluate(
                 )
         elif (high and now - m.high_since >= p.humidity_stable_s) or urgent:
             floor = p.dry_floor_sleep if sleep else p.dry_floor_day
-            if not z.allow_dry or "dry" not in o.supported_modes:
+            if not z.allow_dry or not o.dry_allowed or "dry" not in o.supported_modes:
                 result[z.id] = replace(
                     d, stage="blocked", reason="no_drying_capability"
                 )
@@ -324,9 +609,61 @@ def evaluate(
         else:
             result[z.id] = d
 
+    # Remove a failed zone before arbitration, so missing local feedback cannot
+    # reserve the shared plant against an otherwise healthy zone.
+    for zone in house.zones:
+        demand = wanted.get(zone.id)
+        if (
+            demand
+            and demand[0] in ("heat", "cool")
+            and zone.require_internal_feedback
+            and not snap.zones[zone.id].internal.fresh(now, p.internal_fresh_s)
+        ):
+            wanted.pop(zone.id)
+            result[zone.id] = replace(
+                demand[2],
+                stage="blocked",
+                reason="internal_feedback_stale",
+                mode=None,
+                physical_target=None,
+            )
     for plant in house.plants:
         members = [z for z in house.zones if z.plant == plant.id]
         pm = plants.setdefault(plant.id, PlantMemory())
+        if p.shared_load_management:
+            observations = {z.id: snap.zones[z.id] for z in members}
+            goals = {
+                z.id: (result.get(z.id) or wanted[z.id][2]).heat_goal
+                if observations[z.id].mode == "heat"
+                else (result.get(z.id) or wanted[z.id][2]).cool_goal
+                for z in members
+            }
+            measured = snap.plant_power.get(
+                plant.id,
+                snap.zone_power.get(members[0].id, Reading(None))
+                if len(members) == 1
+                else Reading(None),
+            )
+            pm.modulation = observe_shared_load(
+                observations,
+                goals,
+                measured,
+                pm.modulation,
+                now,
+                p,
+                plant.minimum_on_s,
+                permitted=not snap.paused and snap.occupied is True,
+            )
+            candidate = pm.modulation.get("r")
+            if candidate in wanted and wanted[candidate][2].stage == "holding":
+                demand = wanted.pop(candidate)[2]
+                result[candidate] = replace(
+                    demand,
+                    stage="coasting",
+                    reason="shared_load_staged_withdrawal",
+                    mode="off",
+                    physical_target=None,
+                )
         active = {
             snap.zones[z.id].mode
             for z in members
@@ -373,7 +710,7 @@ def evaluate(
             elif plant.shared_mode and any(
                 snap.zones[x.id].mode not in ["off", "fan_only", "heat", "cool", "dry"]
                 for x in members
-                if x.climate_entity
+                if x.actuator_entity
             ):
                 reason = "plant_state_unknown"
             elif plant.shared_mode and active - {mode}:
@@ -391,6 +728,12 @@ def evaluate(
                 )
                 if now < until:
                     reason = "plant_reversal_wait"
+            if not reason and mode == "heat" and pm.direction in ["cool", "dry"]:
+                # A minimum off/drain interval is not proof that the coil is dry.
+                # Preserve the longer configured plant guards and never fan-purge.
+                until = max(until or 0, pm.last_transition + plant.coil_drain_s)
+                if now < until:
+                    reason = "wet_coil_drain_wait"
             reduction = (
                 o.mode == mode
                 and d.physical_target is not None
@@ -419,7 +762,8 @@ def evaluate(
                 and o.setpoint is not None
                 and abs(o.setpoint - d.physical_target) < o.step / 2
             ):
-                d = replace(d, reason="already_satisfied")
+                if d.reason == "local_temperature_demand":
+                    d = replace(d, reason="already_satisfied")
             elif not reason and now - memories[z.id].last_sent < p.command_interval:
                 reason = "command_cadence"
                 until = memories[z.id].last_sent + p.command_interval
@@ -428,4 +772,50 @@ def evaluate(
             elif mode == "dry":
                 dry_selected = True
             result[z.id] = d
+    # A capability-specific feedback requirement restricts thermal emissions,
+    # never off-only protection or unaffected zones. Recheck in fresh_plan too.
+    for zone in house.zones:
+        decision = result[zone.id]
+        if (
+            zone.require_internal_feedback
+            and decision.mode in ("heat", "cool")
+            and not snap.zones[zone.id].internal.fresh(now, p.internal_fresh_s)
+        ):
+            result[zone.id] = replace(
+                decision,
+                stage="blocked",
+                reason="internal_feedback_stale",
+                mode=None,
+                physical_target=None,
+            )
+    for zone in house.zones:
+        obs, decision = snap.zones[zone.id], result[zone.id]
+        # A display-only update is not a start or a stop. It requires an explicit
+        # source and already-observed OFF, and never overrides a thermal demand.
+        # Missing display data cannot become a fallback thermal policy.
+        if (
+            zone.off_goal_entity
+            and not zone.independent_drying
+            and zone.enabled
+            and obs.automatic
+            and obs.permitted
+            and not snap.paused
+            and obs.mode == "off"
+            and "off" in obs.supported_modes
+            and decision.mode is None
+            and obs.off_goal.fresh(now, p.temperature_fresh_s)
+            and obs.minimum <= obs.off_goal.value <= obs.maximum
+        ):
+            target = (
+                obs.minimum
+                + round((obs.off_goal.value - obs.minimum) / obs.step) * obs.step
+            )
+            result[zone.id] = replace(
+                decision,
+                stage="off_display",
+                reason="external_off_display_goal",
+                mode="off",
+                physical_target=max(obs.minimum, min(obs.maximum, target)),
+                target_only=True,
+            )
     return result

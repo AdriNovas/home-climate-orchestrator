@@ -15,7 +15,7 @@ if "FILES" not in globals():
     FILES = {
         str(p.relative_to(root)): p.read_text()
         for p in (root / "custom_components").rglob("*")
-        if p.suffix in [".py", ".json"]
+        if p.suffix in [".py", ".json", ".jinja"]
     }
 
 
@@ -148,6 +148,41 @@ async def main():
             checks.append(
                 "per-zone daytime targets are editable without changing zone identity"
             )
+            for table, field, value in [
+                ("cool_targets", "cool_day", 28),
+                ("heat_sleep_targets", "heat_sleep", 18),
+                ("cool_sleep_targets", "cool_sleep", 29),
+            ]:
+                await options.async_step_zone_targets(
+                    {"zone": zone_id, "target_table": table}
+                )
+                values = {b.name: getattr(b, field) for b in Policy().bands}
+                values["normal"] = value
+                result = await options.async_step_zone_targets_edit(
+                    {"override": True, **values}
+                )
+                assert result["data"]["house"]["zones"][0][table]["normal"] == value
+                assert result["data"]["house"]["zones"][0]["id"] == zone_id
+            checks.append(
+                "independent heating/cooling and day/sleep tables preserve identity and other tables"
+            )
+            original = __import__("copy").deepcopy(options.profile)
+            bad = await options.async_step_zone_targets_edit(
+                {"override": True, **{b.name: 10 for b in Policy().bands}}
+            )
+            assert (
+                bad["errors"]["base"] == "invalid_configuration"
+                and options.profile == original
+            )
+            cleared = await options.async_step_zone_targets_edit({"override": False})
+            assert cleared["data"]["house"]["zones"][0]["cool_sleep_targets"] == {}
+            assert (
+                cleared["data"]["house"]["zones"][0]["heat_sleep_targets"]["normal"]
+                == 18
+            )
+            checks.append(
+                "conflicting zone tables are rejected atomically and one table can return to inheritance"
+            )
             options.profile["power_entity"] = "sensor.optional_power"
             cleared = await options.async_step_sources({})
             assert "power_entity" not in cleared["data"]
@@ -212,18 +247,77 @@ async def main():
             assert data["mode"] == "shadow" and data["physical_control"] is False
             assert data["price_error"] is None
             checks.append("runtime reads real HA state machine in observation mode")
+            c.profile["control_entity"] = "input_boolean.demo_control"
+            for value in ["off", "unknown", "unavailable", None]:
+                if value is None:
+                    h.states.async_remove("input_boolean.demo_control")
+                else:
+                    h.states.async_set("input_boolean.demo_control", value)
+                paused = await c._async_update_data()
+                assert paused["decisions"][zone_id].stage == "paused"
+                assert paused["decisions"][zone_id].mode is None
+            h.states.async_set("input_boolean.demo_control", "on")
+            assert (await c._async_update_data())["decisions"][
+                zone_id
+            ].stage != "paused"
+            del c.profile["control_entity"]
+            checks.append("global permission fails closed when off, unknown or missing")
             entities = []
             await sensor.async_setup_entry(h, entry, entities.extend)
             await binary_sensor.async_setup_entry(h, entry, entities.extend)
-            assert len(entities) == 9 and len({x.unique_id for x in entities}) == 9
+            assert len(entities) == 12 and len({x.unique_id for x in entities}) == 12
             assert all(x.entity_category.value == "diagnostic" for x in entities)
             for x in entities:
-                if isinstance(x, sensor.PlanSensor):
+                if isinstance(x, sensor.SensorEntity):
                     x.native_value
                 else:
                     x.is_on
             checks.append(
-                "nine native entities have stable IDs, values and diagnostic categories"
+                "twelve native diagnostic entities have stable IDs, values and diagnostic categories"
+            )
+            from homeassistant.helpers.template import Template
+
+            macro = FILES[
+                "custom_components/climate_orchestrator/templates/execution_echo.jinja"
+            ]
+            expression = Template(
+                macro
+                + "\n{{ execution_echo(j, 'climate.demo', 'heat', 23, 1000, person) }}",
+                h,
+            )
+            journal = {
+                "schema_version": 1,
+                "actuator": "climate.demo",
+                "execution_mode": "control",
+                "temperature_unit": "°C",
+                "phase": "sending",
+                "expected": [{"mode": "heat", "target": 23, "until": 1020}],
+            }
+            assert expression.async_render({"j": journal, "person": None}) is True
+            assert (
+                expression.async_render({"j": journal, "person": "fictional-person"})
+                is False
+            )
+            assert (
+                expression.async_render(
+                    {"j": {**journal, "phase": "prepared"}, "person": None}
+                )
+                is False
+            )
+            assert (
+                expression.async_render(
+                    {
+                        "j": {
+                            **journal,
+                            "expected": [{"mode": "heat", "target": 23, "until": 999}],
+                        },
+                        "person": None,
+                    }
+                )
+                is False
+            )
+            checks.append(
+                "shipped Jinja journal contract recognizes only sent exact unexpired echoes without a person"
             )
             diag = await diagnostics.async_get_config_entry_diagnostics(h, entry)
             encoded = json.dumps(diag)
