@@ -113,3 +113,19 @@ Un consumidor debe verificar esas identidades y su propio permiso antes de
 usar metas; no deducir correspondencias por el nombre ni convertir una fuente
 no disponible en autorización. No publica helpers de autoridad, credenciales
 ni contenido del journal; los diagnósticos descargables siguen redactados.
+
+
+## Suelo externo y pausa de una sesión propia (opt-in)
+
+`dry_floor_entity` puede enlazar sensor/number/input_number en °C o °F a un
+suelo de arranque de 10–30 °C. Se interpreta como configuración persistente,
+no telemetría ambiental. Si falta, tiene unidad inválida o queda fuera de rango,
+no se inicia secado con un suelo alternativo. Sin binding se conservan los
+suelos diurno/nocturno. El suelo seleccionado se congela antes de emitir: una
+edición posterior no cambia el máximo, objetivo ni suelo de esa sesión.
+
+`dry_pause_action` conserva `stop` por defecto. `retain_owned` solo mantiene
+un ciclo con propiedad explícita previa durante la pausa; no inicia ni adopta
+ciclos. Permanecen las salidas por máximo, suelo congelado, datos, permiso de
+zona/secado, deshabilitación y seguridad eléctrica. Manual nunca se adopta.
+Los registros de sesión y entidades conservan identidad al recargar.

@@ -368,6 +368,8 @@ async def main():
                     {
                         "heat_goal_entity": value,
                         "off_goal_entity": value,
+                        "dry_floor_entity": value,
+                        "dry_pause_action": "retain_owned",
                         "feedback_loss_action": "stop",
                         "mode_permission_loss_action": "stop",
                         "thermal_presence_entity": "binary_sensor.fictional_thermal_return",
@@ -375,6 +377,7 @@ async def main():
                     if value
                     else {
                         "feedback_loss_action": "hold",
+                        "dry_pause_action": "stop",
                         "mode_permission_loss_action": "hold",
                     },
                 )
@@ -394,6 +397,11 @@ async def main():
                     "binary_sensor.fictional_thermal_return" if value else None
                 )
                 assert current.get("off_goal_entity") == value
+                assert current.get("dry_floor_entity") == value
+                assert entry.runtime_data.house.zones[0].dry_floor_entity == value
+                assert entry.runtime_data.house.zones[0].dry_pause_action == (
+                    "retain_owned" if value else "stop"
+                )
                 assert current["feedback_loss_action"] == ("stop" if value else "hold")
                 assert current["mode_permission_loss_action"] == (
                     "stop" if value else "hold"

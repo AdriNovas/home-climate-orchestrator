@@ -307,7 +307,7 @@ def evaluate(
                 or not temp_ok
                 or not rh_ok
                 or o.temperature.value < m.dry_floor
-                or snap.paused
+                or (snap.paused and z.dry_pause_action == "stop")
                 or not o.permitted
                 or not o.dry_allowed
                 or not z.enabled
@@ -564,6 +564,15 @@ def evaluate(
                 )
         elif (high and now - m.high_since >= p.humidity_stable_s) or urgent:
             floor = p.dry_floor_sleep if sleep else p.dry_floor_day
+            if z.dry_floor_entity:
+                if not o.dry_floor.fresh(now, p.temperature_fresh_s) or not (
+                    10 <= o.dry_floor.value <= 30
+                ):
+                    result[z.id] = replace(
+                        d, stage="blocked", reason="dry_floor_missing"
+                    )
+                    continue
+                floor = o.dry_floor.value
             if not z.allow_dry or not o.dry_allowed or "dry" not in o.supported_modes:
                 result[z.id] = replace(
                     d, stage="blocked", reason="no_drying_capability"
@@ -623,7 +632,13 @@ def evaluate(
             wanted[z.id] = (
                 "dry",
                 z.priority * (10 if urgent else 0.1),
-                replace(d, stage="dry_ready", reason="humidity_service", mode="dry"),
+                replace(
+                    d,
+                    stage="dry_ready",
+                    reason="humidity_service",
+                    mode="dry",
+                    session_floor=floor,
+                ),
             )
         else:
             result[z.id] = d

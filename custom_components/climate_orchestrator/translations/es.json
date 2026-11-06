@@ -75,7 +75,9 @@
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
           "feedback_loss_action": "Al perder la referencia térmica",
           "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
-          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)",
+          "dry_floor_entity": "Suelo de secado externo (opcional)",
+          "dry_pause_action": "Pausa durante un secado propio"
         }
       },
       "finish": {
@@ -184,7 +186,9 @@
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
           "feedback_loss_action": "Al perder la referencia térmica",
           "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
-          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)",
+          "dry_floor_entity": "Suelo de secado externo (opcional)",
+          "dry_pause_action": "Pausa durante un secado propio"
         }
       },
       "policy": {
@@ -373,7 +377,9 @@
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
           "feedback_loss_action": "Al perder la referencia térmica",
           "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
-          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)",
+          "dry_floor_entity": "Suelo de secado externo (opcional)",
+          "dry_pause_action": "Pausa durante un secado propio"
         }
       },
       "zone_edit": {
@@ -414,7 +420,9 @@
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
           "feedback_loss_action": "Al perder la referencia térmica",
           "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
-          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)",
+          "dry_floor_entity": "Suelo de secado externo (opcional)",
+          "dry_pause_action": "Pausa durante un secado propio"
         }
       },
       "plant_edit": {
@@ -597,7 +605,9 @@
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
           "feedback_loss_action": "Al perder la referencia térmica",
           "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
-          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)",
+          "dry_floor_entity": "Suelo de secado externo (opcional)",
+          "dry_pause_action": "Pausa durante un secado propio"
         }
       },
       "add_dehumidifier": {
@@ -812,6 +822,12 @@
       "options": {
         "hold": "Bloquear órdenes térmicas",
         "stop": "Parar calor/frío automático"
+      }
+    },
+    "dry_pause_actions": {
+      "options": {
+        "stop": "Parar el ciclo propio",
+        "retain_owned": "Conservar el ciclo propio con sus límites"
       }
     }
   },

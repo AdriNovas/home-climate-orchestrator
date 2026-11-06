@@ -68,6 +68,13 @@ jobs:
           -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo --entrypoint python
           ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
           tests/ha_feedback_display.py
+      - name: Native owned drying floor and pause policy
+        run: >-
+          docker run --rm --network none --entrypoint python
+          --mount type=bind,source=${{ github.workspace }},target=/work,readonly
+          --workdir /work
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_dry_session_policy.py
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -75,7 +75,9 @@
           "off_goal_entity": "Visible target while already off (optional)",
           "feedback_loss_action": "When thermal feedback is lost",
           "mode_permission_loss_action": "When permission for a running thermal mode is removed",
-          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)",
+          "dry_floor_entity": "External drying temperature floor (optional)",
+          "dry_pause_action": "Pause during an owned drying session"
         }
       },
       "finish": {
@@ -184,7 +186,9 @@
           "off_goal_entity": "Visible target while already off (optional)",
           "feedback_loss_action": "When thermal feedback is lost",
           "mode_permission_loss_action": "When permission for a running thermal mode is removed",
-          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)",
+          "dry_floor_entity": "External drying temperature floor (optional)",
+          "dry_pause_action": "Pause during an owned drying session"
         }
       },
       "policy": {
@@ -373,7 +377,9 @@
           "off_goal_entity": "Visible target while already off (optional)",
           "feedback_loss_action": "When thermal feedback is lost",
           "mode_permission_loss_action": "When permission for a running thermal mode is removed",
-          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)",
+          "dry_floor_entity": "External drying temperature floor (optional)",
+          "dry_pause_action": "Pause during an owned drying session"
         }
       },
       "zone_edit": {
@@ -414,7 +420,9 @@
           "off_goal_entity": "Visible target while already off (optional)",
           "feedback_loss_action": "When thermal feedback is lost",
           "mode_permission_loss_action": "When permission for a running thermal mode is removed",
-          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)",
+          "dry_floor_entity": "External drying temperature floor (optional)",
+          "dry_pause_action": "Pause during an owned drying session"
         }
       },
       "plant_edit": {
@@ -597,7 +605,9 @@
           "off_goal_entity": "Visible target while already off (optional)",
           "feedback_loss_action": "When thermal feedback is lost",
           "mode_permission_loss_action": "When permission for a running thermal mode is removed",
-          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)",
+          "dry_floor_entity": "External drying temperature floor (optional)",
+          "dry_pause_action": "Pause during an owned drying session"
         }
       },
       "add_dehumidifier": {
@@ -812,6 +822,12 @@
       "options": {
         "hold": "Block thermal commands",
         "stop": "Stop automatic heating/cooling"
+      }
+    },
+    "dry_pause_actions": {
+      "options": {
+        "stop": "Stop owned session",
+        "retain_owned": "Retain owned session within its limits"
       }
     }
   },

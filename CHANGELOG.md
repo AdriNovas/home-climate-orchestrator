@@ -2,6 +2,12 @@
 
 ## Candidata0.2.0a6 · desarrollo aislado, sin release
 
+- Suelo de secado externo opcional como configuración persistente; validación,
+  conversión absoluta de temperatura y congelación al reservar la sesión.
+  Perder la fuente bloquea nuevos ciclos sin inventar un respaldo.
+- Pausa de ciclos propios configurable: detener (predeterminado) o conservar
+  solo una sesión ya reservada, manteniendo máximo, suelo, datos y autoridad.
+
 - Salida térmica off-only opt-in al retirar el permiso del modo ya activo.
   Predeterminado hold, sin adoptar Manual/dry ni convertir pausa en apagado;
   revalidación tras persistir cancela intenciones ante recuperación o Manual nuevo.

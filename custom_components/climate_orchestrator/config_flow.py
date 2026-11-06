@@ -92,6 +92,7 @@ def zone_schema(plants, defaults=None):
                 ("heat_goal_entity", ["sensor", "input_number", "number"]),
                 ("cool_goal_entity", ["sensor", "input_number", "number"]),
                 ("off_goal_entity", ["sensor", "input_number", "number"]),
+                ("dry_floor_entity", ["sensor", "input_number", "number"]),
                 ("bias_entity", ["sensor", "input_number", "number"]),
                 ("internal_entity", "sensor"),
                 ("response_entity", ["input_text", "sensor"]),
@@ -143,6 +144,13 @@ def zone_schema(plants, defaults=None):
         ): selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=["hold", "stop"], translation_key="feedback_loss_actions"
+            )
+        ),
+        vol.Required(
+            "dry_pause_action", default=d.get("dry_pause_action", "stop")
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["stop", "retain_owned"], translation_key="dry_pause_actions"
             )
         ),
         vol.Required("night_allowed", default=d.get("night_allowed", True)): bool,
@@ -1137,6 +1145,7 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "mode_permission_loss_action",
                 "thermal_presence_entity",
                 "off_goal_entity",
+                "dry_floor_entity",
                 "heat_goal_entity",
                 "cool_goal_entity",
                 "bias_entity",
@@ -1182,6 +1191,7 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "heat_goal_entity",
                 "cool_goal_entity",
                 "off_goal_entity",
+                "dry_floor_entity",
                 "bias_entity",
                 "internal_entity",
                 "permission_entity",

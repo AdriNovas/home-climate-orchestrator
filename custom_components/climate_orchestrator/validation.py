@@ -17,6 +17,7 @@ ZONE_SOURCES = [
     "heat_goal_entity",
     "cool_goal_entity",
     "off_goal_entity",
+    "dry_floor_entity",
     "bias_entity",
     "internal_entity",
     "permission_entity",

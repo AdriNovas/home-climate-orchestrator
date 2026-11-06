@@ -322,6 +322,8 @@ class Zone:
     off_goal_entity: str | None = None
     mode_permission_loss_action: str = "hold"
     thermal_presence_entity: str | None = None
+    dry_floor_entity: str | None = None
+    dry_pause_action: str = "stop"
 
     @property
     def actuator_entity(self):
@@ -354,6 +356,8 @@ class Zone:
                 bounded(value, "zone humidity target", low, high)
         if self.climate_entity and self.humidifier_entity:
             raise ValueError("One actuator per regulation zone")
+        if self.dry_pause_action not in ["stop", "retain_owned"]:
+            raise ValueError("Unknown owned-dry pause action")
         if self.feedback_loss_action not in ["hold", "stop"]:
             raise ValueError("Unknown feedback-loss action")
         if self.mode_permission_loss_action not in ["hold", "stop"]:
@@ -514,6 +518,7 @@ class Observation:
     response: dict | None = None
     off_goal: Reading = field(default_factory=lambda: Reading(None))
     thermal_occupied: bool | None = None
+    dry_floor: Reading = field(default_factory=lambda: Reading(None))
 
     def __post_init__(self) -> None:
         if (
@@ -641,6 +646,7 @@ class Decision:
     next_at: float | None = None
     urgent: bool = False
     target_only: bool = False
+    session_floor: float | None = None
 
 
 def house_from_dict(data: dict[str, Any]) -> House:

@@ -190,6 +190,11 @@ class Executor:
             current.mode == decision.mode
             and current.physical_target == decision.physical_target
             and current.target_only == decision.target_only
+            and (
+                decision.mode != "dry"
+                or obs.mode == "dry"
+                or current.session_floor == decision.session_floor
+            )
         )
         # A completed OFF need not remain the next recommendation. In particular,
         # the loss-of-feedback stop may now yield an OFF display update. The
@@ -206,7 +211,15 @@ class Executor:
         ):
             return False
         if decision.mode == "dry" and current.reason == "dry_ack_pending":
-            same = obs.dry_allowed
+            same = obs.dry_allowed and (
+                not zone.dry_floor_entity
+                or (
+                    obs.dry_floor.fresh(
+                        snap.now.timestamp(), self.house.policy.temperature_fresh_s
+                    )
+                    and obs.dry_floor.value == decision.session_floor
+                )
+            )
         owner = self.state["owned"].get(zone.id, {})
         owned_stop = (
             decision.mode == "off"

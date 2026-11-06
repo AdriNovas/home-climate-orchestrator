@@ -545,6 +545,9 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 self.allowed(z.thermal_presence_entity)
                 if z.thermal_presence_entity
                 else None,
+                self.reading(
+                    z.dry_floor_entity, "temperature", configured_at=now.timestamp()
+                ),
             )
         # Persist observed plant direction, not a planned or sent direction.
         for p in self.house.plants:
@@ -684,7 +687,9 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             begin_dry(
                 memory,
                 now,
-                zone.dehumidifier_min_temperature
+                decision.session_floor
+                if decision.session_floor is not None
+                else zone.dehumidifier_min_temperature
                 if zone.independent_drying
                 else p.dry_floor_sleep
                 if sleeping(self.house, snap)
@@ -757,7 +762,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 or not obs.humidity.fresh(now, self.house.policy.humidity_fresh_s)
                 or not obs.dry_allowed
                 or not zone.enabled
-                or snap.paused
+                or (snap.paused and zone.dry_pause_action == "stop")
                 or not obs.permitted
                 or (
                     zone.independent_drying
