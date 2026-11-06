@@ -520,8 +520,7 @@
           "cool_day": "Frío · día",
           "heat_sleep": "Calor · sueño",
           "cool_sleep": "Frío · sueño",
-          "humidity_start": "Humedad · iniciar",
-          "humidity_stop": "Humedad · terminar"
+          "humidity": "Humedad por precio"
         }
       },
       "add_split": {
@@ -593,6 +592,21 @@
           "humidifier_entity": "Deshumidificador existente",
           "enabled": "Habilitar planificación"
         }
+      },
+      "humidity": {
+        "title": "Humedad · elegir precio",
+        "data": {
+          "band": "Rango de precio"
+        }
+      },
+      "humidity_pair": {
+        "title": "Humedad de {name}",
+        "description": "Ajusta inicio y fin juntos. La histéresis evita encendidos y apagados repetidos. Una sesión iniciada conserva su objetivo hasta terminar.",
+        "data": {
+          "humidity_start": "Iniciar a partir de (%)",
+          "humidity_stop": "Terminar al bajar a (%)",
+          "use_common": "Volver a los valores comunes de este precio"
+        }
       }
     },
     "error": {
@@ -603,7 +617,8 @@
       "invalid_unit": "Unidad incompatible con esta medida",
       "already_configured": "Este split ya está vinculado a otra estancia",
       "name_required": "Indica un nombre para la estancia",
-      "not_dehumidifier": "El aparato debe extraer agua; no puede ser un humidificador."
+      "not_dehumidifier": "El aparato debe extraer agua; no puede ser un humidificador.",
+      "invalid_humidity_pair": "El porcentaje de fin debe ser menor que el de inicio, dentro de los rangos indicados."
     }
   },
   "entity": {
@@ -688,6 +703,13 @@
       },
       "period_cost_year": {
         "name": "Coste de energía medido · este año"
+      },
+      "configuration": {
+        "name": "Configuración efectiva del orquestador",
+        "state": {
+          "shadow": "Observación",
+          "control": "Control configurado"
+        }
       }
     },
     "binary_sensor": {
@@ -769,7 +791,7 @@
   },
   "exceptions": {
     "invalid_target": {
-      "message": "Objetivo inválido. Debe estar entre 5 y 35 °C y el objetivo de calor debe ser menor que el de frío."
+      "message": "Objetivos fuera de rango o incompatibles: calor debe ser menor que frío y humedad de fin menor que inicio."
     },
     "external_target": {
       "message": "El objetivo lo controla {entity}. Cambia esa fuente o retírala en Configurar antes de editar la tabla."

@@ -981,7 +981,97 @@ class ClimateOptions(config_entries.OptionsFlow):
                 if zone.get("humidifier_entity")
                 else ["heat_day", "cool_day", "heat_sleep", "cool_sleep"]
             )
-            + ["humidity_start", "humidity_stop"],
+            + ["humidity"],
+        )
+
+    async def async_step_humidity(self, user_input=None):
+        if user_input is not None:
+            self.humidity_band = user_input["band"]
+            return await self.async_step_humidity_pair()
+        bands = house_from_dict(self.profile["house"]).policy.bands
+        options = []
+        for index, band in enumerate(bands):
+            low = bands[index - 1].upper if index else None
+            high = band.upper
+            label = (
+                f"<{high:g}"
+                if low is None
+                else f"{low:g}+"
+                if high is None
+                else f"{low:g}–{high:g}"
+            )
+            options.append({"value": band.name, "label": label + " €/kWh"})
+        return self.async_show_form(
+            step_id="humidity",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "band",
+                        default="normal"
+                        if any(b.name == "normal" for b in bands)
+                        else bands[0].name,
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(options=options)
+                    )
+                }
+            ),
+        )
+
+    async def async_step_humidity_pair(self, user_input=None):
+        index = next(
+            i
+            for i, z in enumerate(self.profile["house"]["zones"])
+            if z["id"] == self.selection
+        )
+        zone = self.profile["house"]["zones"][index]
+        band = next(
+            b
+            for b in house_from_dict(self.profile["house"]).policy.bands
+            if b.name == self.humidity_band
+        )
+        errors = {}
+        if user_input is not None:
+            candidate = copy.deepcopy(self.profile)
+            target = candidate["house"]["zones"][index]
+            for table, key in [
+                ("humidity_start_targets", "humidity_start"),
+                ("humidity_stop_targets", "humidity_stop"),
+            ]:
+                cells = target.setdefault(table, {})
+                if user_input.get("use_common"):
+                    cells.pop(band.name, None)
+                else:
+                    cells[band.name] = user_input[key]
+            try:
+                house_from_dict(candidate["house"])
+                validate_sources(self.hass, candidate)
+                self.profile = candidate
+                return self.save()
+            except (ValueError, TypeError):
+                errors["base"] = "invalid_humidity_pair"
+        values = {
+            "humidity_start": zone.get("humidity_start_targets", {}).get(
+                band.name, band.humidity_start
+            ),
+            "humidity_stop": zone.get("humidity_stop_targets", {}).get(
+                band.name, band.humidity_stop
+            ),
+        }
+        return self.async_show_form(
+            step_id="humidity_pair",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "humidity_start", default=values["humidity_start"]
+                    ): number(35, 90),
+                    vol.Required(
+                        "humidity_stop", default=values["humidity_stop"]
+                    ): number(30, 70),
+                    vol.Required("use_common", default=False): bool,
+                }
+            ),
+            errors=errors,
+            description_placeholders={"name": zone["name"]},
         )
 
     async def async_step_humidity_start(self, user_input=None):

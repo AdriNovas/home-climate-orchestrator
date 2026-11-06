@@ -1,5 +1,13 @@
 # Evidencia de la alfa
 
+## Candidata0.2.0a4 · edición de humedad conjunta
+
+Se conserva el núcleo154. El ensayo nativo de humedad/contabilidad añade una
+pareja modificada atómicamente, rechazo fin≥inicio sin envenenar el siguiente
+envío y lectura de configuración publicada sin permisos ni credenciales.
+Una zona observadora sin medidor expone48objetos (12diagnóstico+36configuración).
+Las cifras de las secciones siguientes son históricas, no el estado de esta candidata.
+
 ## Candidata0.2.0a3 · humedad y contabilidad
 
 154pruebas del núcleo incluyen tablas HR por zona, capacidad independiente,

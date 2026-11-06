@@ -8,6 +8,12 @@ por banda de precio. Están en el menú de objetivos de su equipo y como entidad
 inferior al inicio. Una tabla vacía hereda los umbrales comunes de la tarifa.
 Los objetivos de calor/frío conservan sus tablas de día/sueño.
 
+En **Objetivos → Humedad por precio**, elegir un rango y editar los dos
+porcentajes juntos. El formulario rechaza fin≥inicio sin guardar cambios
+parciales. «Volver a los valores comunes» retira ambos overrides de ese rango,
+sin alterar otros precios. Las entidades number siguen siendo celdas reales
+del mismo perfil.
+
 Los umbrales no son límites sanitarios ni predicciones de HR. La humedad
 persistente y urgente vence el aplazamiento económico, pero nunca Manual,
 pausas, falta de sondas, suelo térmico o protecciones. Si no existe secado
@@ -90,3 +96,14 @@ Los libros propios se conservan en la memoria versionada de la entrada.
 Una nueva fuente/ámbito inicia nueva base y archiva la anterior, sin fingir
 continuidad ni borrar estadísticas. Retirar la integración elimina solo su
 memoria propia, no la del fabricante ni los sensores originales.
+
+## Consumidores y configuración publicada
+
+El sensor **Configuración efectiva del orquestador** publica una versión de
+esquema, la política validada y los tiempos de cada instalación. Está destinado
+a dashboards o consumidores de configuración expresamente conectados por el
+administrador; no incluye credenciales ni registros de órdenes. Su estado
+indica observación/control **configurado**, no que el compresor esté activo.
+Leer esta superficie no concede permiso para controlar ni sustituye los
+interbloqueos del consumidor. Nunca leer `.storage` desde plantillas para
+obtener ajustes de una integración.

@@ -520,8 +520,7 @@
           "cool_day": "Cooling · day",
           "heat_sleep": "Heating · sleep",
           "cool_sleep": "Cooling · sleep",
-          "humidity_start": "Humidity · start",
-          "humidity_stop": "Humidity · stop"
+          "humidity": "Humidity by price"
         }
       },
       "add_split": {
@@ -593,6 +592,21 @@
           "humidifier_entity": "Existing dehumidifier",
           "enabled": "Enable planning"
         }
+      },
+      "humidity": {
+        "title": "Humidity · choose price",
+        "data": {
+          "band": "Price range"
+        }
+      },
+      "humidity_pair": {
+        "title": "Humidity for {name}",
+        "description": "Edit start and stop together. Hysteresis avoids repeated switching. An accepted session keeps its endpoint until completion.",
+        "data": {
+          "humidity_start": "Start at (%)",
+          "humidity_stop": "Stop after falling to (%)",
+          "use_common": "Return to common values for this price"
+        }
       }
     },
     "error": {
@@ -603,7 +617,8 @@
       "invalid_unit": "Unit is incompatible with this measurement",
       "already_configured": "This split is already linked to another room",
       "name_required": "Enter a name for the room",
-      "not_dehumidifier": "Select a water-removing dehumidifier, not a humidifier."
+      "not_dehumidifier": "Select a water-removing dehumidifier, not a humidifier.",
+      "invalid_humidity_pair": "Stop humidity must be lower than start humidity, within the displayed ranges."
     }
   },
   "entity": {
@@ -688,6 +703,13 @@
       },
       "period_cost_year": {
         "name": "Measured energy cost · this year"
+      },
+      "configuration": {
+        "name": "Effective orchestrator configuration",
+        "state": {
+          "shadow": "Observation",
+          "control": "Control configured"
+        }
       }
     },
     "binary_sensor": {
@@ -769,7 +791,7 @@
   },
   "exceptions": {
     "invalid_target": {
-      "message": "Invalid target. It must be between 5 and 35 °C, with the heating goal below the cooling goal."
+      "message": "Goals outside their range or conflicting: heat must remain below cool and stop humidity below start humidity."
     },
     "external_target": {
       "message": "The goal is controlled by {entity}. Edit that source or remove its binding in Configure before editing this table."

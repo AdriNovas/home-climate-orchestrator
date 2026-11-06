@@ -253,10 +253,33 @@ async def main():
                 {"next_step_id": "zone_targets_menu"},
             ]:
                 flow = await options.async_configure(fid, data)
-            assert set(flow["menu_options"]) == {"humidity_start", "humidity_stop"}
-            options.async_abort(fid)
+            assert set(flow["menu_options"]) == {"humidity"}
+            flow = await options.async_configure(fid, {"next_step_id": "humidity"})
+            flow = await options.async_configure(fid, {"band": "negative"})
+            bad = await options.async_configure(
+                fid, {"humidity_start": 60, "humidity_stop": 60, "use_common": False}
+            )
+            assert bad["errors"]["base"] == "invalid_humidity_pair"
+            flow = await options.async_configure(
+                fid, {"humidity_start": 60, "humidity_stop": 55, "use_common": False}
+            )
+            assert flow["type"] == "create_entry"
+            await hass.async_block_till_done()
+            paired = entry.options["house"]["zones"][-1]
+            assert paired["humidity_start_targets"]["negative"] == 60
+            assert paired["humidity_stop_targets"]["negative"] == 55
             checks.append(
-                "per-device native menu hides irrelevant heating/cooling tables for a standalone dryer"
+                "per-device native menu hides irrelevant thermal tables; paired humidity edits validate both thresholds atomically"
+            )
+            config_entity = next(
+                e for e in rows if e.translation_key == "configuration"
+            )
+            config = hass.states.get(config_entity.entity_id)
+            assert config.state == "shadow" and config.attributes["schema_version"] == 1
+            assert config.attributes["policy"]["dry_min_s"] == 1200
+            assert "control_entity" not in config.attributes
+            checks.append(
+                "read-only validated policy surface supports explicit external consumers without granting authority or exposing credentials"
             )
             c = entry.runtime_data
             assert c.data["system_accounting"]["unmetered_zones"] == [zone["id"]]

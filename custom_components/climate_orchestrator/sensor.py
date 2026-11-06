@@ -8,7 +8,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.const import UnitOfTemperature, PERCENTAGE
 from .entity import ClimateDiagnostic
-from .const import DOMAIN
+from .const import DOMAIN, VERSION
 from .domain.engine import dew_point
 from .domain.accounting import PERIODS
 from homeassistant.helpers.entity import DeviceInfo
@@ -27,6 +27,7 @@ KEYS = [
 
 async def async_setup_entry(hass, entry, async_add_entities):
     c = entry.runtime_data
+    async_add_entities([ConfigurationSensor(c, None, "configuration")])
     async_add_entities(
         [
             PeriodSensor(c, meter, period, metric)
@@ -324,4 +325,41 @@ class PeriodSensor(ClimateDiagnostic, SensorEntity):
             if not self.meter
             else [],
             "interpretation": "Integrated measured active power; variable energy charge, not whole bill. Missing history is not zero. No per-split allocation.",
+        }
+
+
+class ConfigurationSensor(ClimateDiagnostic, SensorEntity):
+    """Validated public HA configuration surface, never a write or permission API."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = ["shadow", "control"]
+    _attr_icon = "mdi:cog-outline"
+
+    @property
+    def native_value(self):
+        return "control" if self.coordinator.executor.enabled else "shadow"
+
+    @property
+    def extra_state_attributes(self):
+        c = self.coordinator
+        return {
+            "schema_version": 1,
+            "version": VERSION,
+            "policy": asdict(c.house.policy),
+            "plants": [
+                {
+                    key: getattr(plant, key)
+                    for key in [
+                        "id",
+                        "minimum_off_s",
+                        "minimum_on_s",
+                        "direction_hold_s",
+                        "reversal_gap_s",
+                        "coil_drain_s",
+                    ]
+                }
+                for plant in c.house.plants
+            ],
+            "physical_control": c.executor.enabled,
+            "interpretation": "Validated read-only configuration for dashboards and explicit consumers; never grants actuator authority or exposes credentials.",
         }

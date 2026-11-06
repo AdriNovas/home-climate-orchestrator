@@ -1,5 +1,15 @@
 # Cambios
 
+## Candidata0.2.0a4 · sin release
+
+- Editor nativo de humedad por rango con inicio/fin juntos, guardado atómico,
+  retorno explícito a herencia y errores específicos. No obliga a crear una
+  pareja intermedia inválida para cambiar ambos umbrales.
+- Diagnóstico de configuración validada (política y tiempos de instalaciones)
+  para dashboards y consumidores explícitos. Es de solo lectura; no publica
+  credenciales, registros de órdenes ni concede autoridad física.
+- Mensajes de objetivos inválidos distinguen también la histéresis de humedad.
+
 ## Candidata0.2.0a3 · sin release
 
 - Tablas y entidades nativas de HR para iniciar/terminar secado por estancia y
