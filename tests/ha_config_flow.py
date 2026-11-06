@@ -363,7 +363,14 @@ async def main():
                     option_id, {"next_step_id": "zone_advanced"}
                 )
                 result = await options.async_configure(
-                    option_id, {"heat_goal_entity": value} if value else {}
+                    option_id,
+                    {
+                        "heat_goal_entity": value,
+                        "off_goal_entity": value,
+                        "feedback_loss_action": "stop",
+                    }
+                    if value
+                    else {"feedback_loss_action": "hold"},
                 )
                 assert result["type"] == "create_entry"
                 await hass.async_block_till_done()
@@ -373,8 +380,11 @@ async def main():
                     )
                     == value
                 )
+                current = entry.runtime_data.profile["house"]["zones"][0]
+                assert current.get("off_goal_entity") == value
+                assert current["feedback_loss_action"] == ("stop" if value else "hold")
             checks.append(
-                "advanced external goals can be assigned and genuinely cleared through native forms"
+                "advanced external and OFF display goals can be assigned/cleared, with opt-in feedback stops"
             )
             hass.states.async_set(
                 "sensor.fictional_supply", "100", {"unit_of_measurement": "W"}

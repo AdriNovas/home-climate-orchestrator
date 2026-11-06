@@ -360,6 +360,29 @@ def evaluate(
         if not z.enabled:
             result[z.id] = replace(d, stage="paused", reason="zone_disabled")
             continue
+        # Optional, explicit fail-safe for installations whose automatic thermal
+        # operation must stop without its reference. Never seize Manual, stop an
+        # unowned dry cycle, or turn a global pause into a thermal shutdown.
+        feedback_lost = (
+            not temp_ok
+            or (
+                z.require_internal_feedback
+                and not o.internal.fresh(now, p.internal_fresh_s)
+            )
+            or (z.bias_entity and not o.bias.fresh(now, p.temperature_fresh_s))
+        )
+        if (
+            z.feedback_loss_action == "stop"
+            and feedback_lost
+            and not snap.paused
+            and o.permitted
+            and o.mode in ["heat", "cool"]
+            and "off" in o.supported_modes
+        ):
+            result[z.id] = replace(
+                d, stage="protect", reason="thermal_feedback_lost", mode="off"
+            )
+            continue
         if not o.goals_valid or heat >= cool:
             result[z.id] = replace(
                 d, stage="blocked", reason="external_goal_unavailable"
@@ -764,5 +787,35 @@ def evaluate(
                 reason="internal_feedback_stale",
                 mode=None,
                 physical_target=None,
+            )
+    for zone in house.zones:
+        obs, decision = snap.zones[zone.id], result[zone.id]
+        # A display-only update is not a start or a stop. It requires an explicit
+        # source and already-observed OFF, and never overrides a thermal demand.
+        # Missing display data cannot become a fallback thermal policy.
+        if (
+            zone.off_goal_entity
+            and not zone.independent_drying
+            and zone.enabled
+            and obs.automatic
+            and obs.permitted
+            and not snap.paused
+            and obs.mode == "off"
+            and "off" in obs.supported_modes
+            and decision.mode is None
+            and obs.off_goal.fresh(now, p.temperature_fresh_s)
+            and obs.minimum <= obs.off_goal.value <= obs.maximum
+        ):
+            target = (
+                obs.minimum
+                + round((obs.off_goal.value - obs.minimum) / obs.step) * obs.step
+            )
+            result[zone.id] = replace(
+                decision,
+                stage="off_display",
+                reason="external_off_display_goal",
+                mode="off",
+                physical_target=max(obs.minimum, min(obs.maximum, target)),
+                target_only=True,
             )
     return result

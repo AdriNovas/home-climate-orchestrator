@@ -26,6 +26,8 @@ En **Opciones → Estancia** pueden asignarse:
 | `response_entity` | Respuesta medida compacta opcional; no activa aprendizaje nuevo. |
 | `expected_ledger_entity`, `critical_ledger_entity` | Lectura de procedencia de emisores retenidos, nunca escritura o renovación de sus expectativas. |
 | `require_internal_feedback` | Requisito explícito de sonda interna fresca para las órdenes térmicas del equipo. |
+| `feedback_loss_action` | `hold` por defecto bloquea nuevas órdenes térmicas; `stop` permite parar calor/frío automático al perder referencia, sonda interna exigida o sesgo configurado. No toma Manual, dry ajeno ni convierte pausa en apagado. |
+| `off_goal_entity` | Objetivo visible opcional para un equipo ya observado en off. Solo envía consigna, sin orden de modo, sin compensación ni arranque, y sin renovar su reposo o cadencia térmica. |
 
 Sin asignar un objetivo externo se utiliza la matriz propia. Si **está asignado
 pero falla**, no se vuelve silenciosamente a otra política. Los objetivos y el
@@ -39,6 +41,14 @@ Estas entradas permiten conservar horarios de varias fases y política estaciona
 propios mediante sensores/helpers nativos, sin copiarlos al producto. Asignar
 solo los objetivos **no reproduce todas las guardas** de una instalación: también
 hay que vincular sus permisos y certificar la matriz de autoridad y emisores.
+
+La actualización de consigna en off exige verificar que el equipo real admite
+cambiarla sin arrancar. La integración solo puede enviar `set_temperature`,
+observar que sigue off y confirmar su objetivo; no cambia las protecciones
+internas de un fabricante. Si el equipo no cumple esa semántica, dejar
+`off_goal_entity` sin asignar. Una fuente ausente o fuera de rango no fabrica un
+valor de visualización ni sustituye la demanda térmica. Las dos capacidades
+nuevas son opt-in: actualizar una entrada no las activa.
 
 ## Medidores y consumo
 

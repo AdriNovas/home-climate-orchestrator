@@ -189,7 +189,22 @@ class Executor:
         same = (
             current.mode == decision.mode
             and current.physical_target == decision.physical_target
+            and current.target_only == decision.target_only
         )
+        # A completed OFF need not remain the next recommendation. In particular,
+        # the loss-of-feedback stop may now yield an OFF display update. The
+        # certificate and authority checks still fence the transaction; accepting
+        # its observed completion cannot authorize another service call.
+        same = same or (
+            decision.mode == "off" and obs.mode == "off" and not decision.target_only
+        )
+        if decision.target_only and (
+            decision.mode != "off"
+            or obs.mode != "off"
+            or decision.physical_target is None
+            or zone.independent_drying
+        ):
+            return False
         if decision.mode == "dry" and current.reason == "dry_ack_pending":
             same = obs.dry_allowed
         owner = self.state["owned"].get(zone.id, {})
@@ -258,7 +273,16 @@ class Executor:
                 # Set the target while off, then switch mode. Revalidate before each
                 # call. This never boots an appliance with a stale physical target.
                 steps = []
-                if decision.mode == "off":
+                if decision.target_only:
+                    steps.append(
+                        (
+                            "set_temperature",
+                            {"temperature": decision.physical_target},
+                            "off",
+                            decision.physical_target,
+                        )
+                    )
+                elif decision.mode == "off":
                     steps.append(
                         ("set_hvac_mode", {"hvac_mode": "off"}, "off", obs.setpoint)
                     )

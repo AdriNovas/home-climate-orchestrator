@@ -62,6 +62,12 @@ jobs:
           -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo --entrypoint python
           ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
           tests/ha_humidity_accounting.py
+      - name: Native feedback loss and OFF display (fictional devices only)
+        run: >-
+          timeout 90s docker run --rm --pull=never --network none --memory 512m --cpus 1
+          -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo --entrypoint python
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_feedback_display.py
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 5

@@ -71,7 +71,9 @@
           "response_entity": "Measured response record (compact v1, optional)",
           "expected_ledger_entity": "External expected-transition ledger (optional)",
           "critical_ledger_entity": "External critical echo ledger (optional)",
-          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
         }
       },
       "finish": {
@@ -176,7 +178,9 @@
           "dehumidifier_max_s": "Independent drying · maximum (s)",
           "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
-          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)"
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
         }
       },
       "policy": {
@@ -361,7 +365,9 @@
           "dehumidifier_max_s": "Independent drying · maximum (s)",
           "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
-          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)"
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
         }
       },
       "zone_edit": {
@@ -398,7 +404,9 @@
           "dehumidifier_max_s": "Independent drying · maximum (s)",
           "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
-          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)"
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
         }
       },
       "plant_edit": {
@@ -577,7 +585,9 @@
           "dehumidifier_max_s": "Independent drying · maximum (s)",
           "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
-          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)"
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
+          "off_goal_entity": "Visible target while already off (optional)",
+          "feedback_loss_action": "When thermal feedback is lost"
         }
       },
       "add_dehumidifier": {
@@ -786,6 +796,12 @@
         "fixed": "Fixed time periods",
         "flat": "One fixed price",
         "generic": "Generic price intervals"
+      }
+    },
+    "feedback_loss_actions": {
+      "options": {
+        "hold": "Block thermal commands",
+        "stop": "Stop automatic heating/cooling"
       }
     }
   },

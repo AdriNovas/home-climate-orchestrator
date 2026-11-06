@@ -91,6 +91,7 @@ def zone_schema(plants, defaults=None):
             for n, domains in [
                 ("heat_goal_entity", ["sensor", "input_number", "number"]),
                 ("cool_goal_entity", ["sensor", "input_number", "number"]),
+                ("off_goal_entity", ["sensor", "input_number", "number"]),
                 ("bias_entity", ["sensor", "input_number", "number"]),
                 ("internal_entity", "sensor"),
                 ("response_entity", ["input_text", "sensor"]),
@@ -125,6 +126,13 @@ def zone_schema(plants, defaults=None):
             "require_internal_feedback",
             default=d.get("require_internal_feedback", False),
         ): bool,
+        vol.Required(
+            "feedback_loss_action", default=d.get("feedback_loss_action", "hold")
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["hold", "stop"], translation_key="feedback_loss_actions"
+            )
+        ),
         vol.Required("night_allowed", default=d.get("night_allowed", True)): bool,
         vol.Required("enabled", default=d.get("enabled", True)): bool,
         **(
@@ -1113,6 +1121,8 @@ class ClimateOptions(config_entries.OptionsFlow):
             irrelevant = {
                 "bias",
                 "require_internal_feedback",
+                "feedback_loss_action",
+                "off_goal_entity",
                 "heat_goal_entity",
                 "cool_goal_entity",
                 "bias_entity",
@@ -1157,6 +1167,7 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "labels",
                 "heat_goal_entity",
                 "cool_goal_entity",
+                "off_goal_entity",
                 "bias_entity",
                 "internal_entity",
                 "permission_entity",

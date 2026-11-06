@@ -1,5 +1,24 @@
 # Evidencia de la alfa
 
+## Candidata0.2.0a5 · salidas de referencia y consigna en off
+
+168 pruebas de núcleo. Dos capacidades opt-in: `feedback_loss_action=stop`
+para calor/frío automático sin referencia y `off_goal_entity` para actualizar
+solo la consigna de un equipo ya apagado. Por defecto ambas quedan inactivas.
+Se conserva Manual, pausa, propiedad de dry, journal/ACK y generaciones.
+La confirmación de off ya observado no exige que el siguiente plan siga
+recomendando apagar; no toma una confirmación como permiso para otra orden.
+
+Siete suites HA2026.11.0 en contenedores desechables sin red, dispositivos,
+configuración productiva ni credenciales Supervisor: smoke14, formularios11,
+ejecución17, números10, humedad/contabilidad10, nueva suite6 y ciclo nativo
+setup/reload/unload/removal con identidades conservadas. Los formularios usan
+los gestores reales de HA para asignar y limpiar las dos opciones nuevas.
+Servicios físicos0; escrituras de configuración productiva0. CI verifica
+ademásHA2026.10.4 y HACS/hassfest; consultar el resultado del commit exacto.
+No es una certificación física, visual ni del perfil de una vivienda.
+
+
 ## Candidata0.2.0a4 · edición de humedad conjunta
 
 Se conserva el núcleo154. El ensayo nativo de humedad/contabilidad añade una

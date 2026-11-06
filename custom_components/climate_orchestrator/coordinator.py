@@ -538,6 +538,9 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 ),
                 self.allowed(z.permission_entity),
                 self.source_record(z.response_entity),
+                self.reading(
+                    z.off_goal_entity, "temperature", configured_at=now.timestamp()
+                ),
             )
         # Persist observed plant direction, not a planned or sent direction.
         for p in self.house.plants:
@@ -669,7 +672,8 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
     async def accepted(self, zone, decision):
         now = dt.utcnow().timestamp()
         memory = self.memories.setdefault(zone.id, Memory())
-        memory.last_sent = now
+        if not decision.target_only:
+            memory.last_sent = now
         if decision.stage == "dry_ready" and not memory.dry_until:
             snap = self.snapshot()
             p = self.house.policy

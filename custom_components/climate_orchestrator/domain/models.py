@@ -318,6 +318,8 @@ class Zone:
     dehumidifier_cooldown_s: int = 1200
     dehumidifier_min_temperature: float = 10
     dehumidifier_max_temperature: float = 32
+    feedback_loss_action: str = "hold"
+    off_goal_entity: str | None = None
 
     @property
     def actuator_entity(self):
@@ -350,6 +352,14 @@ class Zone:
                 bounded(value, "zone humidity target", low, high)
         if self.climate_entity and self.humidifier_entity:
             raise ValueError("One actuator per regulation zone")
+        if self.feedback_loss_action not in ["hold", "stop"]:
+            raise ValueError("Unknown feedback-loss action")
+        if self.humidifier_entity and (
+            self.off_goal_entity or self.feedback_loss_action != "hold"
+        ):
+            raise ValueError(
+                "Thermal feedback/display settings require a climate actuator"
+            )
         if self.humidifier_entity and not self.humidity_entity:
             raise ValueError("Independent drying requires an external humidity sensor")
         for name in [
@@ -495,6 +505,7 @@ class Observation:
     goals_valid: bool = True
     permitted: bool = True
     response: dict | None = None
+    off_goal: Reading = field(default_factory=lambda: Reading(None))
 
     def __post_init__(self) -> None:
         for name in ["minimum", "maximum", "step", "mode_since"]:
@@ -616,6 +627,7 @@ class Decision:
     physical_target: float | None = None
     next_at: float | None = None
     urgent: bool = False
+    target_only: bool = False
 
 
 def house_from_dict(data: dict[str, Any]) -> House:

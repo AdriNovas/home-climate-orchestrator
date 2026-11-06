@@ -71,7 +71,9 @@
           "response_entity": "Registro de respuesta medida (compacto v1, opcional)",
           "expected_ledger_entity": "Registro externo de transiciones esperadas (opcional)",
           "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
-          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas"
+          "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
         }
       },
       "finish": {
@@ -176,7 +178,9 @@
           "dehumidifier_max_s": "Secado independiente · máximo (s)",
           "dehumidifier_cooldown_s": "Secado independiente · reposo entre sesiones (s)",
           "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
-          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)"
+          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
         }
       },
       "policy": {
@@ -361,7 +365,9 @@
           "dehumidifier_max_s": "Secado independiente · máximo (s)",
           "dehumidifier_cooldown_s": "Secado independiente · reposo entre sesiones (s)",
           "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
-          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)"
+          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
         }
       },
       "zone_edit": {
@@ -398,7 +404,9 @@
           "dehumidifier_max_s": "Secado independiente · máximo (s)",
           "dehumidifier_cooldown_s": "Secado independiente · reposo entre sesiones (s)",
           "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
-          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)"
+          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
         }
       },
       "plant_edit": {
@@ -577,7 +585,9 @@
           "dehumidifier_max_s": "Secado independiente · máximo (s)",
           "dehumidifier_cooldown_s": "Secado independiente · reposo entre sesiones (s)",
           "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
-          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)"
+          "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
+          "off_goal_entity": "Objetivo visible estando apagado (opcional)",
+          "feedback_loss_action": "Al perder la referencia térmica"
         }
       },
       "add_dehumidifier": {
@@ -786,6 +796,12 @@
         "fixed": "Tramos horarios fijos",
         "flat": "Precio fijo único",
         "generic": "Intervalos de sensor genérico"
+      }
+    },
+    "feedback_loss_actions": {
+      "options": {
+        "hold": "Bloquear órdenes térmicas",
+        "stop": "Parar calor/frío automático"
       }
     }
   },
