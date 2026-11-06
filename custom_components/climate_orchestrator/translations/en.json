@@ -73,7 +73,9 @@
           "critical_ledger_entity": "External critical echo ledger (optional)",
           "require_internal_feedback": "Require fresh internal feedback for thermal commands",
           "off_goal_entity": "Visible target while already off (optional)",
-          "feedback_loss_action": "When thermal feedback is lost"
+          "feedback_loss_action": "When thermal feedback is lost",
+          "mode_permission_loss_action": "When permission for a running thermal mode is removed",
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
         }
       },
       "finish": {
@@ -180,7 +182,9 @@
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
           "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
           "off_goal_entity": "Visible target while already off (optional)",
-          "feedback_loss_action": "When thermal feedback is lost"
+          "feedback_loss_action": "When thermal feedback is lost",
+          "mode_permission_loss_action": "When permission for a running thermal mode is removed",
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
         }
       },
       "policy": {
@@ -367,7 +371,9 @@
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
           "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
           "off_goal_entity": "Visible target while already off (optional)",
-          "feedback_loss_action": "When thermal feedback is lost"
+          "feedback_loss_action": "When thermal feedback is lost",
+          "mode_permission_loss_action": "When permission for a running thermal mode is removed",
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
         }
       },
       "zone_edit": {
@@ -406,7 +412,9 @@
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
           "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
           "off_goal_entity": "Visible target while already off (optional)",
-          "feedback_loss_action": "When thermal feedback is lost"
+          "feedback_loss_action": "When thermal feedback is lost",
+          "mode_permission_loss_action": "When permission for a running thermal mode is removed",
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
         }
       },
       "plant_edit": {
@@ -587,7 +595,9 @@
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
           "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
           "off_goal_entity": "Visible target while already off (optional)",
-          "feedback_loss_action": "When thermal feedback is lost"
+          "feedback_loss_action": "When thermal feedback is lost",
+          "mode_permission_loss_action": "When permission for a running thermal mode is removed",
+          "thermal_presence_entity": "Local thermal occupancy permission (optional)"
         }
       },
       "add_dehumidifier": {

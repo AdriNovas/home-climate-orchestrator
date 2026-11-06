@@ -320,6 +320,8 @@ class Zone:
     dehumidifier_max_temperature: float = 32
     feedback_loss_action: str = "hold"
     off_goal_entity: str | None = None
+    mode_permission_loss_action: str = "hold"
+    thermal_presence_entity: str | None = None
 
     @property
     def actuator_entity(self):
@@ -354,11 +356,16 @@ class Zone:
             raise ValueError("One actuator per regulation zone")
         if self.feedback_loss_action not in ["hold", "stop"]:
             raise ValueError("Unknown feedback-loss action")
+        if self.mode_permission_loss_action not in ["hold", "stop"]:
+            raise ValueError("Unknown mode-permission-loss action")
         if self.humidifier_entity and (
-            self.off_goal_entity or self.feedback_loss_action != "hold"
+            self.off_goal_entity
+            or self.feedback_loss_action != "hold"
+            or self.mode_permission_loss_action != "hold"
+            or self.thermal_presence_entity
         ):
             raise ValueError(
-                "Thermal feedback/display settings require a climate actuator"
+                "Thermal feedback/display/permission settings require a climate actuator"
             )
         if self.humidifier_entity and not self.humidity_entity:
             raise ValueError("Independent drying requires an external humidity sensor")
@@ -506,8 +513,14 @@ class Observation:
     permitted: bool = True
     response: dict | None = None
     off_goal: Reading = field(default_factory=lambda: Reading(None))
+    thermal_occupied: bool | None = None
 
     def __post_init__(self) -> None:
+        if (
+            self.thermal_occupied is not None
+            and type(self.thermal_occupied) is not bool
+        ):
+            raise ValueError("thermal_occupied must be boolean or inherited")
         for name in ["minimum", "maximum", "step", "mode_since"]:
             object.__setattr__(self, name, finite(getattr(self, name), name))
         if self.minimum >= self.maximum or not 0 < self.step <= 10:

@@ -293,6 +293,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                         z.heat_permission_entity,
                         z.cool_permission_entity,
                         z.dry_permission_entity,
+                        z.thermal_presence_entity,
                     ]
                     for z in self.house.zones
                 )
@@ -541,6 +542,9 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 self.reading(
                     z.off_goal_entity, "temperature", configured_at=now.timestamp()
                 ),
+                self.allowed(z.thermal_presence_entity)
+                if z.thermal_presence_entity
+                else None,
             )
         # Persist observed plant direction, not a planned or sent direction.
         for p in self.house.plants:

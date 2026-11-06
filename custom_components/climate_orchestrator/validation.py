@@ -23,6 +23,7 @@ ZONE_SOURCES = [
     "heat_permission_entity",
     "cool_permission_entity",
     "dry_permission_entity",
+    "thermal_presence_entity",
     "response_entity",
     "expected_ledger_entity",
     "critical_ledger_entity",

@@ -73,7 +73,9 @@
           "critical_ledger_entity": "Registro externo de ecos críticos (opcional)",
           "require_internal_feedback": "Exigir sonda interna fresca para órdenes térmicas",
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
-          "feedback_loss_action": "Al perder la referencia térmica"
+          "feedback_loss_action": "Al perder la referencia térmica",
+          "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
         }
       },
       "finish": {
@@ -180,7 +182,9 @@
           "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
           "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
-          "feedback_loss_action": "Al perder la referencia térmica"
+          "feedback_loss_action": "Al perder la referencia térmica",
+          "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
         }
       },
       "policy": {
@@ -367,7 +371,9 @@
           "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
           "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
-          "feedback_loss_action": "Al perder la referencia térmica"
+          "feedback_loss_action": "Al perder la referencia térmica",
+          "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
         }
       },
       "zone_edit": {
@@ -406,7 +412,9 @@
           "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
           "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
-          "feedback_loss_action": "Al perder la referencia térmica"
+          "feedback_loss_action": "Al perder la referencia térmica",
+          "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
         }
       },
       "plant_edit": {
@@ -587,7 +595,9 @@
           "dehumidifier_min_temperature": "Temperatura mínima del deshumidificador (°C)",
           "dehumidifier_max_temperature": "Temperatura máxima del deshumidificador (°C)",
           "off_goal_entity": "Objetivo visible estando apagado (opcional)",
-          "feedback_loss_action": "Al perder la referencia térmica"
+          "feedback_loss_action": "Al perder la referencia térmica",
+          "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
+          "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)"
         }
       },
       "add_dehumidifier": {

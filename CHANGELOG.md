@@ -1,5 +1,16 @@
 # Cambios
 
+## Candidata0.2.0a6 · desarrollo aislado, sin release
+
+- Salida térmica off-only opt-in al retirar el permiso del modo ya activo.
+  Predeterminado hold, sin adoptar Manual/dry ni convertir pausa en apagado;
+  revalidación tras persistir cancela intenciones ante recuperación o Manual nuevo.
+- Un veto ordinario de modo no oculta la protección por exceso ya observado.
+- Permiso opcional de ocupación térmica local para retornos: no falsea presencia
+  de la casa ni autoriza secado/gestión de carga conjunta con la vivienda vacía.
+- Opciones avanzadas nativas, validación y traducciones; sin activar control
+  por actualización ni modificar perfiles o entidades instaladas.
+
 ## Candidata0.2.0a4 · sin release
 
 - Editor nativo de humedad por rango con inicio/fin juntos, guardado atómico,

@@ -1,4 +1,4 @@
-"""Native dispatch for opt-in feedback exits/OFF targets; fictional devices only."""
+"""Native dispatch for opt-in protective exits/OFF targets; fictional devices only."""
 
 import asyncio
 import json
@@ -55,6 +55,10 @@ async def main():
                 hass.states.async_set(entity, str(state), attrs or {})
 
             put("input_boolean.demo_control", "off")
+            put("input_boolean.demo_heat", "on")
+            put("input_boolean.demo_cool", "on")
+            put("binary_sensor.demo_home", "on")
+            put("binary_sensor.demo_thermal_presence", "on")
             put("sensor.demo_t", 22, {"unit_of_measurement": "°C"})
             put("number.demo_display", 20, {"unit_of_measurement": "°C"})
             attrs = {
@@ -84,11 +88,16 @@ async def main():
                             "night_allowed": True,
                             "require_internal_feedback": True,
                             "feedback_loss_action": "stop",
+                            "mode_permission_loss_action": "stop",
+                            "heat_permission_entity": "input_boolean.demo_heat",
+                            "cool_permission_entity": "input_boolean.demo_cool",
+                            "thermal_presence_entity": "binary_sensor.demo_thermal_presence",
                         }
                     ],
                 },
                 "tariff": {"type": "flat", "price": 0.15},
                 "control_entity": "input_boolean.demo_control",
+                "presence_entity": "binary_sensor.demo_home",
                 "execution_mode": "control",
                 "exclusive_control": True,
             }
@@ -191,6 +200,65 @@ async def main():
             checks.append(
                 "reference loss stops opted-in automatic thermal mode without a false uncertain/Manual latch"
             )
+            for mode, temperature, permission in [
+                ("heat", 18, "input_boolean.demo_heat"),
+                ("cool", 28, "input_boolean.demo_cool"),
+            ]:
+                put("sensor.demo_t", temperature, {"unit_of_measurement": "°C"})
+                put("climate.demo", mode, attrs)
+                await hass.async_block_till_done()
+                await c.executor.resume("room")
+                put(permission, "off")
+                await hass.async_block_till_done()
+                calls.clear()
+                assert c.fresh_plan()[1]["room"].reason == "mode_permission_lost"
+                assert await run() == "acked", c.executor.errors
+                assert calls == [
+                    ("set_hvac_mode", {"entity_id": "climate.demo", "hvac_mode": "off"})
+                ], calls
+                assert c.executor.is_automatic("room")
+                checks.append(
+                    f"native {mode} permission loss dispatches only journaled off and ACKs without seizing Manual"
+                )
+                put(permission, "on")
+
+            # The independent OFF display is allowed while empty; disable its
+            # source here so this scenario isolates the thermal occupancy guard.
+            put("number.demo_display", "unavailable")
+            put("binary_sensor.demo_thermal_presence", "unavailable")
+            put("sensor.demo_t", 18, {"unit_of_measurement": "°C"})
+            put("climate.demo", "off", attrs)
+            await hass.async_block_till_done()
+            await c.executor.resume("room")
+            assert c.snapshot().zones["room"].thermal_occupied is False
+            assert c.fresh_plan()[1]["room"].reason == "occupancy_unconfirmed", (
+                c.fresh_plan()[1]["room"]
+            )
+            checks.append(
+                "a configured missing thermal-occupancy source fails closed instead of inheriting household presence"
+            )
+            put("binary_sensor.demo_thermal_presence", "on")
+            put("binary_sensor.demo_home", "off")
+            hass.states.get("climate.demo").last_changed = dt.utcnow() - timedelta(
+                hours=1
+            )
+            c.plants.clear()
+            c.memories.clear()
+            await hass.async_block_till_done()
+            calls.clear()
+            assert c.snapshot().occupied is False
+            assert c.snapshot().zones["room"].thermal_occupied is True
+            assert c.fresh_plan()[1]["room"].mode == "heat"
+            assert await run() == "acked", c.executor.errors
+            assert hass.states.get("climate.demo").state == "heat"
+            assert any(
+                call[0] == "set_hvac_mode" and call[1]["hvac_mode"] == "heat"
+                for call in calls
+            )
+            checks.append(
+                "native thermal return starts the selected zone without changing or bypassing household absence for drying"
+            )
+            put("binary_sensor.demo_home", "on")
 
             # °F is converted both as source data and as an outgoing HA target.
             hass.config.units = US_CUSTOMARY_SYSTEM

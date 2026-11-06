@@ -136,3 +136,21 @@ predice coste de recuperación ni demuestra que mantener supere siempre a apagar
 Contrato de migración y reversión: [MIGRATION.md](MIGRATION.md).
 Contrato de [journal nativo, Manual externo y barrera persistente](EXTERNAL_MANUAL.md).
 Ejemplo ficticio: [shared-meter.json](../examples/shared-meter.json).
+
+## Pérdida de permiso de un modo térmico
+
+La opción avanzada mode_permission_loss_action conserva hold por defecto: un
+permiso de calor/frío ausente impide órdenes ordinarias, no significa apagar.
+stop, explícito por estancia, solicita únicamente off si ese modo ya funciona
+bajo autoridad automática; no adopta Manual ni dry ajeno, no actúa por una pausa
+global y no necesita inventar temperatura/objetivo para emitir la salida.
+La recuperación del permiso o una decisión Manual durante la publicación del
+registro revocan la intención antigua antes del servicio. La protección por
+exceso térmico ya observado no queda oculta por un veto ordinario de modo.
+
+La vinculación avanzada opcional thermal_presence_entity permite confirmar
+ocupación térmica local sin cambiar la presencia real de toda la vivienda:
+por ejemplo, preparar una estancia antes de una llegada. Sin vínculo hereda
+presencia global; un vínculo configurado pero ausente falla cerrado. Solo
+afecta calor/frío de esa estancia: no habilita secado con la casa vacía ni
+la observación de retirada de carga de planta. Nunca adquiere Manual.

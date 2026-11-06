@@ -356,6 +356,7 @@ async def main():
             hass.states.async_set(
                 "input_number.fictional_goal", "21", {"unit_of_measurement": "°C"}
             )
+            hass.states.async_set("binary_sensor.fictional_thermal_return", "on")
             for value in ["input_number.fictional_goal", None]:
                 option_id, result = await begin("splits", "zone")
                 await options.async_configure(option_id, {"zone": zone_id})
@@ -368,9 +369,14 @@ async def main():
                         "heat_goal_entity": value,
                         "off_goal_entity": value,
                         "feedback_loss_action": "stop",
+                        "mode_permission_loss_action": "stop",
+                        "thermal_presence_entity": "binary_sensor.fictional_thermal_return",
                     }
                     if value
-                    else {"feedback_loss_action": "hold"},
+                    else {
+                        "feedback_loss_action": "hold",
+                        "mode_permission_loss_action": "hold",
+                    },
                 )
                 assert result["type"] == "create_entry"
                 await hass.async_block_till_done()
@@ -381,10 +387,22 @@ async def main():
                     == value
                 )
                 current = entry.runtime_data.profile["house"]["zones"][0]
+                assert current.get("thermal_presence_entity") == (
+                    "binary_sensor.fictional_thermal_return" if value else None
+                )
+                assert entry.runtime_data.house.zones[0].thermal_presence_entity == (
+                    "binary_sensor.fictional_thermal_return" if value else None
+                )
                 assert current.get("off_goal_entity") == value
                 assert current["feedback_loss_action"] == ("stop" if value else "hold")
+                assert current["mode_permission_loss_action"] == (
+                    "stop" if value else "hold"
+                )
+                assert entry.runtime_data.house.zones[
+                    0
+                ].mode_permission_loss_action == ("stop" if value else "hold")
             checks.append(
-                "advanced external and OFF display goals can be assigned/cleared, with opt-in feedback stops"
+                "real advanced flow persists/reset both opt-in stop policies and clears optional goals"
             )
             hass.states.async_set(
                 "sensor.fictional_supply", "100", {"unit_of_measurement": "W"}

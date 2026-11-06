@@ -232,6 +232,9 @@ def evaluate(
             z.humidity_stop_targets.get(band.name, band.humidity_stop),
         )
         temp_ok = o.temperature.fresh(now, p.temperature_fresh_s)
+        thermal_occupied = (
+            snap.occupied if o.thermal_occupied is None else o.thermal_occupied
+        )
         eligible = (
             o.automatic
             and z.enabled
@@ -239,7 +242,7 @@ def evaluate(
             and not snap.paused
             and o.permitted
             and (not sleep or z.night_allowed)
-            and snap.occupied is True
+            and thermal_occupied is True
             and o.mode in ["off", "heat", "cool"]
         )
         stable = observe_stability(m, o, p, now, eligible)
@@ -360,6 +363,23 @@ def evaluate(
         if not z.enabled:
             result[z.id] = replace(d, stage="paused", reason="zone_disabled")
             continue
+        mode_permission_lost = (o.mode == "heat" and not o.heat_allowed) or (
+            o.mode == "cool" and not o.cool_allowed
+        )
+        # Explicit stop policy, not a new default or an implicit ownership grant.
+        # Revoking a running mode needs neither a valid goal nor fresh feedback.
+        # Manual, a global pause and unowned drying keep their existing guards.
+        if (
+            z.mode_permission_loss_action == "stop"
+            and mode_permission_lost
+            and not snap.paused
+            and o.permitted
+            and "off" in o.supported_modes
+        ):
+            result[z.id] = replace(
+                d, stage="protect", reason="mode_permission_lost", mode="off"
+            )
+            continue
         # Optional, explicit fail-safe for installations whose automatic thermal
         # operation must stop without its reference. Never seize Manual, stop an
         # unowned dry cycle, or turn a global pause into a thermal shutdown.
@@ -397,13 +417,6 @@ def evaluate(
         if snap.paused or not o.permitted or (sleep and not z.night_allowed):
             result[z.id] = replace(d, stage="paused", reason="pause_or_schedule")
             continue
-        if (o.mode == "heat" and not o.heat_allowed) or (
-            o.mode == "cool" and not o.cool_allowed
-        ):
-            result[z.id] = replace(
-                d, stage="blocked", reason="external_mode_permission"
-            )
-            continue
         t = o.temperature.value
         excess = (o.mode == "heat" and t >= heat + p.overshoot_delta) or (
             o.mode == "cool" and t <= cool - p.overshoot_delta
@@ -413,7 +426,13 @@ def evaluate(
                 d, stage="protect", reason="temperature_overshoot", mode="off"
             )
             continue
-        if snap.occupied is not True:
+        # An ordinary mode veto must not hide an already-observed overshoot.
+        if mode_permission_lost:
+            result[z.id] = replace(
+                d, stage="blocked", reason="external_mode_permission"
+            )
+            continue
+        if thermal_occupied is not True:
             result[z.id] = replace(d, stage="waiting", reason="occupancy_unconfirmed")
             continue
         plant = next(x for x in house.plants if x.id == z.plant)

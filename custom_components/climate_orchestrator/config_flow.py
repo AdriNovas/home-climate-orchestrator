@@ -113,6 +113,10 @@ def zone_schema(plants, defaults=None):
                     "dry_permission_entity",
                     ["binary_sensor", "input_boolean", "schedule"],
                 ),
+                (
+                    "thermal_presence_entity",
+                    ["binary_sensor", "input_boolean", "schedule"],
+                ),
             ]
         },
         optional("area", d.get("area", vol.UNDEFINED)): selector.AreaSelector(),
@@ -128,6 +132,14 @@ def zone_schema(plants, defaults=None):
         ): bool,
         vol.Required(
             "feedback_loss_action", default=d.get("feedback_loss_action", "hold")
+        ): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["hold", "stop"], translation_key="feedback_loss_actions"
+            )
+        ),
+        vol.Required(
+            "mode_permission_loss_action",
+            default=d.get("mode_permission_loss_action", "hold"),
         ): selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=["hold", "stop"], translation_key="feedback_loss_actions"
@@ -1122,6 +1134,8 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "bias",
                 "require_internal_feedback",
                 "feedback_loss_action",
+                "mode_permission_loss_action",
+                "thermal_presence_entity",
                 "off_goal_entity",
                 "heat_goal_entity",
                 "cool_goal_entity",
@@ -1174,6 +1188,7 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "heat_permission_entity",
                 "cool_permission_entity",
                 "dry_permission_entity",
+                "thermal_presence_entity",
                 "response_entity",
                 "expected_ledger_entity",
                 "critical_ledger_entity",
