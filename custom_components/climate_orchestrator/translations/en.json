@@ -38,7 +38,8 @@
           "minimum_off_min": "Minimum off (minutes)",
           "minimum_on_min": "Minimum on (minutes)",
           "direction_hold_min": "Minimum direction hold (minutes)",
-          "reversal_gap_min": "Minimum between reversals (minutes)"
+          "reversal_gap_min": "Minimum between reversals (minutes)",
+          "coil_drain_min": "Off/drain wait before returning to heat (min)"
         },
         "description": "Group only heads that physically share an outdoor unit. Use another installation for independent equipment. Minimum times can be adjusted later."
       },
@@ -78,7 +79,8 @@
         "menu_options": {
           "split": "Add another split",
           "plant": "Add outdoor unit",
-          "create": "Finish in observation"
+          "create": "Finish in observation",
+          "dehumidifier": "Add dehumidifier"
         }
       },
       "split": {
@@ -93,6 +95,19 @@
           "area": "Real area",
           "labels": "Existing functional labels"
         }
+      },
+      "dehumidifier": {
+        "title": "Add standalone dehumidifier",
+        "description": "Link a water-removing appliance and its room sensors. Its compressor is independent of the splits; it starts paused unless enabled.",
+        "data": {
+          "name": "Name (optional)",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "area": "Real area",
+          "labels": "Existing functional labels",
+          "humidifier_entity": "Existing dehumidifier",
+          "enabled": "Enable planning"
+        }
       }
     },
     "error": {
@@ -102,7 +117,8 @@
       "entity_not_found": "The entity does not exist in Home Assistant",
       "invalid_unit": "Unit is incompatible with this measurement",
       "already_configured": "This split is already linked to another room",
-      "name_required": "Enter a name for the room"
+      "name_required": "Enter a name for the room",
+      "not_dehumidifier": "Select a water-removing dehumidifier, not a humidifier."
     }
   },
   "options": {
@@ -122,7 +138,8 @@
           "minimum_off_min": "Minimum off (minutes)",
           "minimum_on_min": "Minimum on (minutes)",
           "direction_hold_min": "Minimum direction hold (minutes)",
-          "reversal_gap_min": "Minimum between reversals (minutes)"
+          "reversal_gap_min": "Minimum between reversals (minutes)",
+          "coil_drain_min": "Off/drain wait before returning to heat (min)"
         }
       },
       "zone": {
@@ -153,7 +170,13 @@
           "response_entity": "Measured response record (compact v1, optional)",
           "expected_ledger_entity": "External expected-transition ledger (optional)",
           "critical_ledger_entity": "External critical echo ledger (optional)",
-          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "humidifier_entity": "Existing dehumidifier",
+          "dehumidifier_min_s": "Independent drying · minimum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
+          "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)"
         }
       },
       "policy": {
@@ -332,7 +355,13 @@
           "response_entity": "Measured response record (compact v1, optional)",
           "expected_ledger_entity": "External expected-transition ledger (optional)",
           "critical_ledger_entity": "External critical echo ledger (optional)",
-          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "humidifier_entity": "Existing dehumidifier",
+          "dehumidifier_min_s": "Independent drying · minimum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
+          "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)"
         }
       },
       "zone_edit": {
@@ -363,7 +392,13 @@
           "response_entity": "Measured response record (compact v1, optional)",
           "expected_ledger_entity": "External expected-transition ledger (optional)",
           "critical_ledger_entity": "External critical echo ledger (optional)",
-          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "humidifier_entity": "Existing dehumidifier",
+          "dehumidifier_min_s": "Independent drying · minimum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
+          "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)"
         }
       },
       "plant_edit": {
@@ -374,7 +409,8 @@
           "minimum_off_min": "Minimum off (minutes)",
           "minimum_on_min": "Minimum on (minutes)",
           "direction_hold_min": "Minimum direction hold (minutes)",
-          "reversal_gap_min": "Minimum between reversals (minutes)"
+          "reversal_gap_min": "Minimum between reversals (minutes)",
+          "coil_drain_min": "Off/drain wait before returning to heat (min)"
         }
       },
       "add_plant": {
@@ -385,7 +421,8 @@
           "minimum_off_min": "Minimum off (minutes)",
           "minimum_on_min": "Minimum on (minutes)",
           "direction_hold_min": "Minimum direction hold (minutes)",
-          "reversal_gap_min": "Minimum between reversals (minutes)"
+          "reversal_gap_min": "Minimum between reversals (minutes)",
+          "coil_drain_min": "Off/drain wait before returning to heat (min)"
         }
       },
       "execution": {
@@ -416,16 +453,18 @@
           "fresh_s": "Maximum report age (seconds)",
           "energy_fresh_s": "Maximum energy-counter report age (seconds)",
           "remove": "Remove this assignment (never the original sensor/history)",
-          "negative_power_tolerance_w": "Negative power noise tolerance (W)"
+          "negative_power_tolerance_w": "Negative power noise tolerance (W)",
+          "include_in_system": "Include in measured total (no overlapping meters)"
         },
         "data_description": {
           "negative_power_tolerance_w": "Only for near-zero consumption-meter noise (0 disables). Original source, energy and supply protection are unchanged; more negative readings stay invalid."
-        }
+        },
+        "description": "Periods integrate measured active power since setup, not reconstructed past. Do not sum parent and child meters; sensors expose gaps and coverage."
       },
       "init": {
         "title": "Settings",
         "menu_options": {
-          "splits": "Splits and rooms",
+          "splits": "Devices and room sensors",
           "plants": "Outdoor units",
           "comfort": "Comfort and schedules",
           "energy": "Energy and meters",
@@ -437,7 +476,8 @@
         "menu_options": {
           "add_split": "Link another split",
           "zone": "Configure a split or room",
-          "zone_targets": "Room and price targets"
+          "zone_targets": "Room and price targets",
+          "add_dehumidifier": "Link dehumidifier"
         }
       },
       "plants": {
@@ -479,7 +519,9 @@
           "heat_day": "Heating · day",
           "cool_day": "Cooling · day",
           "heat_sleep": "Heating · sleep",
-          "cool_sleep": "Cooling · sleep"
+          "cool_sleep": "Cooling · sleep",
+          "humidity_start": "Humidity · start",
+          "humidity_stop": "Humidity · stop"
         }
       },
       "add_split": {
@@ -504,7 +546,8 @@
           "humidity_entity": "Humidity sensor",
           "plant": "Plant",
           "area": "Real area",
-          "labels": "Existing functional labels"
+          "labels": "Existing functional labels",
+          "humidifier_entity": "Existing dehumidifier"
         },
         "description": "Changing equipment or probes preserves the zone identity and all four target tables."
       },
@@ -529,7 +572,26 @@
           "response_entity": "Measured response record (compact v1, optional)",
           "expected_ledger_entity": "External expected-transition ledger (optional)",
           "critical_ledger_entity": "External critical echo ledger (optional)",
-          "require_internal_feedback": "Require fresh internal feedback for thermal commands"
+          "require_internal_feedback": "Require fresh internal feedback for thermal commands",
+          "humidifier_entity": "Existing dehumidifier",
+          "dehumidifier_min_s": "Independent drying · minimum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
+          "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
+          "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)"
+        }
+      },
+      "add_dehumidifier": {
+        "title": "Add standalone dehumidifier",
+        "description": "Link a water-removing appliance and its room sensors. Its compressor is independent of the splits; it starts paused unless enabled.",
+        "data": {
+          "name": "Name (optional)",
+          "temperature_entity": "Reference temperature sensor",
+          "humidity_entity": "Humidity sensor",
+          "area": "Real area",
+          "labels": "Existing functional labels",
+          "humidifier_entity": "Existing dehumidifier",
+          "enabled": "Enable planning"
         }
       }
     },
@@ -540,7 +602,8 @@
       "entity_not_found": "The entity does not exist in Home Assistant",
       "invalid_unit": "Unit is incompatible with this measurement",
       "already_configured": "This split is already linked to another room",
-      "name_required": "Enter a name for the room"
+      "name_required": "Enter a name for the room",
+      "not_dehumidifier": "Select a water-removing dehumidifier, not a humidifier."
     }
   },
   "entity": {
@@ -591,7 +654,40 @@
         "name": "Drying end threshold"
       },
       "physical_target": {
-        "name": "Proposed hardware setpoint"
+        "name": "Proposed appliance setpoint"
+      },
+      "dew_point": {
+        "name": "Room dew point"
+      },
+      "period_energy_today": {
+        "name": "Measured energy · today"
+      },
+      "period_energy_yesterday": {
+        "name": "Measured energy · yesterday"
+      },
+      "period_energy_week": {
+        "name": "Measured energy · this week"
+      },
+      "period_energy_month": {
+        "name": "Measured energy · this month"
+      },
+      "period_energy_year": {
+        "name": "Measured energy · this year"
+      },
+      "period_cost_today": {
+        "name": "Measured energy cost · today"
+      },
+      "period_cost_yesterday": {
+        "name": "Measured energy cost · yesterday"
+      },
+      "period_cost_week": {
+        "name": "Measured energy cost · this week"
+      },
+      "period_cost_month": {
+        "name": "Measured energy cost · this month"
+      },
+      "period_cost_year": {
+        "name": "Measured energy cost · this year"
       }
     },
     "binary_sensor": {
@@ -625,6 +721,12 @@
       },
       "cool_sleep_target": {
         "name": "Cool · sleep · {price_range}"
+      },
+      "humidity_start_target": {
+        "name": "Humidity · start · {price_range}"
+      },
+      "humidity_stop_target": {
+        "name": "Humidity · stop · {price_range}"
       }
     }
   },
@@ -634,7 +736,9 @@
         "heat_targets": "Heating · day",
         "cool_targets": "Cooling · day",
         "heat_sleep_targets": "Heating · sleep",
-        "cool_sleep_targets": "Cooling · sleep"
+        "cool_sleep_targets": "Cooling · sleep",
+        "humidity_start_targets": "Humidity · start",
+        "humidity_stop_targets": "Humidity · stop"
       }
     },
     "execution_modes": {

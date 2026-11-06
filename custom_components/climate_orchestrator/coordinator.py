@@ -15,6 +15,7 @@ from .const import DOMAIN, STORAGE_VERSION
 from .validation import validate_sources, source_entities
 from .domain.engine import evaluate, begin_dry, sleeping
 from .domain.energy import meters_from_profile, normalize
+from .domain.accounting import Accounting, PERIODS
 from .domain.safety import SupplyProtection, supply_cut
 from .domain.provenance import record, transition_echo, critical_echo, cut_record
 from .execution import Executor
@@ -72,6 +73,8 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         self._store = Store(hass, STORAGE_VERSION, f"{DOMAIN}.{entry.entry_id}")
         self._remove_listener = None
         self.meters = meters_from_profile(self.profile, self.house)
+        self.accounting = {m.id: Accounting(self.house.timezone) for m in self.meters}
+        self.accounting_archive = []
         self.supply_policy = SupplyProtection(
             **self.profile.get("supply_protection", {})
         )
@@ -108,6 +111,8 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                     "cool_targets",
                     "heat_sleep_targets",
                     "cool_sleep_targets",
+                    "humidity_start_targets",
+                    "humidity_stop_targets",
                 ]:
                     zone.pop(table, None)
         if before != after:
@@ -133,7 +138,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         return record(state.state) if state else None
 
     def external_echo(self, zone, old, new, user):
-        if not old or not new:
+        if zone.independent_drying or not old or not new:
             return False
         now = dt.utcnow().timestamp()
         return transition_echo(
@@ -153,6 +158,20 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             user,
         )
 
+    def actuator_mode(self, zone, state):
+        if zone.independent_drying and state and state.state in ["on", "off"]:
+            return "dry" if state.state == "on" else "off"
+        return state.state if state else "unknown"
+
+    def actuator_target(self, zone, state):
+        if zone.independent_drying:
+            try:
+                value = float(state.attributes.get("humidity")) if state else None
+                return value if value is not None and isfinite(value) else None
+            except (TypeError, ValueError):
+                return None
+        return self.native_temperature(state, "temperature")
+
     async def async_restore(self) -> None:
         await self.executor.restore()
         data = await self._store.async_load() or {}
@@ -163,7 +182,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             if key in {z.id for z in self.house.zones}:
                 try:
                     binding = next(
-                        z.climate_entity for z in self.house.zones if z.id == key
+                        z.actuator_entity for z in self.house.zones if z.id == key
                     )
                     if data.get("bindings", {}).get(key, binding) != binding:
                         continue
@@ -180,6 +199,20 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                         self.memories[key].dry_target = owner["target"]
                 except (TypeError, ValueError):
                     LOGGER.warning("Discarding incompatible observation memory")
+        self.accounting_archive = data.get("accounting_archive", [])
+        for meter in self.meters:
+            saved = data.get("accounting", {}).get(meter.id)
+            if saved:
+                if saved.get("binding") != [
+                    meter.power_entity,
+                    meter.scope,
+                    meter.target,
+                ]:
+                    self.accounting_archive.append({"meter": meter.id, **saved})
+                    continue
+                self.accounting[meter.id] = Accounting(
+                    self.house.timezone, saved["ledger"]
+                )
         for key, row in data.get("plants", {}).items():
             if key in {p.id for p in self.house.plants}:
                 try:
@@ -191,7 +224,15 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         return {
             "zones": {k: asdict(v) for k, v in self.memories.items()},
             "plants": {k: asdict(v) for k, v in self.plants.items()},
-            "bindings": {z.id: z.climate_entity for z in self.house.zones},
+            "bindings": {z.id: z.actuator_entity for z in self.house.zones},
+            "accounting": {
+                m.id: {
+                    "binding": [m.power_entity, m.scope, m.target],
+                    "ledger": self.accounting[m.id].saved(),
+                }
+                for m in self.meters
+            },
+            "accounting_archive": self.accounting_archive,
         }
 
     async def async_close(self) -> None:
@@ -217,7 +258,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             entity = event.data["entity_id"]
             old, new = event.data.get("old_state"), event.data.get("new_state")
             climate = next(
-                (z for z in self.house.zones if z.climate_entity == entity), None
+                (z for z in self.house.zones if z.actuator_entity == entity), None
             )
             if climate:
                 user = bool(
@@ -227,16 +268,16 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                         not old
                         or old.context.id != new.context.id
                         or old.state != new.state
-                        or old.attributes.get("temperature")
-                        != new.attributes.get("temperature")
+                        or self.actuator_target(climate, old)
+                        != self.actuator_target(climate, new)
                     )
                 )
                 self.executor.observe(
                     climate.id,
-                    new.state if new else "unavailable",
-                    self.native_temperature(new, "temperature"),
-                    old.state if old else None,
-                    self.native_temperature(old, "temperature"),
+                    self.actuator_mode(climate, new),
+                    self.actuator_target(climate, new),
+                    self.actuator_mode(climate, old) if old else None,
+                    self.actuator_target(climate, old),
                     user,
                     external=self.external_echo(climate, old, new, user),
                 )
@@ -408,7 +449,9 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         now = dt.utcnow()
         readings = {}
         for z in self.house.zones:
-            state = self.hass.states.get(z.climate_entity) if z.climate_entity else None
+            state = (
+                self.hass.states.get(z.actuator_entity) if z.actuator_entity else None
+            )
             attrs = dict(state.attributes) if state else {}
 
             def native(key, default=None):
@@ -425,6 +468,18 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 and step is not None
                 and 0 < step <= 10
             )
+            if z.independent_drying:
+                minimum, maximum, step = (
+                    attrs.get("min_humidity", 35),
+                    attrs.get("max_humidity", 85),
+                    1,
+                )
+                capable = (
+                    attrs.get("device_class") == "dehumidifier"
+                    and isinstance(minimum, (int, float))
+                    and isinstance(maximum, (int, float))
+                    and 0 <= minimum < maximum <= 100
+                )
             internal = native("current_temperature")
             heat_goal = self.reading(
                 z.heat_goal_entity, "temperature", configured_at=now.timestamp()
@@ -439,10 +494,16 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 self.reading(z.internal_entity, "temperature")
                 if z.internal_entity
                 else Reading(internal, state.last_reported.timestamp() if state else 0),
-                state.state if state else "unknown",
+                self.actuator_mode(z, state),
                 state.last_changed.timestamp() if state else now.timestamp(),
-                native("temperature"),
-                tuple(attrs.get("hvac_modes", [])) if capable else (),
+                self.actuator_target(z, state),
+                (
+                    ("off", "dry")
+                    if z.independent_drying
+                    else tuple(attrs.get("hvac_modes", []))
+                )
+                if capable
+                else (),
                 minimum if capable else 16,
                 maximum if capable else 30,
                 step if capable else 0.5,
@@ -575,7 +636,27 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             cut = cut_record(self.source_record(self.profile["external_cut_entity"]))
             if cut is None or cut["active"]:
                 raise ValueError("External critical fence denies non-off emission")
-        payload = {"entity_id": zone.climate_entity, **data}
+        payload = {"entity_id": zone.actuator_entity, **data}
+        if zone.independent_drying:
+            if service == "set_temperature":
+                service, payload = (
+                    "set_humidity",
+                    {
+                        "entity_id": zone.actuator_entity,
+                        "humidity": data["temperature"],
+                    },
+                )
+            elif service == "set_hvac_mode" and data["hvac_mode"] in ["off", "dry"]:
+                service, payload = (
+                    ("turn_off" if data["hvac_mode"] == "off" else "turn_on"),
+                    {"entity_id": zone.actuator_entity},
+                )
+            else:
+                raise ValueError("Unsupported dehumidifier command")
+            await self.hass.services.async_call(
+                "humidifier", service, payload, blocking=True, context=Context(id=token)
+            )
+            return
         if (
             "temperature" in payload
             and str(self.hass.config.units.temperature_unit) == "°F"
@@ -595,13 +676,17 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             begin_dry(
                 memory,
                 now,
-                p.dry_floor_sleep if sleeping(self.house, snap) else p.dry_floor_day,
+                zone.dehumidifier_min_temperature
+                if zone.independent_drying
+                else p.dry_floor_sleep
+                if sleeping(self.house, snap)
+                else p.dry_floor_day,
                 decision.humidity_stop,
-                p.dry_max_s,
+                zone.dehumidifier_max_s if zone.independent_drying else p.dry_max_s,
             )
             self.executor.state["owned"][zone.id] = {
                 "id": self.executor.state["pending"][zone.id]["id"],
-                "binding": zone.climate_entity,
+                "binding": zone.actuator_entity,
                 "mode": "dry",
                 "start": memory.dry_start,
                 "until": memory.dry_until,
@@ -645,7 +730,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 or any(
                     snap.zones[z.id].mode != "off"
                     for z in self.house.zones
-                    if z.climate_entity
+                    if z.actuator_entity
                 )
             )
         ):
@@ -663,6 +748,13 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 or obs.temperature.value < owner["floor"]
                 or not obs.humidity.fresh(now, self.house.policy.humidity_fresh_s)
                 or not obs.dry_allowed
+                or not zone.enabled
+                or snap.paused
+                or not obs.permitted
+                or (
+                    zone.independent_drying
+                    and obs.temperature.value > zone.dehumidifier_max_temperature
+                )
             ):
                 await self.executor.stop_owned(zone)
 
@@ -682,7 +774,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             # Plants can progress independently; one serial transaction per plant.
             async def plant(p):
                 for zone in self.house.zones:
-                    if zone.plant == p.id and zone.climate_entity:
+                    if zone.plant == p.id and zone.actuator_entity:
                         _, latest = self.fresh_plan()
                         decision = latest[zone.id]
                         if decision.mode is not None:
@@ -696,7 +788,6 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         now = snap.now
         prices = self._prices(now)
         decisions = evaluate(self.house, snap, prices, self.memories, self.plants)
-        self._store.async_delay_save(self._saved, 30)
         metering = {}
         for meter in self.meters:
             power = self.meter_power(meter)
@@ -717,6 +808,53 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 "scope": meter.scope,
                 "target": meter.target,
             }
+            self.accounting[meter.id].observe(
+                now, watts, power.at, meter.fresh_s, prices
+            )
+            metering[meter.id]["periods"] = {
+                period: self.accounting[meter.id].view(now, period)
+                for period in PERIODS
+            }
+        selected = [m for m in self.meters if m.include_in_system]
+        covered = {
+            z.id
+            for z in self.house.zones
+            if any(
+                m.scope == "house"
+                or m.scope == "zone"
+                and m.target == z.id
+                or m.scope == "plant"
+                and m.target == z.plant
+                for m in selected
+            )
+        }
+        system = {
+            "meters": [m.id for m in selected],
+            "unmetered_zones": [z.id for z in self.house.zones if z.id not in covered],
+            "periods": {},
+        }
+        for period in PERIODS:
+            rows = [metering[m.id]["periods"][period] for m in selected]
+            system["periods"][period] = {
+                metric: sum(row[metric] for row in rows)
+                if rows and all(row[metric] is not None for row in rows)
+                else None
+                for metric in ["energy", "cost"]
+            }
+            system["periods"][period].update(
+                {
+                    "energy_complete": not system["unmetered_zones"]
+                    and bool(rows)
+                    and all(row["energy_complete"] for row in rows),
+                    "cost_complete": not system["unmetered_zones"]
+                    and bool(rows)
+                    and all(row["cost_complete"] for row in rows),
+                    "coverage": {
+                        m.id: metering[m.id]["periods"][period] for m in selected
+                    },
+                }
+            )
+        self._store.async_delay_save(self._saved, 30)
         if self.executor.enabled and self._started and not self._closing:
             self._pending_review = True
             if self._worker is None or self._worker.done():
@@ -727,6 +865,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             "observations": snap.zones,
             "price_error": self.price_error,
             "metering": metering,
+            "system_accounting": system,
             "execution_errors": dict(self.executor.errors),
             "physical_control": self.executor.enabled,
             "mode": "control" if self.executor.enabled else "shadow",

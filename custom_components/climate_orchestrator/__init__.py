@@ -16,7 +16,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.runtime_data = coordinator
     claims = hass.data.setdefault(DOMAIN, {})
     bindings = (
-        {z.climate_entity for z in coordinator.house.zones if z.climate_entity}
+        {z.actuator_entity for z in coordinator.house.zones if z.actuator_entity}
         if coordinator.executor.enabled
         else set()
     )

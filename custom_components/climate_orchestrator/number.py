@@ -5,7 +5,7 @@ from __future__ import annotations
 import copy
 
 from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
-from homeassistant.const import UnitOfTemperature
+from homeassistant.const import UnitOfTemperature, PERCENTAGE
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.entity import EntityCategory
 
@@ -19,6 +19,8 @@ TABLES = {
     "cool_targets": ("cool_day", "cool_day_target"),
     "heat_sleep_targets": ("heat_sleep", "heat_sleep_target"),
     "cool_sleep_targets": ("cool_sleep", "cool_sleep_target"),
+    "humidity_start_targets": ("humidity_start", "humidity_start_target"),
+    "humidity_stop_targets": ("humidity_stop", "humidity_stop_target"),
 }
 
 
@@ -29,6 +31,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             AmbientTarget(coordinator, zone, table, band.name, index)
             for zone in coordinator.house.zones
             for table in TABLES
+            if (not zone.independent_drying or table.startswith("humidity"))
             for index, band in enumerate(coordinator.house.policy.bands)
         ]
     )
@@ -49,6 +52,16 @@ class AmbientTarget(ClimateDiagnostic, NumberEntity):
         super().__init__(coordinator, zone, f"target_{table}_{band}")
         self.table = table
         self.band = band
+        if table.startswith("humidity"):
+            self._attr_device_class = NumberDeviceClass.HUMIDITY
+            self._attr_native_unit_of_measurement = PERCENTAGE
+            self._attr_native_min_value = (
+                35 if table == "humidity_start_targets" else 30
+            )
+            self._attr_native_max_value = (
+                90 if table == "humidity_start_targets" else 70
+            )
+            self._attr_native_step = 1
         self._attr_translation_key = TABLES[table][1]
         bands = coordinator.house.policy.bands
         low = bands[index - 1].upper if index else None
@@ -62,7 +75,9 @@ class AmbientTarget(ClimateDiagnostic, NumberEntity):
         )
         self._attr_translation_placeholders = {"price_range": price_range + " €/kWh"}
         self._attr_icon = (
-            "mdi:thermometer-chevron-up"
+            "mdi:water-percent"
+            if table.startswith("humidity")
+            else "mdi:thermometer-chevron-up"
             if table.startswith("heat")
             else "mdi:thermometer-chevron-down"
         )
@@ -75,6 +90,8 @@ class AmbientTarget(ClimateDiagnostic, NumberEntity):
         return zone, band
 
     def _external_goal(self, zone):
+        if self.table.startswith("humidity"):
+            return None
         return (
             zone.heat_goal_entity
             if self.table.startswith("heat")
@@ -101,7 +118,9 @@ class AmbientTarget(ClimateDiagnostic, NumberEntity):
             "inherited": self.band not in getattr(zone, self.table),
             "external_goal_entity": self._external_goal(zone),
             "physical_control": self.coordinator.executor.enabled,
-            "purpose": "Ambient comfort goal; not the AC setpoint. Observation entries only change proposals.",
+            "purpose": "Relative humidity start/stop threshold; accepted sessions freeze their endpoint. Observation only changes proposals."
+            if self.table.startswith("humidity")
+            else "Ambient comfort goal; not the AC setpoint. Observation entries only change proposals.",
         }
 
     async def async_set_native_value(self, value):
@@ -110,8 +129,14 @@ class AmbientTarget(ClimateDiagnostic, NumberEntity):
         # entry options rather than a coordinator snapshot awaiting its reload.
         profile = copy.deepcopy({**entry.data, **entry.options})
         zone = next(z for z in profile["house"]["zones"] if z["id"] == self.zone.id)
-        external = zone.get(
-            "heat_goal_entity" if self.table.startswith("heat") else "cool_goal_entity"
+        external = (
+            None
+            if self.table.startswith("humidity")
+            else zone.get(
+                "heat_goal_entity"
+                if self.table.startswith("heat")
+                else "cool_goal_entity"
+            )
         )
         if external:
             raise ServiceValidationError(
@@ -120,7 +145,12 @@ class AmbientTarget(ClimateDiagnostic, NumberEntity):
                 translation_placeholders={"entity": external},
             )
         try:
-            temperature = bounded(value, "ambient target", 5, 35)
+            temperature = bounded(
+                value,
+                "ambient target",
+                self._attr_native_min_value,
+                self._attr_native_max_value,
+            )
             zone.setdefault(self.table, {})[self.band] = temperature
             house_from_dict(profile["house"])
             validate_sources(self.hass, profile)

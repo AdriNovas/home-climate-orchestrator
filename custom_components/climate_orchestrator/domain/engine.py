@@ -128,6 +128,62 @@ def begin_dry(
     memory.low_since = 0
 
 
+def independent_drying(zone, obs, memory, decision, snap, house, high, rh_ok):
+    """Standalone refrigerant dryer: no inversion or thermal preheating cycle."""
+    p, now = house.policy, snap.now.timestamp()
+    if not zone.enabled or snap.paused or not obs.permitted:
+        return replace(decision, stage="paused", reason="pause_or_schedule")
+    if not obs.temperature.fresh(now, p.temperature_fresh_s) or not rh_ok:
+        return replace(
+            decision, stage="blocked", reason="humidity_or_temperature_stale"
+        )
+    if obs.mode == "dry":
+        return replace(decision, stage="external", reason="unowned_drying")
+    if obs.mode != "off" or "dry" not in obs.supported_modes:
+        return replace(decision, stage="blocked", reason="dehumidifier_unavailable")
+    if (
+        not zone.allow_dry
+        or not obs.dry_allowed
+        or snap.occupied is not True
+        or (sleeping(house, snap) and not zone.night_allowed)
+    ):
+        return replace(decision, stage="waiting", reason="dry_permission_or_occupancy")
+    if (
+        not zone.dehumidifier_min_temperature
+        <= obs.temperature.value
+        <= zone.dehumidifier_max_temperature
+    ):
+        return replace(
+            decision, stage="blocked", reason="dehumidifier_temperature_limit"
+        )
+    if memory.dry_episode_blocked:
+        return replace(
+            decision, stage="waiting", reason="dry_episode_recovery_required"
+        )
+    if not obs.minimum <= decision.humidity_stop <= obs.maximum:
+        return replace(
+            decision, stage="blocked", reason="humidity_target_outside_actuator"
+        )
+    if not decision.urgent and not (
+        high and now - memory.high_since >= p.humidity_stable_s
+    ):
+        return decision
+    until = max(
+        obs.mode_since
+        + next(x for x in house.plants if x.id == zone.plant).minimum_off_s,
+        memory.last_attempt + zone.dehumidifier_cooldown_s,
+    )
+    if now < until:
+        return replace(decision, stage="waiting", reason="minimum_off", next_at=until)
+    return replace(
+        decision,
+        stage="dry_ready",
+        reason="independent_humidity_demand",
+        mode="dry",
+        physical_target=decision.humidity_stop,
+    )
+
+
 def evaluate(
     house: House,
     snap: Snapshot,
@@ -172,8 +228,8 @@ def evaluate(
             None,
             heat,
             cool,
-            band.humidity_start,
-            band.humidity_stop,
+            z.humidity_start_targets.get(band.name, band.humidity_start),
+            z.humidity_stop_targets.get(band.name, band.humidity_stop),
         )
         temp_ok = o.temperature.fresh(now, p.temperature_fresh_s)
         eligible = (
@@ -205,7 +261,9 @@ def evaluate(
         rh_ok = (
             o.humidity.fresh(now, p.humidity_fresh_s) and 0 < o.humidity.value <= 100
         )
-        high = rh_ok and o.humidity.value >= band.humidity_start
+        high = rh_ok and o.humidity.value >= d.humidity_start
+        if rh_ok and o.humidity.value <= d.humidity_stop:
+            m.dry_episode_blocked = False
         m.high_since = (m.high_since or now) if high else 0
         m.urgent_since = (
             (m.urgent_since or now)
@@ -246,17 +304,30 @@ def evaluate(
                 or not temp_ok
                 or not rh_ok
                 or o.temperature.value < m.dry_floor
+                or snap.paused
+                or not o.permitted
+                or not o.dry_allowed
+                or not z.enabled
+                or (
+                    z.independent_drying
+                    and o.temperature.value > z.dehumidifier_max_temperature
+                )
             )
             recovered = (
                 m.low_since > 0
                 and now - m.low_since >= p.humidity_recovery_s
-                and now - m.dry_start >= p.dry_min_s
+                and now - m.dry_start
+                >= (z.dehumidifier_min_s if z.independent_drying else p.dry_min_s)
             )
             if o.mode == "off" and now >= m.dry_start + 80:
+                if z.independent_drying:
+                    m.dry_episode_blocked = True
                 m.dry_start = 0
                 m.dry_until = 0
                 m.low_since = 0
             elif stop or recovered:
+                if z.independent_drying and now >= m.dry_until:
+                    m.dry_episode_blocked = True
                 result[z.id] = replace(
                     d, stage="dry_stop", reason="session_limit_or_recovery", mode="off"
                 )
@@ -267,6 +338,7 @@ def evaluate(
                     stage="drying",
                     reason="owned_session",
                     mode="dry",
+                    physical_target=m.dry_target if z.independent_drying else None,
                     next_at=m.dry_until,
                 )
                 continue
@@ -278,6 +350,13 @@ def evaluate(
                     next_at=m.dry_start + 80,
                 )
                 continue
+        if z.independent_drying:
+            independent = independent_drying(z, o, m, d, snap, house, high, rh_ok)
+            if independent.mode == "dry":
+                wanted[z.id] = ("dry", z.priority + (10 if urgent else 0), independent)
+            else:
+                result[z.id] = independent
+            continue
         if not z.enabled:
             result[z.id] = replace(d, stage="paused", reason="zone_disabled")
             continue
@@ -608,7 +687,7 @@ def evaluate(
             elif plant.shared_mode and any(
                 snap.zones[x.id].mode not in ["off", "fan_only", "heat", "cool", "dry"]
                 for x in members
-                if x.climate_entity
+                if x.actuator_entity
             ):
                 reason = "plant_state_unknown"
             elif plant.shared_mode and active - {mode}:
@@ -626,6 +705,12 @@ def evaluate(
                 )
                 if now < until:
                     reason = "plant_reversal_wait"
+            if not reason and mode == "heat" and pm.direction in ["cool", "dry"]:
+                # A minimum off/drain interval is not proof that the coil is dry.
+                # Preserve the longer configured plant guards and never fan-purge.
+                until = max(until or 0, pm.last_transition + plant.coil_drain_s)
+                if now < until:
+                    reason = "wet_coil_drain_wait"
             reduction = (
                 o.mode == mode
                 and d.physical_target is not None

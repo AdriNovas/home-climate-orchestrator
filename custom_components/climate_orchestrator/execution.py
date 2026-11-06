@@ -78,13 +78,13 @@ class Executor:
         for key, owner in list(self.state["owned"].items()):
             if not isinstance(owner, dict):
                 raise ValueError("Invalid ownership record")
-            if key not in zones or owner.get("binding") != zones[key].climate_entity:
+            if key not in zones or owner.get("binding") != zones[key].actuator_entity:
                 self.state["owned"].pop(key)
         for key, row in list(self.state["pending"].items()):
             if (
                 key not in zones
                 or not isinstance(row, dict)
-                or row.get("binding") != zones[key].climate_entity
+                or row.get("binding") != zones[key].actuator_entity
             ):
                 self.state["pending"].pop(key)
                 self.state["owned"].pop(key, None)
@@ -197,7 +197,7 @@ class Executor:
             decision.mode == "off"
             and decision.stage == "dry_stop"
             and owner.get("mode") == "dry"
-            and owner.get("binding") == zone.climate_entity
+            and owner.get("binding") == zone.actuator_entity
         )
         return (
             (not snap.paused and obs.permitted or owned_stop)
@@ -236,7 +236,7 @@ class Executor:
                 return "unconfirmed_previous"
             row = {
                 "id": uuid4().hex,
-                "binding": zone.climate_entity,
+                "binding": zone.actuator_entity,
                 "generation": certificate[0],
                 "mode": decision.mode,
                 "target": decision.physical_target,
@@ -335,7 +335,7 @@ class Executor:
                 row["phase"] = "acked"
                 self.state["owned"][zone.id] = {
                     **self.state["owned"].get(zone.id, {}),
-                    "binding": zone.climate_entity,
+                    "binding": zone.actuator_entity,
                     "mode": decision.mode,
                     "at": self.clock(),
                 }
@@ -390,7 +390,7 @@ class Executor:
             for zone in self.house.zones:
                 task = self.off_tasks.get(zone.id)
                 if (
-                    zone.climate_entity
+                    zone.actuator_entity
                     and (task is None or task.done())
                     and self.clock() - self.last_cut.get(zone.id, 0) >= 10
                 ):
@@ -401,7 +401,7 @@ class Executor:
         return (
             owner is not None
             and current.get("id") == owner
-            and current.get("binding") == zone.climate_entity
+            and current.get("binding") == zone.actuator_entity
             and current.get("mode") == "dry"
         )
 
@@ -431,7 +431,7 @@ class Executor:
         ]
         row = {
             "id": uuid4().hex,
-            "binding": zone.climate_entity,
+            "binding": zone.actuator_entity,
             "generation": self.state["generation"],
             "mode": "off",
             "target": None,

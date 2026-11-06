@@ -1,5 +1,22 @@
 # Cambios
 
+## Candidata0.2.0a3 · sin release
+
+- Tablas y entidades nativas de HR para iniciar/terminar secado por estancia y
+  precio, con histéresis validada y endpoint de sesión congelado.
+- Alta nativa de deshumidificador independiente, planta propia, permisos y
+  pausa explícita, límites de temperatura/tiempo, ACK de humedad antes de on,
+  Manual y bloqueo del episodio tras máximo/apagado externo.
+- Punto de rocío ambiental fresco y servicio húmedo pendiente visible incluso
+  con calefacción activa; no considerar calor como extracción de agua.
+- Reposo/drenaje configurable antes de volver de frío/dry a calor, sin rebajar
+  otras esperas, sin prometer batería seca y sin purga fan_only automática.
+- kWh/EUR hoy/ayer/semana/mes/año por medidor y subtotal sin ámbitos solapados.
+  Potencia medida con frescura, precios por intervalo, DST, cobertura, huecos
+  de reinicio e histórico desconocido explícitos; fuentes/Recorder intactos.
+- Contenedores QA desechables, sin red/montajes/credenciales de producción;
+  pruebas del núcleo, servicios/formularios nativos y persistencia.
+
 ## Candidata0.2.0a2 · sin release
 
 - Tolerancia opcional por medidor de consumo para pequeños negativos de

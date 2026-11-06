@@ -238,12 +238,21 @@ async def main():
             checks.append(
                 "persisted journal is visible in HA before each simulated physical call"
             )
-            assert c.data["metering"]["shared"] == {
+            assert {
+                k: v for k, v in c.data["metering"]["shared"].items() if k != "periods"
+            } == {
                 "power": 1200,
                 "energy": 2,
                 "cost_rate": 0.18,
                 "scope": "plant",
                 "target": "plant",
+            }
+            assert set(c.data["metering"]["shared"]["periods"]) == {
+                "today",
+                "yesterday",
+                "week",
+                "month",
+                "year",
             }
             assert c.snapshot().plant_power["plant"].value == 1200
             assert c.snapshot().power.value != c.snapshot().plant_power["plant"].value
@@ -276,7 +285,9 @@ async def main():
                 if e.config_entry_id == entry.entry_id
             ]
             meter_entities = [e for e in entities if "_meter_shared_" in e.unique_id]
-            assert len(meter_entities) == 3
+            assert (
+                len(meter_entities) == 13
+            )  # power/counter/rate plus ten period totals
             assert all(hass.states.get(e.entity_id) is not None for e in meter_entities)
             energy = next(e for e in meter_entities if e.unique_id.endswith("_energy"))
             assert (

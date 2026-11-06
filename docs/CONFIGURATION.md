@@ -17,10 +17,10 @@ Desde la ficha de integración, **Configurar** abre:
 
 | Grupo | Ajustes |
 |---|---|
-| Splits y estancias | Vincular otro split; elegir uno y editar equipo, sondas/área, temperaturas o prioridad/permisos/compensación. |
+| Equipos y sondas | Vincular split o deshumidificador; editar equipo, sondas/área, objetivos o prioridad/permisos/compensación. |
 | Unidades exteriores | Añadir y editar instalaciones, sentido compartido y tiempos mínimos. |
-| Confort y horarios | Cuatro tablas por split, objetivos comunes por precio, día/sueño y regulación avanzada. |
-| Consumo y medidores | Vincular W/kW y energía al ámbito real: casa, instalación o estancia. |
+| Confort y horarios | Cuatro tablas térmicas y dos de humedad por split; objetivos comunes por precio, día/sueño y regulación avanzada. |
+| Consumo y medidores | W/kW y energía al ámbito real; selección sin solapes para subtotal y contadores por periodo con cobertura. |
 | Fuentes y funcionamiento | Exterior, presencia y permisos globales, fuente/tipo de tarifa, observación/control y protección. |
 
 El nombre y área vacíos se pueden completar desde el registro del equipo

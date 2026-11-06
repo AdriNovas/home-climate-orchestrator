@@ -9,6 +9,8 @@ from homeassistant.components.sensor import (
 from homeassistant.const import UnitOfTemperature, PERCENTAGE
 from .entity import ClimateDiagnostic
 from .const import DOMAIN
+from .domain.engine import dew_point
+from .domain.accounting import PERIODS
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.util import dt
 
@@ -19,12 +21,30 @@ KEYS = [
     "humidity_start",
     "humidity_stop",
     "physical_target",
+    "dew_point",
 ]
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
     c = entry.runtime_data
-    async_add_entities([PlanSensor(c, z, k) for z in c.house.zones for k in KEYS])
+    async_add_entities(
+        [
+            PeriodSensor(c, meter, period, metric)
+            for meter in [*c.meters, None]
+            for period in PERIODS
+            for metric in ["energy", "cost"]
+        ]
+        if c.meters
+        else []
+    )
+    async_add_entities(
+        [
+            PlanSensor(c, z, k)
+            for z in c.house.zones
+            for k in KEYS
+            if not z.independent_drying or k not in ["heat_goal", "cool_goal"]
+        ]
+    )
     async_add_entities([CommandSensor(c, z) for z in c.house.zones])
     async_add_entities(
         [
@@ -64,15 +84,30 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
             self._attr_device_class = (
                 SensorDeviceClass.HUMIDITY
                 if key.startswith("humidity")
+                or (zone.independent_drying and key == "physical_target")
                 else SensorDeviceClass.TEMPERATURE
             )
             self._attr_native_unit_of_measurement = (
-                PERCENTAGE if key.startswith("humidity") else UnitOfTemperature.CELSIUS
+                PERCENTAGE
+                if key.startswith("humidity")
+                or (zone.independent_drying and key == "physical_target")
+                else UnitOfTemperature.CELSIUS
             )
             self._attr_state_class = SensorStateClass.MEASUREMENT
 
     @property
     def native_value(self):
+        if self.key == "dew_point":
+            c = self.coordinator
+            o = c.data["observations"].get(self.zone.id)
+            now = dt.utcnow().timestamp()
+            if (
+                o
+                and o.temperature.fresh(now, c.house.policy.temperature_fresh_s)
+                and o.humidity.fresh(now, c.house.policy.humidity_fresh_s)
+            ):
+                return round(dew_point(o.temperature.value, o.humidity.value), 2)
+            return None
         d = self.coordinator.data["decisions"].get(self.zone.id)
         return getattr(d, "stage" if self.key == "planned_stage" else self.key, None)
 
@@ -122,11 +157,15 @@ class CommandSensor(ClimateDiagnostic, SensorEntity):
         row = state.get("pending", {}).get(self.zone.id, {})
         return {
             "schema_version": 1,
-            "actuator": self.zone.climate_entity,
+            "actuator": self.zone.actuator_entity,
             "execution_mode": "control"
             if self.coordinator.executor.enabled
             else "shadow",
-            "temperature_unit": "°C",
+            "temperature_unit": None if self.zone.independent_drying else "°C",
+            "target_unit": "%" if self.zone.independent_drying else "°C",
+            "actuator_domain": "humidifier"
+            if self.zone.independent_drying
+            else "climate",
             "phase": row.get("phase", "idle"),
             "command_id": row.get("id"),
             "generation": row.get("generation"),
@@ -213,4 +252,76 @@ class MeterSensor(ClimateDiagnostic, SensorEntity):
             "cost_basis": "Current power × current energy price; not a bill or historical total"
             if self.metric == "cost_rate"
             else None,
+        }
+
+
+class PeriodSensor(ClimateDiagnostic, SensorEntity):
+    """Measured-scope subtotal with explicit missing history and tariff coverage."""
+
+    _attr_state_class = SensorStateClass.TOTAL
+
+    def __init__(self, c, meter, period, metric):
+        super().__init__(c, None, f"system_{metric}_{period}")
+        self.meter, self.period, self.metric = meter, period, metric
+        self._attr_translation_key = f"period_{metric}_{period}"
+        if meter:
+            self._attr_unique_id = (
+                f"{c.entry.entry_id}_meter_{meter.id}_{metric}_{period}"
+            )
+            self._attr_device_info = DeviceInfo(
+                identifiers={(DOMAIN, f"{c.entry.entry_id}:meter:{meter.id}")},
+                name=meter.name,
+                manufacturer="Home Climate Orchestrator",
+                model="Explicitly scoped energy meter",
+            )
+        self._attr_device_class = (
+            SensorDeviceClass.ENERGY
+            if metric == "energy"
+            else SensorDeviceClass.MONETARY
+        )
+        self._attr_native_unit_of_measurement = "kWh" if metric == "energy" else "EUR"
+        self._attr_suggested_display_precision = 3 if metric == "energy" else 2
+
+    def row(self):
+        c = self.coordinator
+        source = (
+            c.data.get("metering", {}).get(self.meter.id, {})
+            if self.meter
+            else c.data.get("system_accounting", {})
+        )
+        return source.get("periods", {}).get(self.period, {})
+
+    @property
+    def native_value(self):
+        return self.row().get(self.metric)
+
+    @property
+    def last_reset(self):
+        row = self.row()
+        if self.meter:
+            values = [row.get("period_start"), row.get("tracking_since")]
+        else:
+            values = [
+                v.get(k)
+                for v in row.get("coverage", {}).values()
+                for k in ["period_start", "tracking_since"]
+            ]
+        parsed = [dt.parse_datetime(v) for v in values if v]
+        return max(parsed) if parsed else None
+
+    @property
+    def extra_state_attributes(self):
+        c, row = self.coordinator, self.row()
+        return {
+            **row,
+            "period": self.period,
+            "complete": row.get(self.metric + "_complete", False),
+            "scope": self.meter.scope if self.meter else "measured_system_subset",
+            "source_entity": self.meter.power_entity if self.meter else None,
+            "unmetered_zones": c.data.get("system_accounting", {}).get(
+                "unmetered_zones", []
+            )
+            if not self.meter
+            else [],
+            "interpretation": "Integrated measured active power; variable energy charge, not whole bill. Missing history is not zero. No per-split allocation.",
         }

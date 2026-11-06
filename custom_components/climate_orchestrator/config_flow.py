@@ -70,6 +70,9 @@ def zone_schema(plants, defaults=None):
         optional("climate_entity", d.get("climate_entity", vol.UNDEFINED)): entity(
             "climate"
         ),
+        optional(
+            "humidifier_entity", d.get("humidifier_entity", vol.UNDEFINED)
+        ): entity("humidifier"),
         optional("authority_entity", d.get("authority_entity", vol.UNDEFINED)): entity(
             [
                 "input_boolean",
@@ -124,6 +127,20 @@ def zone_schema(plants, defaults=None):
         ): bool,
         vol.Required("night_allowed", default=d.get("night_allowed", True)): bool,
         vol.Required("enabled", default=d.get("enabled", True)): bool,
+        **(
+            {
+                vol.Required(k, default=d.get(k, value)): number(low, high)
+                for k, value, low, high in [
+                    ("dehumidifier_min_s", 600, 180, 86400),
+                    ("dehumidifier_max_s", 5400, 180, 86400),
+                    ("dehumidifier_cooldown_s", 1200, 180, 86400),
+                    ("dehumidifier_min_temperature", 10, 0, 40),
+                    ("dehumidifier_max_temperature", 32, 0, 40),
+                ]
+            }
+            if d.get("humidifier_entity")
+            else {}
+        ),
     }
     return vol.Schema(schema)
 
@@ -141,6 +158,7 @@ def plant_schema(defaults=None):
                     ("minimum_on_min", 20),
                     ("direction_hold_min", 60),
                     ("reversal_gap_min", 120),
+                    ("coil_drain_min", 5),
                 ]
             },
         }
@@ -159,6 +177,7 @@ def plant_data(data, identity=None):
                 ("minimum_on", 20),
                 ("direction_hold", 60),
                 ("reversal_gap", 120),
+                ("coil_drain", 5),
             ]
         },
     }
@@ -168,6 +187,7 @@ BASIC_ZONE_FIELDS = {
     "name",
     "plant",
     "climate_entity",
+    "humidifier_entity",
     "temperature_entity",
     "humidity_entity",
     "area",
@@ -178,15 +198,14 @@ BASIC_ZONE_FIELDS = {
 def split_schema(plants, defaults=None, *, required_climate=True):
     """Only everyday bindings in the initial form; advanced policy stays optional."""
     d = defaults or {}
+    binding = "humidifier_entity" if d.get("humidifier_entity") else "climate_entity"
     schema = {
         optional("name", d.get("name", "")): str,
         (
-            vol.Required(
-                "climate_entity", default=d.get("climate_entity", vol.UNDEFINED)
-            )
+            vol.Required(binding, default=d.get(binding, vol.UNDEFINED))
             if required_climate
-            else optional("climate_entity", d.get("climate_entity", vol.UNDEFINED))
-        ): entity("climate"),
+            else optional(binding, d.get(binding, vol.UNDEFINED))
+        ): entity("humidifier" if binding == "humidifier_entity" else "climate"),
         vol.Required(
             "temperature_entity", default=d.get("temperature_entity", vol.UNDEFINED)
         ): selector.EntitySelector(
@@ -216,7 +235,7 @@ def split_data(hass, data, existing=None):
     """Infer only registry-backed metadata, never identity from a room name."""
     zone = {**(existing or {}), **data}
     registry = entity_registry.async_get(hass)
-    climate = data.get("climate_entity")
+    climate = data.get("humidifier_entity") or data.get("climate_entity")
     source = registry.async_get(climate) if climate else None
     device = (
         device_registry.async_get(hass).async_get(source.device_id) if source else None
@@ -250,6 +269,7 @@ def split_errors(hass, profile, data, identity=None):
     registry = entity_registry.async_get(hass)
     for key, domain, units in [
         ("climate_entity", "climate", None),
+        ("humidifier_entity", "humidifier", None),
         ("temperature_entity", "sensor", {"°C", "°F"}),
         ("humidity_entity", "sensor", {"%"}),
     ]:
@@ -267,6 +287,14 @@ def split_errors(hass, profile, data, identity=None):
             and state.attributes.get("unit_of_measurement") not in (None, *units)
         ):
             errors[key] = "invalid_unit"
+    humidifier = hass.states.get(data.get("humidifier_entity", ""))
+    if humidifier and humidifier.attributes.get("device_class") != "dehumidifier":
+        errors["humidifier_entity"] = "not_dehumidifier"
+    if data.get("humidifier_entity") and any(
+        z.get("humidifier_entity") == data["humidifier_entity"] and z["id"] != identity
+        for z in profile["house"]["zones"]
+    ):
+        errors["humidifier_entity"] = "already_configured"
     if data.get("climate_entity") and any(
         z.get("climate_entity") == data["climate_entity"] and z["id"] != identity
         for z in profile["house"]["zones"]
@@ -275,6 +303,48 @@ def split_errors(hass, profile, data, identity=None):
     if not data.get("name"):
         errors["name"] = "name_required"
     return errors
+
+
+def dehumidifier_schema(defaults=None):
+    d = defaults or {}
+    return vol.Schema(
+        {
+            optional("name", d.get("name", "")): str,
+            vol.Required(
+                "humidifier_entity", default=d.get("humidifier_entity", vol.UNDEFINED)
+            ): entity("humidifier"),
+            vol.Required(
+                "temperature_entity", default=d.get("temperature_entity", vol.UNDEFINED)
+            ): entity("sensor"),
+            vol.Required(
+                "humidity_entity", default=d.get("humidity_entity", vol.UNDEFINED)
+            ): entity("sensor"),
+            optional("area", d.get("area", vol.UNDEFINED)): selector.AreaSelector(),
+            optional("labels", list(d.get("labels", []))): selector.LabelSelector(
+                selector.LabelSelectorConfig(multiple=True)
+            ),
+            vol.Required("enabled", default=d.get("enabled", False)): bool,
+        }
+    )
+
+
+def append_dehumidifier(profile, zone):
+    plant = uuid4().hex
+    profile["house"]["plants"].append(
+        {
+            "id": plant,
+            "name": zone["name"],
+            "shared_mode": False,
+            "minimum_on_s": 600,
+            "minimum_off_s": 1200,
+            "direction_hold_s": 0,
+            "reversal_gap_s": 0,
+            "coil_drain_s": 0,
+        }
+    )
+    profile["house"]["zones"].append(
+        {"id": uuid4().hex, **zone, "plant": plant, "allow_dry": True}
+    )
 
 
 class ClimateFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -429,7 +499,28 @@ class ClimateFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_finish(self, user_input=None):
         return self.async_show_menu(
-            step_id="finish", menu_options=["split", "plant", "create"]
+            step_id="finish", menu_options=["split", "dehumidifier", "plant", "create"]
+        )
+
+    async def async_step_dehumidifier(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            zone = split_data(self.hass, user_input)
+            errors = split_errors(self.hass, self.profile, zone)
+            if not errors:
+                candidate = copy.deepcopy(self.profile)
+                append_dehumidifier(candidate, zone)
+                try:
+                    house_from_dict(candidate["house"])
+                    validate_sources(self.hass, candidate)
+                    self.profile = candidate
+                    return await self.async_step_finish()
+                except (ValueError, TypeError):
+                    errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="dehumidifier",
+            data_schema=dehumidifier_schema(user_input),
+            errors=errors,
         )
 
     async def async_step_create(self, user_input=None):
@@ -469,7 +560,25 @@ class ClimateOptions(config_entries.OptionsFlow):
 
     async def async_step_splits(self, user_input=None):
         return self.async_show_menu(
-            step_id="splits", menu_options=["add_split", "zone", "zone_targets"]
+            step_id="splits",
+            menu_options=["add_split", "add_dehumidifier", "zone", "zone_targets"],
+        )
+
+    async def async_step_add_dehumidifier(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            zone = split_data(self.hass, user_input)
+            errors = split_errors(self.hass, self.profile, zone)
+            if not errors:
+                append_dehumidifier(self.profile, zone)
+                try:
+                    return self.save()
+                except (ValueError, TypeError):
+                    errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="add_dehumidifier",
+            data_schema=dehumidifier_schema(user_input),
+            errors=errors,
         )
 
     async def async_step_plants(self, user_input=None):
@@ -535,6 +644,8 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "cool_targets",
                 "heat_sleep_targets",
                 "cool_sleep_targets",
+                "humidity_start_targets",
+                "humidity_stop_targets",
             ]:
                 return self.async_abort(reason="invalid_configuration")
             return await self.async_step_zone_targets_edit()
@@ -559,6 +670,8 @@ class ClimateOptions(config_entries.OptionsFlow):
                                 "cool_targets",
                                 "heat_sleep_targets",
                                 "cool_sleep_targets",
+                                "humidity_start_targets",
+                                "humidity_stop_targets",
                             ],
                             translation_key="target_tables",
                         )
@@ -581,6 +694,8 @@ class ClimateOptions(config_entries.OptionsFlow):
             "cool_targets": "cool_day",
             "heat_sleep_targets": "heat_sleep",
             "cool_sleep_targets": "cool_sleep",
+            "humidity_start_targets": "humidity_start",
+            "humidity_stop_targets": "humidity_stop",
         }[table]
         errors = {}
         if user_input:
@@ -602,7 +717,13 @@ class ClimateOptions(config_entries.OptionsFlow):
             **{
                 vol.Required(
                     b.name, default=z.get(table, {}).get(b.name, getattr(b, base_field))
-                ): number(5, 35, 0.5)
+                ): number(
+                    35 if table == "humidity_start_targets" else 30,
+                    90 if table == "humidity_start_targets" else 70,
+                    1,
+                )
+                if table.startswith("humidity")
+                else number(5, 35, 0.5)
                 for b in policy.bands
             },
         }
@@ -850,10 +971,26 @@ class ClimateOptions(config_entries.OptionsFlow):
         )
 
     async def async_step_zone_targets_menu(self, user_input=None):
+        zone = next(
+            z for z in self.profile["house"]["zones"] if z["id"] == self.selection
+        )
         return self.async_show_menu(
             step_id="zone_targets_menu",
-            menu_options=["heat_day", "cool_day", "heat_sleep", "cool_sleep"],
+            menu_options=(
+                []
+                if zone.get("humidifier_entity")
+                else ["heat_day", "cool_day", "heat_sleep", "cool_sleep"]
+            )
+            + ["humidity_start", "humidity_stop"],
         )
+
+    async def async_step_humidity_start(self, user_input=None):
+        self.target_table = "humidity_start_targets"
+        return await self.async_step_zone_targets_edit()
+
+    async def async_step_humidity_stop(self, user_input=None):
+        self.target_table = "humidity_stop_targets"
+        return await self.async_step_zone_targets_edit()
 
     async def async_step_heat_day(self, user_input=None):
         self.target_table = "heat_targets"
@@ -882,6 +1019,25 @@ class ClimateOptions(config_entries.OptionsFlow):
             ).schema.items()
             if key.schema not in BASIC_ZONE_FIELDS
         }
+        if zones[index].get("humidifier_entity"):
+            irrelevant = {
+                "bias",
+                "require_internal_feedback",
+                "heat_goal_entity",
+                "cool_goal_entity",
+                "bias_entity",
+                "internal_entity",
+                "heat_permission_entity",
+                "cool_permission_entity",
+                "response_entity",
+                "expected_ledger_entity",
+                "critical_ledger_entity",
+            }
+            advanced = {
+                key: value
+                for key, value in advanced.items()
+                if key.schema not in irrelevant
+            }
         if user_input is not None:
             keys = {key.schema for key in advanced}
             zones[index] = {
@@ -905,6 +1061,7 @@ class ClimateOptions(config_entries.OptionsFlow):
             optional = {
                 "humidity_entity",
                 "climate_entity",
+                "humidifier_entity",
                 "authority_entity",
                 "area",
                 "labels",
@@ -968,8 +1125,14 @@ class ClimateOptions(config_entries.OptionsFlow):
         defaults = {
             **p,
             **{
-                n + "_min": p[n + "_s"] / 60
-                for n in ["minimum_off", "minimum_on", "direction_hold", "reversal_gap"]
+                n + "_min": p.get(n + "_s", 300 if n == "coil_drain" else 0) / 60
+                for n in [
+                    "minimum_off",
+                    "minimum_on",
+                    "direction_hold",
+                    "reversal_gap",
+                    "coil_drain",
+                ]
             },
         }
         return self.async_show_form(
@@ -1127,6 +1290,9 @@ class ClimateOptions(config_entries.OptionsFlow):
                                 "negative_power_tolerance_w",
                                 old.get("negative_power_tolerance_w", 0),
                             ),
+                            include_in_system=user_input.get(
+                                "include_in_system", old.get("include_in_system", True)
+                            ),
                         )
                     )
                     if row["negative_power_tolerance_w"] == 0:
@@ -1169,6 +1335,9 @@ class ClimateOptions(config_entries.OptionsFlow):
                         "energy_fresh_s", default=old.get("energy_fresh_s", 86400)
                     ): number(10, 604800),
                     vol.Required("remove", default=False): bool,
+                    vol.Required(
+                        "include_in_system", default=old.get("include_in_system", True)
+                    ): bool,
                     vol.Required(
                         "negative_power_tolerance_w",
                         default=old.get("negative_power_tolerance_w", 0),

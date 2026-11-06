@@ -25,7 +25,13 @@ class ClimateDiagnostic(CoordinatorEntity):
             },
             name=zone.name if zone else coordinator.house.name,
             manufacturer="Home Climate Orchestrator",
-            model="Split regulation" if zone else "Climate coordination",
+            model=(
+                "Independent dehumidification"
+                if zone.independent_drying
+                else "Split regulation"
+            )
+            if zone
+            else "Climate coordination",
             entry_type=DeviceEntryType.SERVICE,
             configuration_url=f"homeassistant://config/integrations/integration/{DOMAIN}",
         )

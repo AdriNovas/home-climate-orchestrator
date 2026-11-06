@@ -122,7 +122,7 @@ async def main():
                 for e in registry.entities.values()
                 if e.config_entry_id == entry.entry_id and e.domain == "number"
             ]
-            assert len(numbers) == 24
+            assert len(numbers) == 36
             assert all(
                 e.entity_category.value == "config"
                 and e.area_id == area.id
@@ -130,11 +130,12 @@ async def main():
                 for e in numbers
             )
             assert all(
-                hass.states.get(e.entity_id).attributes["unit_of_measurement"] == "°C"
+                hass.states.get(e.entity_id).attributes["unit_of_measurement"]
+                == ("%" if "_humidity_" in e.unique_id else "°C")
                 for e in numbers
             )
             checks.append(
-                "four native configuration tables expose six price bands each, with real area, labels and Celsius"
+                "six native thermal/humidity configuration tables expose six price bands each with real area, labels and units"
             )
             identities = {e.entity_id: e.unique_id for e in numbers}
             original_runtime = entry.runtime_data
@@ -185,6 +186,26 @@ async def main():
             )
             checks.append(
                 "rapid independent edits preserve both cells rather than overwriting a stale profile"
+            )
+            await asyncio.gather(
+                set_value("humidity_start_targets", 64),
+                set_value("humidity_stop_targets", 55),
+            )
+            await hass.async_block_till_done()
+            await entry.runtime_data.async_refresh()
+            assert entry.runtime_data is original_runtime
+            assert entry.runtime_data.data["decisions"]["room"].humidity_start == 64
+            assert entry.runtime_data.data["decisions"]["room"].humidity_stop == 55
+            humidity_before = copy.deepcopy(dict(entry.options))
+            try:
+                await set_value("humidity_stop_targets", 64)
+            except ServiceValidationError:
+                pass
+            else:
+                raise AssertionError("Crossed humidity hysteresis accepted")
+            assert entry.options == humidity_before
+            checks.append(
+                "native humidity numbers update the plan without reload or lost cells and reject crossed hysteresis atomically"
             )
             before = copy.deepcopy(dict(entry.options))
             try:

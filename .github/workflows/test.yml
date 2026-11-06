@@ -56,6 +56,12 @@ jobs:
           --entrypoint python
           ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
           tests/ha_number.py
+      - name: Native humidity, dehumidifier and accounting (fictional devices only)
+        run: >-
+          timeout 90s docker run --rm --pull=never --network none --memory 512m --cpus 1
+          -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo --entrypoint python
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_humidity_accounting.py
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 5

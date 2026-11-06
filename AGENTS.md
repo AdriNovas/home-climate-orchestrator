@@ -25,3 +25,14 @@
 - Keep negative-power noise handling opt-in and meter-scoped. Never silently
   relax supply protection, clamp energy counters, or accept real negative/net
   export as consumption. Test unit conversion, bounds and plant feedback.
+- Run `python tests/ha_humidity_accounting.py` for humidity, standalone dryers
+  and period accounting. Use a disposable HA container without production
+  mounts, network, devices or inherited Supervisor credentials. Never bootstrap
+  test HA inside the production container, even with a temporary config path.
+- Preserve existing target IDs and authority on upgrade. Humidity sessions freeze
+  their endpoint; a price change must not renew a lease or reset attempt budgets.
+  Independent dryers need an independent plant and must reject water-adding
+  humidifiers. Keep Manual, pauses, floors, maximum deadlines and vendor guards.
+- Treat period totals as covered measurements, never reconstructed past or a
+  full electricity bill. Test tariff boundaries, signed charges, DST, missing
+  power/price, restart gaps, own-store recovery and overlapping meter scopes.

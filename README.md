@@ -5,13 +5,14 @@
 Planificador doméstico de temperatura y humedad según tarifa eléctrica, con
 sensores ambientales externos y splits de aire acondicionado agrupados por instalación.
 
-**0.2.0a2 · candidata de desarrollo, sin release de actuación.** Añade ejecución
+**0.2.0a3 · candidata de desarrollo, sin release de actuación.** Añade ejecución
 opcional con registro/confirmación y medidores energéticos configurables. Toda
 entrada comienza en observación; actualizar no activa órdenes. La versión pública
 0.1.0a1 continúa siendo observadora. Sin promesa de ahorro ni compatibilidad universal.
 
 Se distribuye como repositorio personalizado HACS/Marketplace; no está en su catálogo.
 Ver [ejecución, energía y asignaciones portables](docs/EXECUTION_ENERGY.md).
+Ver [humedad, deshumidificadores y contadores por periodo](docs/HUMIDITY_ACCOUNTING.md).
 
 [Instalar con HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=AdriNovas&repository=home-climate-orchestrator&category=integration)
 · [Instalación Marketplace/HACS](docs/INSTALLATION.md)
@@ -40,6 +41,10 @@ Ver [compatibilidad y vinculación](docs/COMPATIBILITY.md).
   fin de semana; excepciones térmicas diurnas por estancia.
 - Objetivos ambientales editables como entidades `number` de configuración,
   por split, tramo y día/sueño, sincronizadas con los formularios nativos.
+- Inicio/fin de humedad por estancia y precio; deshumidificadores independientes
+  nativos con sondas externas, sesión acotada y pausas/Manual preservados.
+- Energía y coste variable medidos hoy, ayer, semana, mes y año, con cobertura
+  explícita, persistencia y sin duplicar medidores ni inventar datos anteriores.
 - Propuestas de recuperación y mantenimiento: histéresis, corrección acotada de
   consigna, cadencia y límites temporales por instalación.
 - Secado con temperatura prioritaria, suelo térmico independiente de la tarifa,
@@ -62,7 +67,7 @@ estancia ni equivalencia entre temperatura interna y sensor ambiental.
 La alfa admite propuestas para `heat`, `cool` y `dry` en equipos `climate` con
 límites explícitos. El adaptador convierte °C/°F en sensores y consignas; los
 ensayos sintéticos no certifican un modelo físico concreto. Radiadores,
-calderas, suelo radiante, ventilación, deshumidificadores dedicados y bombas de
+calderas, suelo radiante, ventilación y bombas de
 calor por agua requieren adaptadores y ensayos propios: **no son compatibles por
 el mero hecho de aparecer como entidad**.
 

@@ -12,7 +12,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             [
                 ZoneAuthority(c, z, "automatic_control")
                 for z in c.house.zones
-                if z.climate_entity
+                if z.actuator_entity
             ]
         )
 

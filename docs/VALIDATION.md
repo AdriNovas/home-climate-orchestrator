@@ -1,5 +1,19 @@
 # Evidencia de la alfa
 
+## Candidata0.2.0a3 · humedad y contabilidad
+
+154pruebas del núcleo incluyen tablas HR por zona, capacidad independiente,
+sesión congelada, máximo/bloqueo, autoridad/pausa/frescura, rango térmico,
+compatibilidad calor+deshumidificador, espera de drenaje y distinción HR/rocío.
+Contabilidad: fronteras de precio/día, coste negativo, tarifa/potencia ausentes,
+reinicio sin interpolar, días DST23/25h, periodos naturales y ámbitos solapados.
+`tests/ha_humidity_accounting.py` prueba además los gestores nativos, servicios
+simulados de humedad→ACK→on, corte de sesión, Manual y almacenamiento propio.
+Números:36por split (24térmicos+12HR),12por deshumidificador; una zona observadora
+sin medidores expone47entidades (11diagnósticas+36configuración).
+Los resultados de las suites y CI deben leerse por commit; no confundir este
+contrato de pruebas con evidencia física de un modelo ni inspección visual.
+
 ## Candidata0.2.0a2 · ruido negativo acotado
 
 134pruebas de núcleo y17verificaciones de ejecución HA temporal: la tolerancia

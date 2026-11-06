@@ -260,6 +260,7 @@ class Plant:
     minimum_on_s: int = 1200
     direction_hold_s: int = 3600
     reversal_gap_s: int = 7200
+    coil_drain_s: int = 300
 
     def __post_init__(self) -> None:
         if not self.id or not self.name:
@@ -269,6 +270,7 @@ class Plant:
             "minimum_on_s",
             "direction_hold_s",
             "reversal_gap_s",
+            "coil_drain_s",
         ]:
             object.__setattr__(
                 self, name, int(bounded(getattr(self, name), name, 0, 86400))
@@ -308,6 +310,22 @@ class Zone:
     cool_targets: dict[str, float] = field(default_factory=dict)
     heat_sleep_targets: dict[str, float] = field(default_factory=dict)
     cool_sleep_targets: dict[str, float] = field(default_factory=dict)
+    humidity_start_targets: dict[str, float] = field(default_factory=dict)
+    humidity_stop_targets: dict[str, float] = field(default_factory=dict)
+    humidifier_entity: str | None = None
+    dehumidifier_min_s: int = 600
+    dehumidifier_max_s: int = 5400
+    dehumidifier_cooldown_s: int = 1200
+    dehumidifier_min_temperature: float = 10
+    dehumidifier_max_temperature: float = 32
+
+    @property
+    def actuator_entity(self):
+        return self.humidifier_entity or self.climate_entity
+
+    @property
+    def independent_drying(self):
+        return self.humidifier_entity is not None
 
     def __post_init__(self) -> None:
         if not all([self.id, self.name, self.plant, self.temperature_entity]):
@@ -324,6 +342,30 @@ class Zone:
         ]:
             for value in table.values():
                 bounded(value, "zone temperature target", 5, 35)
+        for table, low, high in [
+            (self.humidity_start_targets, 35, 90),
+            (self.humidity_stop_targets, 30, 70),
+        ]:
+            for value in table.values():
+                bounded(value, "zone humidity target", low, high)
+        if self.climate_entity and self.humidifier_entity:
+            raise ValueError("One actuator per regulation zone")
+        if self.humidifier_entity and not self.humidity_entity:
+            raise ValueError("Independent drying requires an external humidity sensor")
+        for name in [
+            "dehumidifier_min_s",
+            "dehumidifier_max_s",
+            "dehumidifier_cooldown_s",
+        ]:
+            object.__setattr__(
+                self, name, int(bounded(getattr(self, name), name, 180, 86400))
+            )
+        if self.dehumidifier_max_s < self.dehumidifier_min_s:
+            raise ValueError("Drying maximum must cover minimum run")
+        for name in ["dehumidifier_min_temperature", "dehumidifier_max_temperature"]:
+            object.__setattr__(self, name, bounded(getattr(self, name), name, 0, 40))
+        if self.dehumidifier_min_temperature >= self.dehumidifier_max_temperature:
+            raise ValueError("Invalid dehumidifier working temperature range")
         if not self.authority_states or any(
             not isinstance(x, str) or not x or x in ["unknown", "unavailable"]
             for x in self.authority_states
@@ -355,7 +397,7 @@ class House:
             self.zones
         ):
             raise ValueError("Duplicate IDs")
-        bindings = [z.climate_entity for z in self.zones if z.climate_entity]
+        bindings = [z.actuator_entity for z in self.zones if z.actuator_entity]
         if len(bindings) != len(set(bindings)):
             raise ValueError("Actuator assigned to several zones")
         bands = {b.name for b in self.policy.bands}
@@ -367,10 +409,23 @@ class House:
                     zone.cool_targets,
                     zone.heat_sleep_targets,
                     zone.cool_sleep_targets,
+                    zone.humidity_start_targets,
+                    zone.humidity_stop_targets,
                 ]
             ):
                 raise ValueError("Unknown plant or price band")
+            if zone.independent_drying and (
+                next(p for p in self.plants if p.id == zone.plant).shared_mode
+                or sum(z.plant == zone.plant for z in self.zones) != 1
+            ):
+                raise ValueError(
+                    "A standalone dehumidifier needs its own independent plant"
+                )
             for band in self.policy.bands:
+                if zone.humidity_stop_targets.get(
+                    band.name, band.humidity_stop
+                ) >= zone.humidity_start_targets.get(band.name, band.humidity_start):
+                    raise ValueError("Zone humidity stop must be below start")
                 if zone.heat_targets.get(
                     band.name, band.heat_day
                 ) >= zone.cool_targets.get(
@@ -491,6 +546,7 @@ class Memory:
     thermal_last_report: float = 0
     thermal_last_seen: float = 0
     extreme_active: bool = False
+    dry_episode_blocked: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.regulation, dict):
@@ -515,6 +571,8 @@ class Memory:
             raise ValueError("Unknown stored hold direction")
         if type(self.extreme_active) is not bool:
             raise ValueError("Stored extreme-price latch must be boolean")
+        if type(self.dry_episode_blocked) is not bool:
+            raise ValueError("Stored humidity episode latch must be boolean")
         self.thermal_low = bounded(self.thermal_low, "thermal_low", -100, 100)
         self.thermal_high = bounded(self.thermal_high, "thermal_high", -100, 100)
         if self.thermal_low > self.thermal_high:

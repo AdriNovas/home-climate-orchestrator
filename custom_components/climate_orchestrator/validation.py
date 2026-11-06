@@ -12,6 +12,7 @@ ZONE_SOURCES = [
     "temperature_entity",
     "humidity_entity",
     "climate_entity",
+    "humidifier_entity",
     "authority_entity",
     "heat_goal_entity",
     "cool_goal_entity",
@@ -52,6 +53,16 @@ def validate_sources(hass, profile: dict) -> None:
     meters_from_profile(profile, house)
     SupplyProtection(**profile.get("supply_protection", {}))
     for zone in house.zones:
+        if zone.humidifier_entity:
+            if zone.expected_ledger_entity or zone.critical_ledger_entity:
+                raise ValueError(
+                    "External climate echo ledgers cannot describe a humidity actuator"
+                )
+            if not zone.humidifier_entity.startswith("humidifier."):
+                raise ValueError("Use a native dehumidifier entity")
+            actuator = hass.states.get(zone.humidifier_entity)
+            if actuator and actuator.attributes.get("device_class") != "dehumidifier":
+                raise ValueError("Humidifiers that add water are not drying actuators")
         if zone.critical_ledger_entity and not profile.get("external_cut_entity"):
             raise ValueError("A critical echo ledger requires its matching cut fence")
     if profile.get("execution_mode", "shadow") not in ["shadow", "control"]:

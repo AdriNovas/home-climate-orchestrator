@@ -15,8 +15,11 @@ class Meter:
     fresh_s: int = 120
     energy_fresh_s: int = 86400
     negative_power_tolerance_w: float = 0
+    include_in_system: bool = True
 
     def __post_init__(self):
+        if type(self.include_in_system) is not bool:
+            raise ValueError("Explicit system accounting selection required")
         if not self.id or not self.name or self.scope not in ["house", "plant", "zone"]:
             raise ValueError("Meter identity and scope required")
         if (self.scope == "house") != (not self.target):
@@ -77,4 +80,23 @@ def meters_from_profile(profile, house):
         bindings.extend(x for x in [m.power_entity, m.energy_entity] if x)
     if len(set(bindings)) != len(bindings):
         raise ValueError("A shared meter must have one scope, not several allocations")
+    included = [m for m in meters if m.include_in_system]
+    for index, left in enumerate(included):
+        for right in included[index + 1 :]:
+            if (
+                left.scope == "house"
+                or right.scope == "house"
+                or (left.scope == right.scope and left.target == right.target)
+            ):
+                raise ValueError(
+                    "Overlapping system meters would double-count consumption"
+                )
+            parent, child = (left, right) if left.scope == "plant" else (right, left)
+            if (
+                parent.scope == "plant"
+                and child.scope == "zone"
+                and next(z for z in house.zones if z.id == child.target).plant
+                == parent.target
+            ):
+                raise ValueError("Do not sum a plant with its nested zone meter")
     return meters

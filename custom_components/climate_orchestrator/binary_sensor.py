@@ -48,6 +48,8 @@ class SourceDegraded(ClimateDiagnostic, BinarySensorEntity):
                 "plant_state_unknown",
                 "power_data_or_budget",
                 "external_goal_unavailable",
+                "humidity_or_temperature_stale",
+                "dehumidifier_unavailable",
             ]
             for d in self.coordinator.data["decisions"].values()
         )
@@ -70,9 +72,24 @@ class ServiceBlocked(ClimateDiagnostic, BinarySensorEntity):
     @property
     def is_on(self):
         return any(
-            d.urgent and d.stage in ["blocked", "waiting"]
+            d.urgent
+            and (
+                d.stage in ["blocked", "waiting", "paused", "manual", "external"]
+                or d.mode == "heat"
+            )
             for d in self.coordinator.data["decisions"].values()
         )
+
+    @property
+    def extra_state_attributes(self):
+        return {
+            "unserved_humidity": {
+                key: {"reason": d.reason, "stage": d.stage, "mode": d.mode}
+                for key, d in self.coordinator.data["decisions"].items()
+                if d.urgent and d.mode != "dry"
+            },
+            "interpretation": "Persistent humidity needs viable drying; heating alone is not water extraction. Pauses and Manual remain authoritative.",
+        }
 
 
 class ExecutionProblem(ClimateDiagnostic, BinarySensorEntity):
