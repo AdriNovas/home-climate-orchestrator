@@ -6,6 +6,8 @@ from .const import DOMAIN
 from .domain.models import house_from_dict
 from .domain.energy import meters_from_profile
 from .domain.safety import SupplyProtection
+from .domain.sources import SourceContract
+from .domain.tariffs import currency_code
 
 
 ZONE_SOURCES = [
@@ -44,6 +46,10 @@ def source_entities(profile):
     sources.add(profile["tariff"].get("entity"))
     for zone in profile["house"]["zones"]:
         sources.update(zone.get(name) for name in ZONE_SOURCES)
+        sources.update(b["entity"] for b in zone.get("activity_bindings", []))
+    for entity, contract in profile.get("source_quality", {}).items():
+        sources.add(entity)
+        sources.add(contract.get("timestamp_entity"))
     for meter in profile.get("meters", []):
         sources.update(meter.get(name) for name in ["power_entity", "energy_entity"])
     return sources - {None, ""}
@@ -53,6 +59,20 @@ def validate_sources(hass, profile: dict) -> None:
     """Reject feedback loops through this integration's own diagnostic outputs."""
     registry = entity_registry.async_get(hass)
     house = house_from_dict(profile["house"])
+    if (
+        type(profile.get("strategy_schema", 1)) is not int
+        or profile.get("strategy_schema", 1) != 1
+    ):
+        raise ValueError("Unknown strategy schema")
+    if type(profile.get("apply_strategy", False)) is not bool:
+        raise ValueError("Strategy application must be explicit boolean")
+    currency = currency_code(profile["tariff"].get("currency", "EUR"))
+    if profile["tariff"]["type"] == "pvpc" and currency != "EUR":
+        raise ValueError("PVPC is denominated in EUR")
+    if not isinstance(profile.get("source_quality", {}), dict):
+        raise ValueError("Source quality must be an entity-keyed mapping")
+    for contract in profile.get("source_quality", {}).values():
+        SourceContract(**contract)
     meters_from_profile(profile, house)
     SupplyProtection(**profile.get("supply_protection", {}))
     for zone in house.zones:

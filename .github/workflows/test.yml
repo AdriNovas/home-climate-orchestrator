@@ -75,6 +75,12 @@ jobs:
           --workdir /work
           ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
           tests/ha_dry_session_policy.py
+      - name: Native strategies, optional activity, source clocks and currency history
+        run: >-
+          timeout 90s docker run --rm --pull=never --network none --memory 768m --cpus 1
+          -v "$GITHUB_WORKSPACE:/repo:ro" -w /repo --entrypoint python
+          ghcr.io/home-assistant/home-assistant:${{ matrix.version }}
+          tests/ha_profiles_activity.py
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 5

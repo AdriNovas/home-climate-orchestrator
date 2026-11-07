@@ -29,6 +29,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
     c = entry.runtime_data
     async_add_entities([ConfigurationSensor(c, None, "configuration")])
     async_add_entities(
+        [StrategyPreviewSensor(c, z, "strategy_preview") for z in c.house.zones]
+    )
+    async_add_entities(
         [
             PeriodSensor(c, meter, period, metric)
             for meter in [*c.meters, None]
@@ -56,6 +59,28 @@ async def async_setup_entry(hass, entry, async_add_entities):
             if key not in ["power", "cost_rate"] or m.power_entity
         ]
     )
+
+
+class StrategyPreviewSensor(ClimateDiagnostic, SensorEntity):
+    """Separated counterfactuals: never overwrite goal consumers in shadow."""
+
+    @property
+    def native_value(self):
+        return self.coordinator.data.get("selected_strategy", "legacy")
+
+    @property
+    def extra_state_attributes(self):
+        data = self.coordinator.data
+        observation = data.get("observations", {}).get(self.zone.id)
+        return {
+            "effective_strategy": data.get("effective_strategy", "legacy"),
+            "activity": observation.activity if observation else "unknown",
+            "profiles": {
+                name: asdict(rows[self.zone.id])
+                for name, rows in data.get("strategy_preview", {}).items()
+            },
+            "purpose": "Counterfactual plans from the same measured snapshot, not predicted temperatures, measured savings or authority to execute.",
+        }
 
 
 class PlanSensor(ClimateDiagnostic, SensorEntity):
@@ -198,7 +223,7 @@ class MeterSensor(ClimateDiagnostic, SensorEntity):
         self._attr_native_unit_of_measurement = {
             "power": "W",
             "energy": "kWh",
-            "cost_rate": "EUR/h",
+            "cost_rate": f"{c.currency}/h",
         }[key]
         if key in ["power", "energy"]:
             self._attr_device_class = (
@@ -280,7 +305,11 @@ class PeriodSensor(ClimateDiagnostic, SensorEntity):
             if metric == "energy"
             else SensorDeviceClass.MONETARY
         )
-        self._attr_native_unit_of_measurement = "kWh" if metric == "energy" else "EUR"
+        self._attr_native_unit_of_measurement = (
+            "kWh" if metric == "energy" else c.currency
+        )
+        if metric == "cost" and c.currency != "EUR":
+            self._attr_unique_id += "_" + c.currency.lower()
         self._attr_suggested_display_precision = 3 if metric == "energy" else 2
 
     def row(self):

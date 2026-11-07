@@ -21,12 +21,17 @@ flowchart LR
 - `domain/models.py`: configuración validada, lecturas inmutables, decisiones y
   memoria explícita. Sin entidades de ninguna vivienda incluidas en el código.
 - `domain/tariffs.py`: proveedores → intervalos UTC completos y bloques ponderados.
+- `domain/preferences.py`, `strategies.py`: preferencias explícitas y oportunidades
+  acotadas para Precio/Equilibrado/Confort, sin modificar protecciones técnicas.
+- `domain/activity.py`, `sources.py`: fusión opcional de evidencia por habitación
+  y contratos distintos de origen/recepción. No hay heurísticas de una vivienda.
 - `domain/engine.py`: demanda local, mantenimiento, secado, presupuesto y arbitraje
   por instalación. Función reproducible con hora, instantánea y memoria dadas.
 - `coordinator.py`: lee HA, convierte unidades, restaura memoria versionada y
   actualiza a60s o cambio relevante. Un worker coalescido entrega al ejecutor
   separado; los cortes no esperan a ese worker.
-- `config_flow.py`: formularios nativos; opciones recargan la entrada. Ediciones
+- `config_flow.py`: formularios nativos; tablas y preferencias aplican en caliente,
+  mientras cambios de fuentes/topología recargan la entrada. Ediciones
   inválidas no contaminan el siguiente intento. Se impide realimentar propuestas.
 - `sensor.py`, `binary_sensor.py`, `entity.py`: salidas diagnósticas traducidas,
   identificadores estables y metadatos nativos. Sin notificaciones push.
@@ -67,7 +72,18 @@ El modelo distingue instalación y estancia. Un multisplit con sentido compartid
 no puede prometer calor y secado/frío simultáneos. Plantas independientes pueden
 tener sentidos distintos. Se leen modos, límites y paso del `climate` real; una
 capacidad ausente bloquea la propuesta. Aún no hay adaptadores de actuadores
-binarios, válvulas, bombas, ventilación ni deshumidificador dedicado.
+binarios, válvulas, bombas o ventilación. El deshumidificador dedicado sí tiene
+adaptador `humidifier` de clase deshumidificador y planta independiente;
+se rechazan aparatos que añaden agua.
+
+## Estrategias y actividad
+
+La estrategia no es autoridad ni presencia. Sin doble opt-in de ejecución y
+aplicación, los objetivos legados permanecen intactos; las comparaciones van a
+salidas distintas. Movimiento es evidencia positiva temporal, no ausencia.
+Los pulsos se capturan antes del recálculo coalescido. Los campos nuevos de
+memoria no se mezclan con el payload antiguo de presupuestos/sesiones.
+Contrato completo y límites: [estrategias y actividad](STRATEGIES_ACTIVITY.md).
 
 ## Observabilidad y privacidad
 

@@ -5,7 +5,7 @@
 Planificador doméstico de temperatura y humedad según tarifa eléctrica, con
 sensores ambientales externos y splits de aire acondicionado agrupados por instalación.
 
-**0.2.0a6 · candidata de desarrollo, sin release de actuación.** Añade ejecución
+**0.2.0a7 · candidata de desarrollo, sin release de actuación.** Añade ejecución
 opcional con registro/confirmación y medidores energéticos configurables. Toda
 entrada comienza en observación; actualizar no activa órdenes. La versión pública
 0.1.0a1 continúa siendo observadora. Sin promesa de ahorro ni compatibilidad universal.
@@ -13,6 +13,7 @@ entrada comienza en observación; actualizar no activa órdenes. La versión pú
 Se distribuye como repositorio personalizado HACS/Marketplace; no está en su catálogo.
 Ver [ejecución, energía y asignaciones portables](docs/EXECUTION_ENERGY.md).
 Ver [humedad, deshumidificadores y contadores por periodo](docs/HUMIDITY_ACCOUNTING.md).
+Ver [Precio/Equilibrado/Confort y actividad opcional por habitación](docs/STRATEGIES_ACTIVITY.md).
 
 [Instalar con HACS](https://my.home-assistant.io/redirect/hacs_repository/?owner=AdriNovas&repository=home-climate-orchestrator&category=integration)
 · [Instalación Marketplace/HACS](docs/INSTALLATION.md)

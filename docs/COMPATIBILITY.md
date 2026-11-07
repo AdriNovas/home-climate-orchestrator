@@ -27,6 +27,7 @@ Las marcas anteriores son ejemplos de posibles fuentes, no una lista certificada
 | Autoridad | Ayudante/selector/señal opcional con estados de permiso explícitos; desconocido no concede autoridad. |
 | Potencia | `sensor` opcional W/kW agregado; no se inventa consumo por split ni se usan VA. |
 | Tarifa | Independiente del equipo y de sus sensores; seleccionar uno de los proveedores documentados. |
+| Actividad por habitación | Opcional, varias entidades HA con estados explícitos; presencia, movimiento o actividad genérica. No sustituye permisos ni declara vacío por silencio. |
 
 Cada estancia puede usar una combinación distinta de marcas/protocolos. Una planta
 agrupa los equipos que realmente comparten una unidad exterior/sentido: no agrupar
@@ -55,17 +56,21 @@ El comportamiento físico de un multisplit debe confirmarse con su fabricante.
   No habilitar el ejecutor opcional sin resolver esas limitaciones.
 - Falta de sensor, mala unidad o dato antiguo se muestra como bloqueo/degradación;
   no se inventan valores para que la propuesta salga verde.
-- Calderas, válvulas, suelo radiante y deshumidificadores dedicados requieren
-  adaptadores propios; esta alfa está centrada en splits de aire acondicionado.
+- Calderas, válvulas y suelo radiante no están certificados. El deshumidificador
+  dedicado se admite por `humidifier` de clase deshumidificador y planta propia;
+  no se soportan humidificadores que añaden agua ni llamadas directas a relés.
 
 ## Tarifas disponibles
 
 PVPC usa el sensor nativo HA y sus horas publicadas. Los tramos fijos permiten
 días semanales, madrugada y excepciones por fecha; se validan cobertura y solapes.
 Precio plano se configura numéricamente. Un proveedor genérico expone intervalos
-con fechas/zona y EUR/kWh o EUR/MWh, también con granularidad subhoraria.
+con fechas/zona y moneda explícita por kWh/MWh, también con granularidad subhoraria.
+No se mezclan monedas ni se convierten históricos mediante un cambio de etiqueta.
 No se necesita PVPC para usar tramos fijos, ni se incluye una factura real.
 
 Véanse [configuración completa](CONFIGURATION.md) y los perfiles ficticios de
 `examples/`. La combinación exacta de equipos se valida por instalación: formato
 genérico no significa compatibilidad física universal.
+
+Perfiles, fuentes opcionales y límites: [estrategias y actividad](STRATEGIES_ACTIVITY.md).

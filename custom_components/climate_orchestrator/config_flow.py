@@ -11,10 +11,11 @@ from homeassistant.helpers import selector
 from homeassistant.helpers import area_registry, device_registry, entity_registry
 from .const import DOMAIN
 from .domain.models import Policy, house_from_dict
-from .domain.tariffs import FixedPeriod, validate_fixed
+from .domain.tariffs import FixedPeriod, validate_fixed, currency_code
 from .validation import validate_sources
 from .domain.energy import Meter
 from .domain.safety import SupplyProtection
+from .domain.preferences import STRATEGIES, Preferences, ActivityBinding
 
 
 def number(low, high, step=1):
@@ -379,7 +380,11 @@ class ClimateFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self):
-        self.profile = {"house": {"plants": [], "zones": []}, "tariff": {}}
+        self.profile = {
+            "house": {"plants": [], "zones": [], "strategy": "balanced"},
+            "tariff": {},
+            "strategy_schema": 1,
+        }
 
     async def async_step_user(self, user_input=None):
         errors = {}
@@ -388,10 +393,17 @@ class ClimateFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
             try:
                 ZoneInfo(user_input["timezone"])
+                currency_code(user_input.get("currency", "EUR"))
+                if (
+                    user_input["tariff_type"] == "pvpc"
+                    and user_input.get("currency", "EUR") != "EUR"
+                ):
+                    raise ValueError("PVPC currency must be EUR")
                 self.profile["house"].update(
                     name=user_input["name"], timezone=user_input["timezone"]
                 )
                 self.profile["tariff"]["type"] = user_input["tariff_type"]
+                self.profile["tariff"]["currency"] = user_input.get("currency", "EUR")
                 return await self.async_step_tariff()
             except (ValueError, KeyError):
                 errors["base"] = "invalid_configuration"
@@ -401,6 +413,7 @@ class ClimateFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required("name"): str,
                     vol.Required("timezone", default=self.hass.config.time_zone): str,
+                    vol.Required("currency", default=self.hass.config.currency): str,
                     vol.Required(
                         "tariff_type", default="pvpc"
                     ): selector.SelectSelector(
@@ -617,13 +630,197 @@ class ClimateOptions(config_entries.OptionsFlow):
     async def async_step_comfort(self, user_input=None):
         return self.async_show_menu(
             step_id="comfort",
-            menu_options=["zone_targets", "band", "schedule", "policy"],
+            menu_options=["strategy", "zone_targets", "band", "schedule", "policy"],
         )
 
     async def async_step_system(self, user_input=None):
         return self.async_show_menu(
             step_id="system",
-            menu_options=["sources", "tariff", "tariff_type", "execution"],
+            menu_options=[
+                "sources",
+                "source_quality",
+                "tariff",
+                "tariff_type",
+                "execution",
+            ],
+        )
+
+    async def async_step_strategy(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            self.profile["house"]["strategy"] = user_input["strategy"]
+            self.profile["apply_strategy"] = user_input["apply_strategy"]
+            self.profile["strategy_schema"] = 1
+            try:
+                return self.save()
+            except (ValueError, TypeError):
+                errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="strategy",
+            errors=errors,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "strategy",
+                        default=self.profile["house"].get("strategy", "legacy"),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=list(STRATEGIES), translation_key="strategies"
+                        )
+                    ),
+                    vol.Required(
+                        "apply_strategy",
+                        default=self.profile.get("apply_strategy", False),
+                    ): bool,
+                }
+            ),
+        )
+
+    async def async_step_source_quality(self, user_input=None):
+        errors = {}
+        if user_input is not None:
+            self.profile["source_quality"] = user_input.get("source_quality", {})
+            try:
+                return self.save()
+            except (ValueError, TypeError):
+                errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="source_quality",
+            errors=errors,
+            data_schema=vol.Schema(
+                {
+                    optional(
+                        "source_quality", self.profile.get("source_quality", {})
+                    ): selector.ObjectSelector(),
+                }
+            ),
+        )
+
+    async def async_step_zone_preferences(self, user_input=None):
+        zone = next(
+            z for z in self.profile["house"]["zones"] if z["id"] == self.selection
+        )
+        pref = Preferences(**zone.get("preferences", {}))
+        errors = {}
+        if user_input is not None:
+            zone["preferences"] = dict(user_input)
+            try:
+                return self.save()
+            except (ValueError, TypeError):
+                errors["base"] = "invalid_configuration"
+        schema = {}
+        for field in fields(Preferences):
+            name = field.name
+            value = getattr(pref, name)
+            if name in ("heat_day", "cool_day", "heat_sleep", "cool_sleep"):
+                schema[optional(name, value)] = number(5, 35, 0.5)
+            else:
+                low, high, step = (0, 5, 0.1)
+                if name in ("minimum_heat", "maximum_cool"):
+                    low, high, step = 5, 35, 0.5
+                elif name.endswith("wait_s"):
+                    low, high, step = 0, 86400, 1
+                elif name == "discomfort_degree_minutes":
+                    high = 1440
+                schema[vol.Required(name, default=value)] = number(low, high, step)
+        return self.async_show_form(
+            step_id="zone_preferences", data_schema=vol.Schema(schema), errors=errors
+        )
+
+    async def async_step_zone_activity(self, user_input=None):
+        zone = next(
+            z for z in self.profile["house"]["zones"] if z["id"] == self.selection
+        )
+        if user_input is not None:
+            action = user_input["action"]
+            if action == "add":
+                self._activity_index = None
+                return await self.async_step_activity_binding()
+            if action == "clear":
+                zone["activity_bindings"] = []
+                return self.save()
+            self._activity_index = int(action)
+            return await self.async_step_activity_binding()
+        options = ["add", "clear"]
+        options.extend(
+            {"value": str(i), "label": b["entity"]}
+            for i, b in enumerate(zone.get("activity_bindings", []))
+        )
+        return self.async_show_form(
+            step_id="zone_activity",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("action", default="add"): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=options, translation_key="activity_actions"
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_activity_binding(self, user_input=None):
+        zone = next(
+            z for z in self.profile["house"]["zones"] if z["id"] == self.selection
+        )
+        index = self._activity_index
+        default = zone.get("activity_bindings", [])[index] if index is not None else {}
+        errors = {}
+        if user_input is not None:
+            try:
+                binding = asdict(
+                    ActivityBinding(
+                        **{k: v for k, v in user_input.items() if k != "remove"}
+                    )
+                )
+                rows = copy.deepcopy(zone.get("activity_bindings", []))
+                if index is None:
+                    rows.append(binding)
+                elif user_input.get("remove"):
+                    rows.pop(index)
+                else:
+                    rows[index] = binding
+                zone["activity_bindings"] = rows
+                return self.save()
+            except (ValueError, TypeError):
+                errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="activity_binding",
+            errors=errors,
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "entity", default=default.get("entity", vol.UNDEFINED)
+                    ): selector.EntitySelector(),
+                    vol.Required(
+                        "kind", default=default.get("kind", "motion")
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=["presence", "motion", "activity"],
+                            translation_key="activity_kinds",
+                        )
+                    ),
+                    vol.Required(
+                        "active_states",
+                        default=list(default.get("active_states", ["on"])),
+                    ): states_selector(),
+                    vol.Required(
+                        "inactive_states",
+                        default=list(default.get("inactive_states", ["off"])),
+                    ): states_selector(),
+                    **{
+                        vol.Required(n, default=default.get(n, v)): number(
+                            1 if n == "hold_s" else 0, 86400
+                        )
+                        for n, v in [
+                            ("hold_s", 900),
+                            ("vacancy_s", 300),
+                            ("maximum_age_s", 0),
+                        ]
+                    },
+                    vol.Required("remove", default=False): bool,
+                }
+            ),
         )
 
     async def async_step_add_split(self, user_input=None):
@@ -764,7 +961,10 @@ class ClimateOptions(config_entries.OptionsFlow):
 
     async def async_step_tariff_type(self, user_input=None):
         if user_input:
-            self._tariff_draft = {"type": user_input["tariff_type"]}
+            self._tariff_draft = {
+                "type": user_input["tariff_type"],
+                "currency": self.profile["tariff"].get("currency", "EUR"),
+            }
             return (
                 await self.async_step_tariff_period()
                 if user_input["tariff_type"] == "fixed"
@@ -970,7 +1170,13 @@ class ClimateOptions(config_entries.OptionsFlow):
         )
         return self.async_show_menu(
             step_id="zone_settings",
-            menu_options=["zone_binding", "zone_targets_menu", "zone_advanced"],
+            menu_options=[
+                "zone_binding",
+                "zone_targets_menu",
+                "zone_preferences",
+                "zone_activity",
+                "zone_advanced",
+            ],
             description_placeholders={"name": zone["name"]},
         )
 

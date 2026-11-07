@@ -7,7 +7,8 @@
         "data": {
           "name": "Name",
           "timezone": "Time zone",
-          "tariff_type": "Tariff type"
+          "tariff_type": "Tariff type",
+          "currency": "Tariff currency (uppercase code, e.g. EUR or USD)"
         },
         "description": "Starts in observation mode. Configure sources, energy meters and optional execution in Settings."
       },
@@ -517,7 +518,8 @@
           "zone_targets": "Split and price temperatures",
           "band": "Price bands and shared targets",
           "schedule": "Day and sleep",
-          "policy": "Advanced regulation"
+          "policy": "Advanced regulation",
+          "strategy": "Cost and comfort strategy"
         }
       },
       "system": {
@@ -526,7 +528,8 @@
           "sources": "Outdoor conditions, presence and permissions",
           "tariff": "Current price source",
           "tariff_type": "Change tariff type",
-          "execution": "Observation, control and protection"
+          "execution": "Observation, control and protection",
+          "source_quality": "Measurement origin (advanced)"
         }
       },
       "zone_settings": {
@@ -534,7 +537,9 @@
         "menu_options": {
           "zone_binding": "Equipment, probes and area",
           "zone_targets_menu": "Temperatures by price",
-          "zone_advanced": "Priority, permissions and compensation"
+          "zone_advanced": "Priority, permissions and compensation",
+          "zone_preferences": "Preferred temperatures and flexibility",
+          "zone_activity": "Room presence and activity (optional)"
         }
       },
       "zone_targets_menu": {
@@ -636,6 +641,61 @@
           "humidity_start": "Start at (%)",
           "humidity_stop": "Stop after falling to (%)",
           "use_common": "Return to common values for this price"
+        }
+      },
+      "strategy": {
+        "title": "Strategy",
+        "description": "Selecting a strategy does not enable control. Shadow entries keep their current goals and publish comparisons separately. Apply only after reviewing goal consumers.",
+        "data": {
+          "strategy": "Preferred strategy",
+          "apply_strategy": "Apply to this entry’s already-authorized executor"
+        }
+      },
+      "source_quality": {
+        "title": "Source clocks",
+        "description": "Optional entity-keyed clock contracts. Received timestamps are not evidence of a new measurement. See the integration source-quality documentation.",
+        "data": {
+          "source_quality": "Explicit source contracts"
+        }
+      },
+      "zone_preferences": {
+        "title": "Room preferences",
+        "description": "Empty preferred temperatures inherit your normal price-band table. Flexibility and vacancy setbacks default to zero. These preferences never change Manual or equipment protections.",
+        "data": {
+          "heat_day": "Preferred heat · day (°C)",
+          "cool_day": "Preferred cool · day (°C)",
+          "heat_sleep": "Preferred heat · sleep (°C)",
+          "cool_sleep": "Preferred cool · sleep (°C)",
+          "heat_flex": "Heating flexibility (°C difference)",
+          "cool_flex": "Cooling flexibility (°C difference)",
+          "minimum_heat": "Minimum authorized heating goal (°C)",
+          "maximum_cool": "Maximum authorized cooling goal (°C)",
+          "price_wait_s": "Price · maximum wait (seconds)",
+          "balanced_wait_s": "Balanced · maximum wait (seconds)",
+          "discomfort_degree_minutes": "Maximum measured discomfort (°C·minutes)",
+          "vacancy_heat_delta": "Confirmed vacancy · heat setback (°C difference)",
+          "vacancy_cool_delta": "Confirmed vacancy · cool setback (°C difference)"
+        }
+      },
+      "zone_activity": {
+        "title": "Optional room activity",
+        "description": "Add or edit multiple sources. Quiet motion means unknown, not vacant. A setback requires explicit presence vacancy; missing sources retain ordinary preferences.",
+        "data": {
+          "action": "Action or source to edit"
+        }
+      },
+      "activity_binding": {
+        "title": "Activity source",
+        "description": "Presence can confirm vacancy. Motion and generic activity provide positive evidence only, held from their last active transition. Maximum age 0 means provider-managed availability.",
+        "data": {
+          "entity": "Linked entity",
+          "kind": "Signal meaning",
+          "active_states": "States indicating activity",
+          "inactive_states": "Explicit inactive states",
+          "hold_s": "Keep positive evidence (seconds)",
+          "vacancy_s": "Confirm vacancy after (seconds)",
+          "maximum_age_s": "Maximum receipt age (seconds; 0 disables)",
+          "remove": "Remove this source"
         }
       }
     },
@@ -740,6 +800,9 @@
           "shadow": "Observation",
           "control": "Control configured"
         }
+      },
+      "strategy_preview": {
+        "name": "Strategy comparison"
       }
     },
     "binary_sensor": {
@@ -779,6 +842,17 @@
       },
       "humidity_stop_target": {
         "name": "Humidity · stop · {price_range}"
+      }
+    },
+    "select": {
+      "strategy": {
+        "name": "Strategy",
+        "state": {
+          "legacy": "Previous behavior",
+          "price": "Price",
+          "balanced": "Balanced",
+          "comfort": "Comfort"
+        }
       }
     }
   },
@@ -829,6 +903,27 @@
         "stop": "Stop owned session",
         "retain_owned": "Retain owned session within its limits"
       }
+    },
+    "strategies": {
+      "options": {
+        "legacy": "Previous behavior",
+        "price": "Price",
+        "balanced": "Balanced",
+        "comfort": "Comfort"
+      }
+    },
+    "activity_kinds": {
+      "options": {
+        "presence": "Presence (can confirm vacancy)",
+        "motion": "Motion (positive evidence only)",
+        "activity": "Other activity (positive evidence only)"
+      }
+    },
+    "activity_actions": {
+      "options": {
+        "add": "Add source",
+        "clear": "Remove all linked sources"
+      }
     }
   },
   "exceptions": {
@@ -837,6 +932,12 @@
     },
     "external_target": {
       "message": "The goal is controlled by {entity}. Edit that source or remove its binding in Configure before editing this table."
+    }
+  },
+  "issues": {
+    "origin_clock": {
+      "title": "Missing or future source timestamps",
+      "description": "{count} configured source clocks are unavailable, invalid or in the future. Check the timestamp attribute or linked timestamp entity under integration options → Source clocks. These sources cannot prove fresh origin data; do not replace the contract with receipt time to hide the fault. The issue clears when valid timestamps return."
     }
   }
 }

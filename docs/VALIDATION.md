@@ -1,5 +1,55 @@
 # Evidencia de la alfa
 
+## Candidata0.2.0a7 · estrategias y actividad opcional
+
+226 pruebas deterministas pasan (195 anteriores +31 nuevas). Se prueban calor
+y frío, perfiles con/sin concesiones, tarifa plana/negativa/ausente/huecos,
+plazo congelado, presupuesto de desviación, objetivos externos, Manual/pausa,
+potencia y mínimos; una sonda perdida no reserva la planta contra zonas sanas.
+Las fuentes de actividad cubren ausencia de sensor, PIR quieto, varios votos,
+presencia perdida, estado personalizado, caché, relojes futuros y reinicio.
+Se verifican calidad de origen y monedas/unidades, sin FX ni mezcla.
+
+**18/18 suites HA nativas pasan:** nueve en2026.10.4 y nueve en2026.11.0.
+Se ejecutaron con Python3.14 en contenedores efímeros de namespaces Linux
+(`bubblewrap`), sin red, dispositivos, home, credenciales ni configuración
+productiva; solo runtime y repositorio neutral de lectura. Entornos HA
+desechables instalados desde PyPI, no el contenedor de una vivienda.
+
+`tests/ha_profiles_activity.py` añade11 comprobaciones por versión: servicio
+`select.select_option`, idempotencia/hot-apply/IDs, preview sin alterar metas,
+origen/recepción/°F y apertura/cierre Repairs, gestor real de opciones para
+actividad y preferencias, captura de un pulso on→off entre recálculos,
+select→ejecutor→servicio ficticio, Manual/deadlines persistentes, esquemas y
+feedback rechazados, moneda USD nativa, conservación del ledger y rechazo de
+relabel sin sobrescribirlo, y retirada limpia. Produce dos llamadas a los
+dobles HVAC por versión, **ninguna a equipos reales**.
+
+La versión mínima no admite un parámetro reciente de Repairs; se usa el
+contrato compatible con ambas versiones y se ha repetido su matriz tras
+corregirlo. Una habitación observadora sin medidores expone50entidades:
+13diagnóstico y37configuración, conservando los IDs previos.
+
+Ruff, compilación, catálogos ES/EN, ejemplos y diff sin errores. La matriz se
+añade al workflow, pero las ejecuciones anteriores son **locales**, no una
+ejecución nueva de CI remota. Sin publicación/instalación, inspección visual,
+piloto físico, secado demostrado ni ahorro medido. No certifica cualquier
+caldera/termostato/topología. El plan registra los gates aún pendientes.
+
+Microbenchmark local sintético (25 recorridos de tres previews+plan por tamaño):
+mediana0,55ms para5zonas,4,78ms para50 y25,89ms para200; máximo29,03ms en el
+último caso. No incluye I/O, frontend ni hardware de producción, y no sustituye
+medición de latencia/CPU en el piloto.
+
+Para repetir con un entorno desechable:
+
+```sh
+python scripts/isolated_ha.py --python /path/to/disposable-ha-venv/bin/python
+```
+
+El runner no admite un Python de sistema como sustituto del entorno de prueba.
+Docker CI conserva la matriz de release. No pasar rutas de producción.
+
 ## Candidata0.2.0a5 · salidas de referencia y consigna en off
 
 168 pruebas de núcleo. Dos capacidades opt-in: `feedback_loss_action=stop`

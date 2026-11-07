@@ -19,7 +19,7 @@ Desde la ficha de integración, **Configurar** abre:
 |---|---|
 | Equipos y sondas | Vincular split o deshumidificador; editar equipo, sondas/área, objetivos o prioridad/permisos/compensación. |
 | Unidades exteriores | Añadir y editar instalaciones, sentido compartido y tiempos mínimos. |
-| Confort y horarios | Cuatro tablas térmicas y dos de humedad por split; objetivos comunes por precio, día/sueño y regulación avanzada. |
+| Confort y horarios | Selector Precio/Equilibrado/Confort/Anterior, aplicación opt-in; tablas por precio, día/sueño y regulación avanzada. |
 | Consumo y medidores | W/kW y energía al ámbito real; selección sin solapes para subtotal y contadores por periodo con cobertura. |
 | Fuentes y funcionamiento | Exterior, presencia y permisos globales, fuente/tipo de tarifa, observación/control y protección. |
 
@@ -28,6 +28,12 @@ seleccionado; no se deduce un área por el nombre de una entidad. Se comprueban
 los tipos/unidades conocidos y se rechaza un split duplicado en la misma casa.
 Las asignaciones opcionales pueden borrarse de verdad: lo mostrado es una
 sugerencia de interfaz, no un valor que se restaura al enviarlo vacío.
+
+El menú de cada habitación añade **Preferencias** y **Presencia y actividad**:
+márgenes y esperas explícitos, cero o varias fuentes de estados configurables,
+sin exigir sensores de presencia. El selector es una preferencia, no una orden
+al equipo. En observación se comparan perfiles en salidas separadas y se
+conservan las metas actuales. Ver [contrato y ejemplos](STRATEGIES_ACTIVITY.md).
 
 Los dispositivos de regulación son servicios lógicos con acceso a la configuración
 nativa. El equipo físico permanece en su integración original: no se reempareja,

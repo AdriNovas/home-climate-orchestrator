@@ -265,7 +265,7 @@ async def main():
             entities = []
             await sensor.async_setup_entry(h, entry, entities.extend)
             await binary_sensor.async_setup_entry(h, entry, entities.extend)
-            assert len(entities) == 12 and len({x.unique_id for x in entities}) == 12
+            assert len(entities) == 13 and len({x.unique_id for x in entities}) == 13
             assert all(x.entity_category.value == "diagnostic" for x in entities)
             for x in entities:
                 if isinstance(x, sensor.SensorEntity):
@@ -273,7 +273,7 @@ async def main():
                 else:
                     x.is_on
             checks.append(
-                "twelve native diagnostic entities have stable IDs, values and diagnostic categories"
+                "thirteen native diagnostic entities have stable IDs, values and diagnostic categories"
             )
             from homeassistant.helpers.template import Template
 

@@ -73,7 +73,9 @@ class AmbientTarget(ClimateDiagnostic, NumberEntity):
             if high is None
             else f"{low:g}–{high:g}"
         )
-        self._attr_translation_placeholders = {"price_range": price_range + " €/kWh"}
+        self._attr_translation_placeholders = {
+            "price_range": price_range + f" {coordinator.currency}/kWh"
+        }
         self._attr_icon = (
             "mdi:water-percent"
             if table.startswith("humidity")

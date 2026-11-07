@@ -53,13 +53,40 @@ def pvpc_intervals(
     return normalize(result)
 
 
-def generic_intervals(attributes: dict, unit: str) -> tuple[PriceInterval, ...]:
-    factor = {"EUR/kWh": 1, "€/kWh": 1, "EUR/MWh": 0.001, "€/MWh": 0.001}.get(unit)
+def currency_code(value):
+    if (
+        not isinstance(value, str)
+        or len(value) != 3
+        or not value.isascii()
+        or not value.isalpha()
+        or value != value.upper()
+    ):
+        raise ValueError("Explicit three-letter uppercase currency required")
+    return value
+
+
+def generic_intervals(
+    attributes: dict, unit: str, currency: str = "EUR"
+) -> tuple[PriceInterval, ...]:
+    currency_code(currency)
+    factors = {
+        f"{currency}/kWh": 1,
+        f"{currency}/MWh": 0.001,
+        f"{currency} cents/kWh": 0.01,
+    }
+    if currency == "EUR":
+        factors.update({"€/kWh": 1, "€/MWh": 0.001})
+    factor = factors.get(unit)
     if factor is None:
         raise ValueError("Unsupported or ambiguous price unit")
     rows = attributes.get("intervals")
-    if not isinstance(rows, list):
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
         raise ValueError("Generic provider requires intervals")
+    if attributes.get("currency", currency) != currency or any(
+        row.get("currency", currency) != currency or row.get("unit", unit) != unit
+        for row in rows
+    ):
+        raise ValueError("Mixed or conflicting interval currencies/units")
     return normalize(
         [
             PriceInterval(

@@ -21,6 +21,7 @@ from .thermal import observe_stability, extreme_price, relaxed_target
 from .provenance import number
 from .modulation import soft_correction, observe_shared_load, observe_room
 from .models import Reading
+from .strategies import resolve_goals, humidity_opportunity
 
 
 def dew_point(temperature: float, humidity: float) -> float:
@@ -128,7 +129,7 @@ def begin_dry(
     memory.low_since = 0
 
 
-def independent_drying(zone, obs, memory, decision, snap, house, high, rh_ok):
+def independent_drying(zone, obs, memory, decision, snap, house, high, rh_ok, prices):
     """Standalone refrigerant dryer: no inversion or thermal preheating cycle."""
     p, now = house.policy, snap.now.timestamp()
     if not zone.enabled or snap.paused or not obs.permitted:
@@ -175,6 +176,17 @@ def independent_drying(zone, obs, memory, decision, snap, house, high, rh_ok):
     )
     if now < until:
         return replace(decision, stage="waiting", reason="minimum_off", next_at=until)
+    if house.strategy != "legacy" and not decision.urgent:
+        wait = humidity_opportunity(
+            house, zone, snap, prices, memory, zone.dehumidifier_max_s
+        )
+        if wait is not None:
+            return replace(
+                decision,
+                stage="waiting",
+                reason="cheaper_complete_window",
+                next_at=wait,
+            )
     return replace(
         decision,
         stage="dry_ready",
@@ -221,6 +233,8 @@ def evaluate(
             heat = o.heat_goal.value
         if o.cool_goal.fresh(now, p.temperature_fresh_s):
             cool = o.cool_goal.value
+        goals = resolve_goals(house, z, o, snap, prices, m, sleep, heat, cool)
+        heat, cool = goals.heat, goals.cool
         d = Decision(
             z.id,
             "idle",
@@ -230,6 +244,11 @@ def evaluate(
             cool,
             z.humidity_start_targets.get(band.name, band.humidity_start),
             z.humidity_stop_targets.get(band.name, band.humidity_stop),
+            strategy=house.strategy,
+            strategy_reason=goals.reason,
+            preferred_heat=goals.preferred_heat,
+            preferred_cool=goals.preferred_cool,
+            activity=o.activity,
         )
         temp_ok = o.temperature.fresh(now, p.temperature_fresh_s)
         thermal_occupied = (
@@ -354,7 +373,9 @@ def evaluate(
                 )
                 continue
         if z.independent_drying:
-            independent = independent_drying(z, o, m, d, snap, house, high, rh_ok)
+            independent = independent_drying(
+                z, o, m, d, snap, house, high, rh_ok, prices
+            )
             if independent.mode == "dry":
                 wanted[z.id] = ("dry", z.priority + (10 if urgent else 0), independent)
             else:
@@ -434,6 +455,11 @@ def evaluate(
             continue
         if thermal_occupied is not True:
             result[z.id] = replace(d, stage="waiting", reason="occupancy_unconfirmed")
+            continue
+        if goals.until is not None and o.mode == "off":
+            result[z.id] = replace(
+                d, stage="waiting", reason="cheaper_thermal_window", next_at=goals.until
+            )
             continue
         plant = next(x for x in house.plants if x.id == z.plant)
         near_goal = (
@@ -616,6 +642,12 @@ def evaluate(
                 ),
                 None,
             )
+            if house.strategy != "legacy":
+                # Humidity is independent of thermal occupancy concessions.
+                # Missing prices only removes economic waiting, never service.
+                wait = humidity_opportunity(house, z, snap, prices, m, p.dry_max_s)
+                cheaper = {"start": wait} if wait is not None else None
+                present = present or {"start": now}
             if not urgent and not present:
                 result[z.id] = replace(
                     d, stage="waiting", reason="published_window_missing"

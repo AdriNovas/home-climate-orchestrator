@@ -1,7 +1,7 @@
 """HA observations and optional execution; the planner remains I/O-free."""
 
 from __future__ import annotations
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import copy
 from datetime import timedelta
 from math import isfinite
@@ -9,6 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, Context, callback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers import issue_registry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt
 from .const import DOMAIN, STORAGE_VERSION
@@ -17,6 +18,9 @@ from .domain.engine import evaluate, begin_dry, sleeping
 from .domain.energy import meters_from_profile, normalize
 from .domain.accounting import Accounting, PERIODS
 from .domain.safety import SupplyProtection, supply_cut
+from .domain.sources import SourceContract
+from .domain.activity import ActivitySample, resolve_activity
+from .domain.strategies import preview
 from .domain.provenance import record, transition_echo, critical_echo, cut_record
 from .execution import Executor
 from .domain.models import (
@@ -40,6 +44,16 @@ import logging
 
 LOGGER = logging.getLogger(__name__)
 
+STRATEGY_MEMORY_FIELDS = {
+    "activity_last_positive",
+    "thermal_wait_since",
+    "thermal_wait_until",
+    "discomfort_degree_minutes",
+    "comfort_last_at",
+    "comfort_last_report",
+    "thermal_wait_mode",
+}
+
 
 def configuration(entry: ConfigEntry) -> dict:
     return {**entry.data, **entry.options}
@@ -59,6 +73,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         validate_sources(hass, self.profile)
         self.house = house_from_dict(self.profile["house"])
         self.tariff = self.profile["tariff"]
+        self.currency = self.tariff.get("currency", "EUR")
         if self.tariff["type"] == "fixed":
             validate_fixed(
                 tuple(
@@ -94,6 +109,8 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         self._started = False
         self._safety_worker = None
         self._safety_pending = False
+        self._observation_store_loaded = False
+        self._source_clock_issue_count = 0
 
     @callback
     def async_apply_target_options(self) -> bool:
@@ -103,9 +120,15 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         identical. All other option changes still require the normal reload.
         """
         profile = configuration(self.entry)
+        if profile == self.profile:
+            return True
         before, after = copy.deepcopy(self.profile), copy.deepcopy(profile)
         for item in [before, after]:
+            item.pop("apply_strategy", None)
+            item.pop("strategy_schema", None)
+            item["house"].pop("strategy", None)
             for zone in item["house"]["zones"]:
+                zone.pop("preferences", None)
                 for table in [
                     "heat_targets",
                     "cool_targets",
@@ -126,6 +149,15 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         self.house = house
         self.executor.house = house
         return True
+
+    def planning_house(self):
+        # Shadow goals may already have external consumers. New strategies are
+        # preview-only unless this entry owns execution AND explicitly applies them.
+        return (
+            self.house
+            if self.executor.enabled and self.profile.get("apply_strategy", False)
+            else replace(self.house, strategy="legacy")
+        )
 
     async def publish_execution(self, persisted):
         """Publish only durable bytes, before the corresponding physical call."""
@@ -178,6 +210,24 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         if not isinstance(data, dict):
             LOGGER.warning("Discarding incompatible observation store")
             return
+        if (
+            type(data.get("strategy_schema", 1)) is not int
+            or data.get("strategy_schema", 1) != 1
+        ):
+            raise ValueError(
+                "Unknown strategy memory schema; preserve store for recovery"
+            )
+        saved_strategy = data.get("strategy_memory", {})
+        if not isinstance(saved_strategy, dict):
+            raise ValueError("Invalid strategy memory; preserve store for recovery")
+        for fields in saved_strategy.values():
+            if not isinstance(fields, dict) or set(fields) - STRATEGY_MEMORY_FIELDS:
+                raise ValueError("Unknown strategy memory fields")
+            Memory(**fields)
+        if data.get("currency", "EUR") != self.currency and data.get("accounting"):
+            raise ValueError(
+                "Currency migration requires a separate entry; existing measured energy and cost are preserved"
+            )
         for key, row in data.get("zones", {}).items():
             if key in {z.id for z in self.house.zones}:
                 try:
@@ -186,7 +236,8 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                     )
                     if data.get("bindings", {}).get(key, binding) != binding:
                         continue
-                    self.memories[key] = Memory(**row)
+                    strategy_memory = saved_strategy.get(key, {})
+                    self.memories[key] = Memory(**{**row, **strategy_memory})
                     owner = self.executor.state["owned"].get(key, {})
                     if (
                         owner.get("mode") == "dry"
@@ -219,10 +270,30 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                     self.plants[key] = PlantMemory(**row)
                 except (TypeError, ValueError):
                     LOGGER.warning("Discarding incompatible plant observation memory")
+        self._observation_store_loaded = True
 
     def _saved(self) -> dict:
         return {
-            "zones": {k: asdict(v) for k, v in self.memories.items()},
+            "currency": self.currency,
+            "strategy_schema": 1,
+            # Keep old room payloads readable by the preceding version: it
+            # rejects unknown Memory fields and would otherwise lose budgets.
+            "zones": {
+                k: {
+                    name: value
+                    for name, value in asdict(v).items()
+                    if name not in STRATEGY_MEMORY_FIELDS
+                }
+                for k, v in self.memories.items()
+            },
+            "strategy_memory": {
+                k: {
+                    name: value
+                    for name, value in asdict(v).items()
+                    if name in STRATEGY_MEMORY_FIELDS
+                }
+                for k, v in self.memories.items()
+            },
             "plants": {k: asdict(v) for k, v in self.plants.items()},
             "bindings": {z.id: z.actuator_entity for z in self.house.zones},
             "accounting": {
@@ -237,6 +308,9 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
 
     async def async_close(self) -> None:
         self._closing = True
+        issue_registry.async_delete_issue(
+            self.hass, DOMAIN, f"{self.entry.entry_id}_origin_clock"
+        )
         if self._remove_listener:
             self._remove_listener()
             self._remove_listener = None
@@ -246,7 +320,8 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             import asyncio
 
             await asyncio.gather(self._worker, return_exceptions=True)
-        await self._store.async_save(self._saved())
+        if self._observation_store_loaded:
+            await self._store.async_save(self._saved())
         await self.async_shutdown()
 
     @callback
@@ -257,6 +332,29 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         def changed(event) -> None:
             entity = event.data["entity_id"]
             old, new = event.data.get("old_state"), event.data.get("new_state")
+            # Capture short pulses before the coalesced refresh: current state
+            # may already be off when the planner reads it. Attribute-only
+            # republishes must not extend the original positive transition.
+            if new and (not old or old.state != new.state):
+                for zone in self.house.zones:
+                    for binding in zone.activity_bindings:
+                        if (
+                            entity == binding.entity
+                            and new.state in binding.active_states
+                        ):
+                            clock = self.source_clock(entity, new)
+                            at = (
+                                clock.at
+                                if clock.semantics == "origin"
+                                else new.last_changed.timestamp()
+                            )
+                            if new.attributes.get("restored") or (
+                                clock.semantics == "origin" and clock.origin_at is None
+                            ):
+                                continue
+                            if 0 < at <= dt.utcnow().timestamp():
+                                memory = self.memories.setdefault(zone.id, Memory())
+                                memory.activity_last_positive[entity] = at
             climate = next(
                 (z for z in self.house.zones if z.actuator_entity == entity), None
             )
@@ -378,7 +476,50 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             and entity.split(".")[0] in ["input_number", "number"]
             else state.last_reported.timestamp()
         )
-        return Reading(value, at)
+        if configured_at is not None and entity.split(".")[0] in [
+            "input_number",
+            "number",
+        ]:
+            return Reading(
+                value, at, state.last_reported.timestamp(), semantics="configuration"
+            )
+        return self.source_clock(entity, state, value)
+
+    def source_clock(self, entity, state, value=1):
+        if state is None:
+            return Reading(None)
+        at = state.last_reported.timestamp()
+        contract = SourceContract(
+            **self.profile.get("source_quality", {}).get(entity, {})
+        )
+        origin = None
+        if contract.semantics == "origin":
+            stamp = (
+                state.attributes.get(contract.timestamp_attribute)
+                if contract.timestamp_attribute
+                else None
+            )
+            if contract.timestamp_entity:
+                clock_state = self.hass.states.get(contract.timestamp_entity)
+                stamp = clock_state.state if clock_state else None
+            try:
+                if isinstance(stamp, bool):
+                    raise ValueError("Boolean is not a timestamp")
+                if isinstance(stamp, (int, float)):
+                    origin = float(stamp)
+                elif isinstance(stamp, str):
+                    parsed = dt.parse_datetime(stamp)
+                    origin = (
+                        parsed.timestamp() if parsed and parsed.tzinfo else float(stamp)
+                    )
+                if origin is not None and not isfinite(origin):
+                    origin = None
+            except (TypeError, ValueError, OverflowError):
+                origin = None
+            at = origin if origin is not None else 0
+        return Reading(
+            value, at, state.last_reported.timestamp(), origin, contract.semantics
+        )
 
     def meter_power(self, meter):
         return self.reading(
@@ -436,6 +577,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                     else generic_intervals(
                         dict(state.attributes),
                         state.attributes.get("unit_of_measurement", ""),
+                        self.currency,
                     )
                 )
             if current_price(result, now) is None:
@@ -549,6 +691,30 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                     z.dry_floor_entity, "temperature", configured_at=now.timestamp()
                 ),
             )
+            samples = {}
+            for binding in z.activity_bindings:
+                activity_state = self.hass.states.get(binding.entity)
+                if activity_state:
+                    clock = self.source_clock(binding.entity, activity_state)
+                    valid = not activity_state.attributes.get("restored") and (
+                        clock.semantics != "origin" or clock.origin_at is not None
+                    )
+                    samples[binding.entity] = ActivitySample(
+                        activity_state.state if valid else None,
+                        clock.at
+                        if clock.semantics == "origin"
+                        else activity_state.last_changed.timestamp(),
+                        clock.at,
+                    )
+            memory = self.memories.setdefault(z.id, Memory())
+            activity = resolve_activity(
+                z.activity_bindings,
+                samples,
+                now.timestamp(),
+                memory.activity_last_positive,
+            )
+            memory.activity_last_positive = activity.last_positive
+            readings[z.id] = replace(readings[z.id], activity=activity.state)
         # Persist observed plant direction, not a planned or sent direction.
         for p in self.house.plants:
             members = [readings[z.id] for z in self.house.zones if z.plant == p.id]
@@ -622,8 +788,6 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         if self.profile.get("external_cut_entity") and (
             external_cut is None or external_cut["active"]
         ):
-            from dataclasses import replace
-
             snap = replace(snap, paused=True)
         return snap
 
@@ -633,7 +797,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         if executing_zone in memories:
             memories[executing_zone].last_sent = 0
         decisions = evaluate(
-            self.house,
+            self.planning_house(),
             snap,
             self._prices(snap.now),
             memories,
@@ -800,7 +964,52 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         snap = self.snapshot()
         now = snap.now
         prices = self._prices(now)
-        decisions = evaluate(self.house, snap, prices, self.memories, self.plants)
+        invalid_clocks = sum(
+            1
+            for entity, contract in self.profile.get("source_quality", {}).items()
+            if contract.get("semantics") == "origin"
+            and (
+                (
+                    clock := self.source_clock(entity, self.hass.states.get(entity))
+                ).origin_at
+                is None
+                or clock.at > now.timestamp()
+            )
+        )
+        if invalid_clocks != self._source_clock_issue_count:
+            issue_id = f"{self.entry.entry_id}_origin_clock"
+            if invalid_clocks:
+                issue_registry.async_create_issue(
+                    self.hass,
+                    DOMAIN,
+                    issue_id,
+                    is_fixable=False,
+                    severity=issue_registry.IssueSeverity.WARNING,
+                    translation_key="origin_clock",
+                    translation_placeholders={"count": str(invalid_clocks)},
+                )
+            else:
+                issue_registry.async_delete_issue(self.hass, DOMAIN, issue_id)
+            self._source_clock_issue_count = invalid_clocks
+        previews = preview(self.house, snap, prices, self.memories, self.plants)
+        prior_waits = {
+            key: memory.thermal_wait_until for key, memory in self.memories.items()
+        }
+        decisions = evaluate(
+            self.planning_house(), snap, prices, self.memories, self.plants
+        )
+        if (
+            self.executor.enabled
+            and self.profile.get("apply_strategy", False)
+            and any(
+                memory.thermal_wait_until > 0
+                and memory.thermal_wait_until != prior_waits.get(key, 0)
+                for key, memory in self.memories.items()
+            )
+        ):
+            # An active economic concession gets a durable absolute lease before
+            # publication, not only the usual delayed observation checkpoint.
+            await self._store.async_save(self._saved())
         metering = {}
         for meter in self.meters:
             power = self.meter_power(meter)
@@ -875,6 +1084,9 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         return {
             "at": now.isoformat(),
             "decisions": decisions,
+            "strategy_preview": previews,
+            "selected_strategy": self.house.strategy,
+            "effective_strategy": self.planning_house().strategy,
             "observations": snap.zones,
             "price_error": self.price_error,
             "metering": metering,

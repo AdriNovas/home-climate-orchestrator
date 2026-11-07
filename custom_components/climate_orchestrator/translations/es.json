@@ -7,7 +7,8 @@
         "data": {
           "name": "Nombre",
           "timezone": "Zona horaria",
-          "tariff_type": "Tipo de tarifa"
+          "tariff_type": "Tipo de tarifa",
+          "currency": "Moneda de la tarifa (código en mayúsculas, p. ej. EUR o USD)"
         },
         "description": "Comienza en observación. Configura fuentes, medidores de energía y ejecución opcional en Ajustes."
       },
@@ -517,7 +518,8 @@
           "zone_targets": "Temperaturas por split y precio",
           "band": "Tramos de precio y objetivos comunes",
           "schedule": "Día y sueño",
-          "policy": "Regulación avanzada"
+          "policy": "Regulación avanzada",
+          "strategy": "Estrategia de coste y confort"
         }
       },
       "system": {
@@ -526,7 +528,8 @@
           "sources": "Exterior, presencia y permisos",
           "tariff": "Fuente de precio actual",
           "tariff_type": "Cambiar tipo de tarifa",
-          "execution": "Observación, control y protección"
+          "execution": "Observación, control y protección",
+          "source_quality": "Origen de las medidas (avanzado)"
         }
       },
       "zone_settings": {
@@ -534,7 +537,9 @@
         "menu_options": {
           "zone_binding": "Equipo, sondas y área",
           "zone_targets_menu": "Temperaturas por precio",
-          "zone_advanced": "Prioridad, permisos y compensación"
+          "zone_advanced": "Prioridad, permisos y compensación",
+          "zone_preferences": "Temperaturas preferidas y flexibilidad",
+          "zone_activity": "Presencia y actividad de la habitación (opcional)"
         }
       },
       "zone_targets_menu": {
@@ -636,6 +641,61 @@
           "humidity_start": "Iniciar a partir de (%)",
           "humidity_stop": "Terminar al bajar a (%)",
           "use_common": "Volver a los valores comunes de este precio"
+        }
+      },
+      "strategy": {
+        "title": "Estrategia",
+        "description": "Elegir estrategia no habilita el control. En observación se conservan los objetivos actuales y se publican comparaciones separadas. Aplicar solo tras revisar consumidores de objetivos.",
+        "data": {
+          "strategy": "Estrategia preferida",
+          "apply_strategy": "Aplicar al ejecutor ya autorizado de esta entrada"
+        }
+      },
+      "source_quality": {
+        "title": "Relojes de las fuentes",
+        "description": "Contratos de reloj opcionales por entidad. La recepción no demuestra una medida nueva. Consultar la documentación de calidad de fuentes de la integración.",
+        "data": {
+          "source_quality": "Contratos explícitos de las fuentes"
+        }
+      },
+      "zone_preferences": {
+        "title": "Preferencias de la habitación",
+        "description": "Las temperaturas preferidas vacías heredan tu tabla de precio normal. Flexibilidad y ajustes por ausencia parten de cero. No cambian Manual ni protecciones del equipo.",
+        "data": {
+          "heat_day": "Calor preferido · día (°C)",
+          "cool_day": "Frío preferido · día (°C)",
+          "heat_sleep": "Calor preferido · dormir (°C)",
+          "cool_sleep": "Frío preferido · dormir (°C)",
+          "heat_flex": "Flexibilidad de calor (diferencia °C)",
+          "cool_flex": "Flexibilidad de frío (diferencia °C)",
+          "minimum_heat": "Objetivo mínimo de calor autorizado (°C)",
+          "maximum_cool": "Objetivo máximo de frío autorizado (°C)",
+          "price_wait_s": "Precio · espera máxima (segundos)",
+          "balanced_wait_s": "Equilibrado · espera máxima (segundos)",
+          "discomfort_degree_minutes": "Desviación medida máxima (°C·minutos)",
+          "vacancy_heat_delta": "Ausencia confirmada · reducción de calor (diferencia °C)",
+          "vacancy_cool_delta": "Ausencia confirmada · aumento de frío (diferencia °C)"
+        }
+      },
+      "zone_activity": {
+        "title": "Actividad opcional por habitación",
+        "description": "Añade o edita varias fuentes. Sin movimiento significa desconocido, no vacío. Ajustar por ausencia exige presencia negativa explícita; perder fuentes conserva las preferencias ordinarias.",
+        "data": {
+          "action": "Acción o fuente a editar"
+        }
+      },
+      "activity_binding": {
+        "title": "Fuente de actividad",
+        "description": "Presencia puede confirmar ausencia. Movimiento y actividad genérica solo aportan evidencia positiva desde su última transición activa. Edad máxima 0 confía en la disponibilidad del proveedor.",
+        "data": {
+          "entity": "Entidad vinculada",
+          "kind": "Significado de la señal",
+          "active_states": "Estados que indican actividad",
+          "inactive_states": "Estados inactivos explícitos",
+          "hold_s": "Conservar evidencia positiva (segundos)",
+          "vacancy_s": "Confirmar ausencia tras (segundos)",
+          "maximum_age_s": "Edad máxima de recepción (segundos; 0 desactiva)",
+          "remove": "Retirar esta fuente"
         }
       }
     },
@@ -740,6 +800,9 @@
           "shadow": "Observación",
           "control": "Control configurado"
         }
+      },
+      "strategy_preview": {
+        "name": "Comparación de estrategias"
       }
     },
     "binary_sensor": {
@@ -779,6 +842,17 @@
       },
       "humidity_stop_target": {
         "name": "Humedad · terminar · {price_range}"
+      }
+    },
+    "select": {
+      "strategy": {
+        "name": "Estrategia",
+        "state": {
+          "legacy": "Comportamiento anterior",
+          "price": "Precio",
+          "balanced": "Equilibrado",
+          "comfort": "Confort"
+        }
       }
     }
   },
@@ -829,6 +903,27 @@
         "stop": "Parar el ciclo propio",
         "retain_owned": "Conservar el ciclo propio con sus límites"
       }
+    },
+    "strategies": {
+      "options": {
+        "legacy": "Comportamiento anterior",
+        "price": "Precio",
+        "balanced": "Equilibrado",
+        "comfort": "Confort"
+      }
+    },
+    "activity_kinds": {
+      "options": {
+        "presence": "Presencia (puede confirmar ausencia)",
+        "motion": "Movimiento (solo evidencia positiva)",
+        "activity": "Otra actividad (solo evidencia positiva)"
+      }
+    },
+    "activity_actions": {
+      "options": {
+        "add": "Añadir fuente",
+        "clear": "Retirar todas las fuentes vinculadas"
+      }
     }
   },
   "exceptions": {
@@ -837,6 +932,12 @@
     },
     "external_target": {
       "message": "El objetivo lo controla {entity}. Cambia esa fuente o retírala en Configurar antes de editar la tabla."
+    }
+  },
+  "issues": {
+    "origin_clock": {
+      "title": "Marcas de origen ausentes o futuras",
+      "description": "{count} relojes de origen configurados no están disponibles, son inválidos o están en el futuro. Revisa el atributo o la entidad de marca temporal en las opciones de la integración → Relojes de las fuentes. Estas fuentes no acreditan datos de origen frescos; no sustituyas el contrato por hora de recepción para ocultar el fallo. El aviso desaparece al recuperar marcas válidas."
     }
   }
 }

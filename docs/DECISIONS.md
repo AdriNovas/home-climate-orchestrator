@@ -50,3 +50,26 @@ en segunda vivienda. Ninguno se anuncia como terminado en0.1.
 Separar suministro total de los medidores de consumo. Una fuente compartida tiene
 un único ámbito; no se suman padres/hijos ni se reparte potencia entre cabezas.
 Los contadores originales nunca se reescriben. Ver [contrato](EXECUTION_ENERGY.md).
+
+## ADR008 · Estrategia, evidencia y autoridad son ejes distintos
+
+Precio, Equilibrado y Confort resuelven preferencias sobre el mismo árbitro y
+ejecutor. `legacy` conserva comportamiento y fuentes anteriores al actualizar.
+Flexibilidad y ajustes de ausencia son cero hasta elección explícita. No hay
+precarga oportunista sin modelo térmico validado. Los perfiles no habilitan
+ejecución, no adoptan Manual y no renuevan plazos o intentos. La aplicación
+requiere opt-in adicional en un ejecutor autorizado. Preview tiene salidas
+distintas para no afectar consumidores de metas observadoras.
+
+La ocupación local es evidencia opcional de tres estados. Un PIR quieto no
+confirma ausencia; una fuente perdida no autoriza un ajuste por habitación
+vacía. Se admiten fuentes heterogéneas con estados explícitos y captura de
+pulsos previa al recálculo. La evidencia nunca sustituye un permiso.
+
+Origen y recepción tienen semánticas distintas; un contrato de origen inválido
+no recurre a recepción. Moneda explícita y ledger inmutable frente a relabel:
+no hay conversión FX ni migración monetaria silenciosa. La memoria nueva se
+separa de presupuestos antiguos para conservar compatibilidad de lectura.
+
+Estado: implementado en candidata local, pendiente de pilotos físicos y
+publicación. Contrato y funciones aún diferidas: [STRATEGIES_ACTIVITY.md](STRATEGIES_ACTIVITY.md).

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from math import isfinite
 from typing import Any
 from zoneinfo import ZoneInfo
+from .preferences import Preferences, ActivityBinding, STRATEGIES
 
 MODES = {"off", "heat", "cool", "dry", "fan_only"}
 
@@ -324,6 +325,8 @@ class Zone:
     thermal_presence_entity: str | None = None
     dry_floor_entity: str | None = None
     dry_pause_action: str = "stop"
+    preferences: Preferences = field(default_factory=Preferences)
+    activity_bindings: tuple[ActivityBinding, ...] = ()
 
     @property
     def actuator_entity(self):
@@ -336,6 +339,15 @@ class Zone:
     def __post_init__(self) -> None:
         if not all([self.id, self.name, self.plant, self.temperature_entity]):
             raise ValueError("Zone identity, plant and temperature source required")
+        if not isinstance(self.preferences, Preferences) or any(
+            not isinstance(binding, ActivityBinding)
+            for binding in self.activity_bindings
+        ):
+            raise ValueError("Validated preferences and activity bindings required")
+        if len({b.entity for b in self.activity_bindings}) != len(
+            self.activity_bindings
+        ):
+            raise ValueError("Duplicate room activity binding")
         object.__setattr__(self, "bias", bounded(self.bias, "bias", -4, 4))
         object.__setattr__(
             self, "priority", bounded(self.priority, "priority", 0.1, 10)
@@ -408,9 +420,12 @@ class House:
     night_start: str = "22:00"
     weekend_day_start: str = "09:00"
     weekend_night_start: str = "23:00"
+    strategy: str = "legacy"
 
     def __post_init__(self) -> None:
         ZoneInfo(self.timezone)
+        if self.strategy not in STRATEGIES:
+            raise ValueError("Unknown strategy")
         if not self.name or not self.plants or not self.zones:
             raise ValueError("House, plant and zone required")
         ids = [p.id for p in self.plants]
@@ -423,6 +438,28 @@ class House:
             raise ValueError("Actuator assigned to several zones")
         bands = {b.name for b in self.policy.bands}
         for zone in self.zones:
+            baseline = next(
+                (b for b in self.policy.bands if b.name == "normal"),
+                self.policy.bands[len(self.policy.bands) // 2],
+            )
+            pref = zone.preferences
+            for phase in ("day", "sleep"):
+                ht = zone.heat_sleep_targets if phase == "sleep" else zone.heat_targets
+                ct = zone.cool_sleep_targets if phase == "sleep" else zone.cool_targets
+                heat = getattr(pref, f"heat_{phase}")
+                cool = getattr(pref, f"cool_{phase}")
+                heat = (
+                    ht.get(baseline.name, getattr(baseline, f"heat_{phase}"))
+                    if heat is None
+                    else heat
+                )
+                cool = (
+                    ct.get(baseline.name, getattr(baseline, f"cool_{phase}"))
+                    if cool is None
+                    else cool
+                )
+                if not pref.minimum_heat <= heat < cool <= pref.maximum_cool:
+                    raise ValueError("Preferred targets must fit the authorized band")
             if zone.plant not in ids or any(
                 not set(table) <= bands
                 for table in [
@@ -480,16 +517,29 @@ def minute(clock: str) -> int:
 class Reading:
     value: float | None
     at: float = 0
+    received_at: float = 0
+    origin_at: float | None = None
+    semantics: str = "received"
 
     def __post_init__(self) -> None:
         if self.value is not None:
             object.__setattr__(self, "value", finite(self.value, "reading"))
         object.__setattr__(self, "at", finite(self.at, "report timestamp"))
+        object.__setattr__(
+            self, "received_at", finite(self.received_at, "reception timestamp")
+        )
+        if self.origin_at is not None:
+            object.__setattr__(
+                self, "origin_at", finite(self.origin_at, "origin timestamp")
+            )
+        if self.semantics not in ("received", "origin", "provider", "configuration"):
+            raise ValueError("Unknown reading clock semantics")
 
     def fresh(self, now: float, maximum: int) -> bool:
         return (
             self.value is not None
             and isfinite(self.value)
+            and (self.semantics != "origin" or self.origin_at is not None)
             and 0 <= now - self.at <= maximum
         )
 
@@ -519,8 +569,11 @@ class Observation:
     off_goal: Reading = field(default_factory=lambda: Reading(None))
     thermal_occupied: bool | None = None
     dry_floor: Reading = field(default_factory=lambda: Reading(None))
+    activity: str = "unknown"
 
     def __post_init__(self) -> None:
+        if self.activity not in ("unknown", "occupied", "vacant"):
+            raise ValueError("Unknown room activity")
         if (
             self.thermal_occupied is not None
             and type(self.thermal_occupied) is not bool
@@ -576,8 +629,24 @@ class Memory:
     thermal_last_seen: float = 0
     extreme_active: bool = False
     dry_episode_blocked: bool = False
+    activity_last_positive: dict[str, float] = field(default_factory=dict)
+    thermal_wait_since: float = 0
+    thermal_wait_until: float = 0
+    discomfort_degree_minutes: float = 0
+    comfort_last_at: float = 0
+    comfort_last_report: float = 0
+    thermal_wait_mode: str | None = None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.activity_last_positive, dict):
+            raise ValueError("Activity memory must be a mapping")
+        for value in self.activity_last_positive.values():
+            bounded(value, "activity clock", 0, 100000000000)
+        if self.thermal_wait_mode not in (None, "heat", "cool"):
+            raise ValueError("Unknown waiting direction")
+        self.discomfort_degree_minutes = bounded(
+            self.discomfort_degree_minutes, "discomfort_degree_minutes", 0, 100000000000
+        )
         if not isinstance(self.regulation, dict):
             raise ValueError("Stored room regulation must be a mapping")
         for name in [
@@ -594,6 +663,10 @@ class Memory:
             "thermal_stable_since",
             "thermal_last_report",
             "thermal_last_seen",
+            "thermal_wait_since",
+            "thermal_wait_until",
+            "comfort_last_at",
+            "comfort_last_report",
         ]:
             setattr(self, name, bounded(getattr(self, name), name, 0, 100000000000))
         if self.hold_mode not in [None, "heat", "cool"]:
@@ -647,6 +720,11 @@ class Decision:
     urgent: bool = False
     target_only: bool = False
     session_floor: float | None = None
+    strategy: str = "legacy"
+    strategy_reason: str = "legacy_tables"
+    preferred_heat: float | None = None
+    preferred_cool: float | None = None
+    activity: str = "unknown"
 
 
 def house_from_dict(data: dict[str, Any]) -> House:
@@ -657,7 +735,17 @@ def house_from_dict(data: dict[str, Any]) -> House:
         **{k: v for k, v in data.items() if k not in ["policy", "plants", "zones"]},
         plants=tuple(Plant(**p) for p in data["plants"]),
         zones=tuple(
-            Zone(**{**z, "labels": tuple(z.get("labels", []))}) for z in data["zones"]
+            Zone(
+                **{
+                    **z,
+                    "labels": tuple(z.get("labels", [])),
+                    "preferences": Preferences(**z.get("preferences", {})),
+                    "activity_bindings": tuple(
+                        ActivityBinding(**b) for b in z.get("activity_bindings", [])
+                    ),
+                }
+            )
+            for z in data["zones"]
         ),
         policy=Policy(**policy),
     )

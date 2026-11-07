@@ -1,5 +1,21 @@
 # Cambios
 
+## Candidata0.2.0a7 · estrategias y actividad opcional, sin release
+
+- Tres estrategias con preferencias, flexibilidad y esperas explícitas sobre el
+  mismo motor; compatibilidad `legacy` por defecto para entradas anteriores.
+- Selector nativo traducido, aplicación opt-in adicional e inmediata sin reload
+  ni pérdida de Manual, presupuestos o plazos. Preview separado de metas activas.
+- Varias fuentes opcionales de presencia/movimiento/actividad por habitación;
+  estados configurables, evidencia triestado y captura de pulsos entre recálculos.
+- Relojes de origen/recepción diferenciados y aviso Repairs agrupado/recuperable;
+  temperaturas estables y cachés no se confunden con medidas nuevas probadas.
+- Monedas y unidades explícitas en tarifa/costes. Se rechazan mezcla, ambigüedad
+  y relabel de ledger; energía medida y contadores originales permanecen intactos.
+- Persistencia nueva separada de presupuestos existentes, pruebas de servicios y
+  gestores de flujo HA aislados, y contrato de producto con límites explícitos.
+- Sin instalación productiva, publicación, pruebas físicas ni ahorro demostrado.
+
 ## Candidata0.2.0a6 · desarrollo aislado, sin release
 
 - Suelo de secado externo opcional como configuración persistente; validación,
