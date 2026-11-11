@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.0a8 · suelo térmico común opt-in
+
+- Admisión y continuidad pueden compartir max(suelo configurado, objetivo de calor vigente + `dry_heat_offset`), sin margen adicional de arranque. Valor no configurado conserva comportamiento previo.
+- Objetivos editables, IDs, autoridad, propiedad y plazos preservados al actualizar.
+- Incluye estrategias/actividad opcionales de la candidata anterior, sin activar ejecución al actualizar.
+- No declara paridad con controladores externos ni retira caps/presupuestos nativos: el controlador externo sigue siendo el único escritor hasta completar su migración.
+
+
 ## Candidata0.2.0a7 · estrategias y actividad opcional, sin release
 
 - Tres estrategias con preferencias, flexibilidad y esperas explícitas sobre el

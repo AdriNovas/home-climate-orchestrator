@@ -73,6 +73,33 @@ class DrySessionPolicyTests(unittest.TestCase):
             d = evaluate(h, s, p, m, plants)["0"]
             self.assertEqual((d.mode, d.reason), (None, "dry_floor_missing"))
 
+    def test_common_floor_uses_heat_goal_without_start_margin(self):
+        h, s, p, m, plants = self.case(False)
+        h = replace(h, policy=replace(h.policy, dry_heat_offset=-0.2, dry_margin=2))
+        for temperature, wanted in [(20.79, None), (20.8, "dry")]:
+            s.zones["0"] = replace(s.zones["0"], temperature=Reading(temperature, NOW.timestamp()))
+            d = evaluate(h, s, p, m, plants)["0"]
+            self.assertEqual(d.mode, wanted)
+            if wanted:
+                self.assertEqual(d.session_floor, 20.8)
+
+    def test_common_continuation_rechecks_current_goal_without_renewing_session(self):
+        h, s, p, m, plants = self.owned()
+        h = replace(h, policy=replace(h.policy, dry_heat_offset=-0.5))
+        s.zones["0"] = replace(s.zones["0"], heat_goal=Reading(25, NOW.timestamp()))
+        before = asdict(m["0"])
+        d = evaluate(h, s, p, m, plants)["0"]
+        self.assertEqual(d.mode, "off")
+        self.assertEqual(m["0"].dry_start, before["dry_start"])
+        self.assertEqual(m["0"].dry_until, before["dry_until"])
+
+    def test_common_floor_invalid_offset_is_rejected(self):
+        h, *_ = self.case()
+        for bad in [float("nan"), float("inf"), -6, 6]:
+            with self.assertRaises(ValueError):
+                replace(h.policy, dry_heat_offset=bad)
+        self.assertEqual(house_from_dict(asdict(h)), h)
+
     def owned(self, action="retain_owned"):
         h, s, p, m, plants = self.case()
         h = replace(h, zones=(replace(h.zones[0], dry_pause_action=action),))

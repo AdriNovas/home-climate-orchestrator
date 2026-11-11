@@ -113,6 +113,8 @@ class Policy:
     dry_floor_day: float = 20
     dry_floor_sleep: float = 19
     dry_margin: float = 1
+    # Opt-in: one admission/continuation floor relative to the ambient heat goal.
+    dry_heat_offset: float | None = None
     dry_min_outdoor: float = 10
     dry_min_s: int = 1200
     dry_max_s: int = 1800
@@ -224,6 +226,8 @@ class Policy:
             object.__setattr__(
                 self, name, int(bounded(getattr(self, name), name, 1, 86400))
             )
+        if self.dry_heat_offset is not None:
+            object.__setattr__(self, "dry_heat_offset", bounded(self.dry_heat_offset, "dry_heat_offset", -5, 5))
         if self.dry_max_s < self.dry_min_s:
             raise ValueError("Maximum drying time is below minimum")
         for name, lo, hi in [

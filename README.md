@@ -5,7 +5,7 @@
 Planificador doméstico de temperatura y humedad según tarifa eléctrica, con
 sensores ambientales externos y splits de aire acondicionado agrupados por instalación.
 
-**0.2.0a7 · candidata de desarrollo, sin release de actuación.** Añade ejecución
+**0.2.0a8 · alfa; actualización sin traspaso automático de control.** Añade ejecución
 opcional con registro/confirmación y medidores energéticos configurables. Toda
 entrada comienza en observación; actualizar no activa órdenes. La versión pública
 0.1.0a1 continúa siendo observadora. Sin promesa de ahorro ni compatibilidad universal.

@@ -217,7 +217,11 @@ class Executor:
                     obs.dry_floor.fresh(
                         snap.now.timestamp(), self.house.policy.temperature_fresh_s
                     )
-                    and obs.dry_floor.value == decision.session_floor
+                    and (
+                        obs.dry_floor.value
+                        if self.house.policy.dry_heat_offset is None
+                        else max(obs.dry_floor.value, current.heat_goal + self.house.policy.dry_heat_offset)
+                    ) == decision.session_floor
                 )
             )
         owner = self.state["owned"].get(zone.id, {})

@@ -235,6 +235,20 @@ def evaluate(
             cool = o.cool_goal.value
         goals = resolve_goals(house, z, o, snap, prices, m, sleep, heat, cool)
         heat, cool = goals.heat, goals.cool
+        # The opt-in common floor has no separate start/rearm margin. External
+        # configuration remains fail-closed, and no session clock is renewed.
+        common_floor = None
+        if p.dry_heat_offset is not None:
+            common_floor = p.dry_floor_sleep if sleep else p.dry_floor_day
+            if z.dry_floor_entity:
+                common_floor = (
+                    o.dry_floor.value
+                    if o.dry_floor.fresh(now, p.temperature_fresh_s)
+                    and 10 <= o.dry_floor.value <= 30
+                    else None
+                )
+            if common_floor is not None:
+                common_floor = max(common_floor, heat + p.dry_heat_offset)
         d = Decision(
             z.id,
             "idle",
@@ -325,7 +339,8 @@ def evaluate(
                 now >= m.dry_until
                 or not temp_ok
                 or not rh_ok
-                or o.temperature.value < m.dry_floor
+                or (p.dry_heat_offset is not None and common_floor is None)
+                or o.temperature.value < (common_floor if common_floor is not None else m.dry_floor)
                 or (snap.paused and z.dry_pause_action == "stop")
                 or not o.permitted
                 or not o.dry_allowed
@@ -604,7 +619,12 @@ def evaluate(
                     d, stage="blocked", reason="no_drying_capability"
                 )
                 continue
-            if t < floor + p.dry_margin:
+            if p.dry_heat_offset is not None:
+                if common_floor is None:
+                    result[z.id] = replace(d, stage="blocked", reason="dry_floor_missing")
+                    continue
+                floor = common_floor
+            if t < floor + (p.dry_margin if p.dry_heat_offset is None else 0):
                 result[z.id] = replace(
                     d, stage="blocked", reason="insufficient_thermal_margin"
                 )
