@@ -8,8 +8,7 @@ import sys
 import time
 import unittest
 
-sys.path.insert(
-    0,
+sys.path.append(
     str(
         pathlib.Path(__file__).resolve().parents[1]
         / "custom_components/climate_orchestrator"

@@ -9,7 +9,7 @@ import unittest
 from zoneinfo import ZoneInfo
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "custom_components/climate_orchestrator"))
+sys.path.append(str(ROOT / "custom_components/climate_orchestrator"))
 from domain.models import (
     House,
     Plant,
