@@ -277,6 +277,11 @@ async def main():
             config = hass.states.get(config_entity.entity_id)
             assert config.state == "shadow" and config.attributes["schema_version"] == 1
             assert config.attributes["policy"]["dry_min_s"] == 1200
+            # Prove the runtime diagnostic reports the distribution version,
+            # not a stale constant left over from a previous prerelease.
+            from custom_components.climate_orchestrator.const import VERSION
+            manifest = json.loads((base / "custom_components/climate_orchestrator/manifest.json").read_text())
+            assert config.attributes["version"] == VERSION == manifest["version"]
             assert "control_entity" not in config.attributes
             published = config.attributes["zones"][zone["id"]]
             assert published == {

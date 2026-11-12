@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.0a10 · coherencia de versión instalada y diagnóstico
+
+- Corrige la versión anunciada en el diagnóstico nativo: ahora coincide con el
+  manifiesto. La versión a9 conservaba la constante de a8.
+- Pruebas de coherencia entre manifiesto/constante y del sensor de configuración
+  cargado por HA; sin cambios de política, perfil, autoridad o metas.
+
 ## 0.2.0a9 · configuración nativa y recuperación segura
 
 - Los 49 ajustes de política se organizan en seis formularios: calor/frío,

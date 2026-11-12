@@ -1,7 +1,7 @@
 """Integration identity and versioned storage contract."""
 
 DOMAIN = "climate_orchestrator"
-VERSION = "0.2.0a8"
+VERSION = "0.2.0a10"
 CONFIG_VERSION = 1
 STORAGE_VERSION = 1
 PLATFORMS = ["sensor", "binary_sensor", "switch", "number", "select"]

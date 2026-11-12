@@ -1,6 +1,7 @@
 """Synthetic homes only; no network, tokens, HA instance or actuator services."""
 
 import ast
+import json
 from dataclasses import asdict, replace
 from datetime import datetime, timedelta, timezone
 import pathlib
@@ -79,6 +80,15 @@ def fixture(zones=1, **policy):
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_public_manifest_matches_native_diagnostic_version(self):
+        component = ROOT / 'custom_components/climate_orchestrator'
+        constants = ast.parse((component / 'const.py').read_text())
+        version = next(ast.literal_eval(node.value) for node in constants.body
+                       if isinstance(node, ast.Assign)
+                       and any(isinstance(target, ast.Name) and target.id == 'VERSION'
+                               for target in node.targets))
+        self.assertEqual(version, json.loads((component / 'manifest.json').read_text())['version'])
+
     def test_relational_errors_identify_fields_without_changing_validation(self):
         for settings, code, names in [
             ({"shared_load_idle_w": 300}, "policy_load_order", {"shared_load_idle_w", "shared_load_high_w"}),
