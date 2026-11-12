@@ -154,3 +154,17 @@ por ejemplo, preparar una estancia antes de una llegada. Sin vínculo hereda
 presencia global; un vínculo configurado pero ausente falla cerrado. Solo
 afecta calor/frío de esa estancia: no habilita secado con la casa vacía ni
 la observación de retirada de carga de planta. Nunca adquiere Manual.
+
+### Invalid execution journal recovery
+
+Nested pending expectations, phases, generations, timestamps, ownership and
+supply-memory records are validated before restore can save or enable control.
+Malformed records fail setup without resetting the journal, issuing actuator
+calls, registering listeners or retaining actuator claims. Interrupted valid
+commands still restore as uncertain/Manual, never as a new retry.
+
+Keep the original store bytes and investigate the failed record before an
+explicit repair or known-good restore. Do not delete the store as an automatic
+recovery path: it carries ownership, Manual and ambiguity evidence. A repaired
+store must still pass normal binding, authority and freshness checks. This
+fail-closed protection is not a promise of unattended recovery from disk damage.

@@ -8,7 +8,9 @@ import json
 import pathlib
 import sys
 import tempfile
-from types import MappingProxyType
+import time
+from types import MappingProxyType, SimpleNamespace
+from unittest.mock import AsyncMock, Mock
 
 if "FILES" not in globals():
     root = pathlib.Path(__file__).resolve().parents[1]
@@ -327,8 +329,80 @@ async def main():
                 and "75.0" not in encoded
             )
             checks.append("diagnostic bundle omits bindings, names and raw readings")
-            c.async_listen()
-            await c.async_close()
+            assert c.update_interval.total_seconds() == 300
+            c._last_review_at = time.time()
+            refresh = AsyncMock()
+            c.async_request_refresh = refresh
+            assert not c._request_plan_review()
+            assert c._request_plan_review(immediate=True)
+            await asyncio.sleep(0)
+            assert refresh.await_count == 1
+            c._last_review_at = time.time() - 300
+            assert c._request_plan_review()
+            await asyncio.sleep(0)
+            assert refresh.await_count == 2
+            checks.append(
+                "ordinary planner refreshes coalesce for five minutes; explicit urgent review bypasses"
+            )
+
+            import custom_components.climate_orchestrator.coordinator as coordinator_module
+
+            scheduled, cancelled = [], []
+
+            def capture_deadline(_hass, delay, action):
+                scheduled.append((delay, action))
+                return lambda: cancelled.append(True)
+
+            original_call_later = coordinator_module.async_call_later
+            coordinator_module.async_call_later = capture_deadline
+            try:
+                now = time.time()
+                c._schedule_deadline_review(
+                    {"0": SimpleNamespace(next_at=now + 90)}, now
+                )
+                assert len(scheduled) == 1
+                assert abs(scheduled[0][0] - 90) < 0.1
+                c._schedule_deadline_review(
+                    {"0": SimpleNamespace(next_at=now + 120)}, now
+                )
+                assert cancelled == [True]
+                scheduled[1][1](None)
+                await asyncio.sleep(0)
+                assert refresh.await_count == 3
+                c._schedule_deadline_review(
+                    {"0": SimpleNamespace(next_at=now + 300)}, now
+                )
+                assert c._deadline_review_unsub is None
+            finally:
+                coordinator_module.async_call_later = original_call_later
+                c._cancel_deadline_review()
+            checks.append(
+                "absolute decision deadlines wake before the five-minute periodic review"
+            )
+
+            timed, timer_removed, safety_checks = [], [], Mock()
+            original_track_interval = coordinator_module.async_track_time_interval
+
+            def capture_interval(_hass, action, interval):
+                timed.append((action, interval.total_seconds()))
+                return lambda: timer_removed.append(True)
+
+            coordinator_module.async_track_time_interval = capture_interval
+            c.executor.enabled = True
+            c._queue_safety_check = safety_checks
+            try:
+                c.async_listen()
+                assert timed and timed[0][1] == 60
+                timed[0][0](None)
+                safety_checks.assert_called_once_with()
+                await asyncio.sleep(0)
+                await c.async_close()
+                assert timer_removed
+            finally:
+                coordinator_module.async_track_time_interval = original_track_interval
+            checks.append(
+                "control mode keeps a one-minute safety-only tick and unload removes it"
+            )
             assert c._remove_listener is None
             checks.append("unload saves versioned state and removes listeners")
         finally:

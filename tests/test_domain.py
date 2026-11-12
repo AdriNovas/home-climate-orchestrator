@@ -15,6 +15,7 @@ from domain.models import (
     Plant,
     Zone,
     Policy,
+    PolicyValidationError,
     PriceInterval,
     Reading,
     Observation,
@@ -78,6 +79,22 @@ def fixture(zones=1, **policy):
 
 
 class ConfigurationTests(unittest.TestCase):
+    def test_relational_errors_identify_fields_without_changing_validation(self):
+        for settings, code, names in [
+            ({"shared_load_idle_w": 300}, "policy_load_order", {"shared_load_idle_w", "shared_load_high_w"}),
+            ({"shared_load_management": True}, "policy_requires_hold", {"continuous_hold", "shared_load_management"}),
+            ({"extreme_price_hysteresis": 0.5}, "policy_price_margin", {"extreme_price", "extreme_price_hysteresis"}),
+            ({"hold_delta": 1}, "policy_hysteresis", {"hold_delta", "start_delta", "overshoot_delta"}),
+            ({"overshoot_delta": 0.1}, "policy_overshoot", {"hold_delta", "overshoot_delta"}),
+            ({"dry_max_s": 60}, "policy_dry_duration", {"dry_min_s", "dry_max_s"}),
+        ]:
+            with self.subTest(settings=settings):
+                with self.assertRaises(PolicyValidationError) as caught:
+                    Policy(**settings)
+                self.assertEqual(caught.exception.code, code)
+                self.assertEqual(set(caught.exception.fields), names)
+        self.assertEqual(Policy(dry_max_s=0).dry_max_s, 0)
+
     def test_roundtrip_preserves_ids_and_overrides(self):
         h, *_ = fixture()
         self.assertEqual(house_from_dict(asdict(h)), h)
@@ -400,6 +417,7 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(d.reason, "dry_ack_pending")
         self.assertEqual(m["0"].attempts, 1)
         m["0"].dry_until = 0
+        m["0"].dry_active = False  # explicit end; until=0 alone now means unlimited
         m["0"].attempts = 2
         d = evaluate(h, s, prices, m, pm)["0"]
         self.assertEqual(d.reason, "dry_budget")

@@ -29,6 +29,24 @@ class DrySessionPolicyTests(unittest.TestCase):
         m["0"] = Memory(high_since=NOW.timestamp() - 1800)
         return h, s, p, m, plants
 
+    def test_unlimited_owned_session_survives_hours_and_keeps_safety(self):
+        from datetime import timedelta
+        h, s, p, m, plants = self.case(False)
+        h = replace(h, policy=replace(h.policy, dry_max_s=0))
+        start = NOW.timestamp()
+        begin_dry(m["0"], start, 20, 60, 0)
+        self.assertEqual(m["0"].dry_until, 0)
+        self.assertEqual(Memory(**asdict(m["0"])).dry_start, start)
+        later = replace(s, now=NOW + timedelta(hours=8))
+        later.zones["0"] = replace(s.zones["0"], mode="dry", temperature=Reading(22.5, later.now.timestamp()), humidity=Reading(75, later.now.timestamp()))
+        self.assertEqual(evaluate(h, later, p, m, plants)["0"].stage, "drying")
+        for field, value in [("temperature", Reading(None)), ("temperature", Reading(19, later.now.timestamp())), ("humidity", Reading(None)), ("dry_allowed", False), ("permitted", False)]:
+            snapshot = replace(later, zones={"0": replace(later.zones["0"], **{field: value})})
+            self.assertEqual(evaluate(h, snapshot, p, m, plants)["0"].mode, "off", field)
+        paused = replace(later, paused=True)
+        stop_house = replace(h, zones=(replace(h.zones[0], dry_pause_action="stop"),))
+        self.assertEqual(evaluate(stop_house, paused, p, m, plants)["0"].mode, "off")
+
     def test_external_floor_blocks_warm_start_without_changing_default(self):
         for binding, wanted in [(True, None), (False, "dry")]:
             h, s, p, m, plants = self.case(binding)

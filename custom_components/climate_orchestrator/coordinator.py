@@ -7,14 +7,18 @@ from datetime import timedelta
 from math import isfinite
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, Context, callback
-from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.event import (
+    async_call_later,
+    async_track_state_change_event,
+    async_track_time_interval,
+)
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers import issue_registry
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.util import dt
 from .const import DOMAIN, STORAGE_VERSION
 from .validation import validate_sources, source_entities
-from .domain.engine import evaluate, begin_dry, sleeping
+from .domain.engine import evaluate, begin_dry, sleeping, dew_point, dry_reservation_unsafe
 from .domain.energy import meters_from_profile, normalize
 from .domain.accounting import Accounting, PERIODS
 from .domain.safety import SupplyProtection, supply_cut
@@ -31,6 +35,11 @@ from .domain.models import (
     Snapshot,
     house_from_dict,
 )
+from .domain.scheduling import (
+    immediate_review_required,
+    next_deadline_within,
+    plan_review_due,
+)
 from .domain.tariffs import (
     FixedPeriod,
     fixed_intervals,
@@ -43,6 +52,12 @@ from .domain.tariffs import (
 import logging
 
 LOGGER = logging.getLogger(__name__)
+
+PLAN_REVIEW_INTERVAL_SECONDS = 300
+SAFETY_RECHECK_INTERVAL_SECONDS = 60
+
+DRY_MEMORY_FIELDS = {"dry_start_temperature", "dry_dew_target"}
+
 
 STRATEGY_MEMORY_FIELDS = {
     "activity_last_positive",
@@ -66,7 +81,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             LOGGER,
             name=DOMAIN,
             config_entry=entry,
-            update_interval=timedelta(seconds=60),
+            update_interval=timedelta(seconds=PLAN_REVIEW_INTERVAL_SECONDS),
         )
         self.entry = entry
         self.profile = configuration(entry)
@@ -109,6 +124,10 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         self._started = False
         self._safety_worker = None
         self._safety_pending = False
+        self._safety_tick_unsub = None
+        self._deadline_review_unsub = None
+        self._last_review_at: float | None = None
+        self._next_deadline_at: float | None = None
         self._observation_store_loaded = False
         self._source_clock_issue_count = 0
 
@@ -217,6 +236,26 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             raise ValueError(
                 "Unknown strategy memory schema; preserve store for recovery"
             )
+        if type(data.get("dry_memory_schema", 1)) is not int or data.get("dry_memory_schema", 1) != 1:
+            raise ValueError("Unknown drying memory schema; preserve store for recovery")
+        saved_dry = data.get("dry_memory", {})
+        if not isinstance(saved_dry, dict):
+            raise ValueError("Invalid drying memory; preserve store for recovery")
+        for fields in saved_dry.values():
+            if not isinstance(fields, dict) or set(fields) - DRY_MEMORY_FIELDS:
+                raise ValueError("Unknown drying memory fields")
+            Memory(**fields)
+        for owner in self.executor.state["owned"].values():
+            if owner.get("mode") != "dry":
+                continue
+            if "dry_schema" in owner and (
+                type(owner["dry_schema"]) is not int or owner["dry_schema"] != 1
+            ):
+                raise ValueError("Unknown drying owner schema; preserve journal for recovery")
+            Memory(dry_start=owner.get("start"), dry_until=owner.get("until"),
+                   dry_floor=owner.get("floor"), dry_target=owner.get("target"),
+                   dry_start_temperature=owner.get("start_temperature"),
+                   dry_dew_target=owner.get("dew_target"))
         saved_strategy = data.get("strategy_memory", {})
         if not isinstance(saved_strategy, dict):
             raise ValueError("Invalid strategy memory; preserve store for recovery")
@@ -237,19 +276,22 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                     if data.get("bindings", {}).get(key, binding) != binding:
                         continue
                     strategy_memory = saved_strategy.get(key, {})
-                    self.memories[key] = Memory(**{**row, **strategy_memory})
-                    owner = self.executor.state["owned"].get(key, {})
-                    if (
-                        owner.get("mode") == "dry"
-                        and owner.get("binding") == binding
-                        and owner.get("until")
-                    ):
-                        self.memories[key].dry_start = owner["start"]
-                        self.memories[key].dry_until = owner["until"]
-                        self.memories[key].dry_floor = owner["floor"]
-                        self.memories[key].dry_target = owner["target"]
+                    self.memories[key] = Memory(**{**row, **strategy_memory, **saved_dry.get(key, {})})
                 except (TypeError, ValueError):
                     LOGGER.warning("Discarding incompatible observation memory")
+        # Journal persistence precedes observer persistence on acceptance. A
+        # restart between those writes still restores the accepted reservation.
+        for zone in self.house.zones:
+            owner = self.executor.state["owned"].get(zone.id, {})
+            if owner.get("mode") == "dry" and owner.get("binding") == zone.actuator_entity:
+                memory = self.memories.setdefault(zone.id, Memory())
+                memory.dry_active = True
+                memory.dry_start = owner["start"]
+                memory.dry_until = owner["until"]
+                memory.dry_floor = owner["floor"]
+                memory.dry_target = owner["target"]
+                memory.dry_start_temperature = owner.get("start_temperature")
+                memory.dry_dew_target = owner.get("dew_target")
         self.accounting_archive = data.get("accounting_archive", [])
         for meter in self.meters:
             saved = data.get("accounting", {}).get(meter.id)
@@ -282,7 +324,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 k: {
                     name: value
                     for name, value in asdict(v).items()
-                    if name not in STRATEGY_MEMORY_FIELDS
+                    if name not in STRATEGY_MEMORY_FIELDS | DRY_MEMORY_FIELDS
                 }
                 for k, v in self.memories.items()
             },
@@ -292,6 +334,12 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                     for name, value in asdict(v).items()
                     if name in STRATEGY_MEMORY_FIELDS
                 }
+                for k, v in self.memories.items()
+            },
+            "dry_memory_schema": 1,
+            "dry_memory": {
+                k: {name: value for name, value in asdict(v).items()
+                    if name in DRY_MEMORY_FIELDS}
                 for k, v in self.memories.items()
             },
             "plants": {k: asdict(v) for k, v in self.plants.items()},
@@ -314,6 +362,10 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         if self._remove_listener:
             self._remove_listener()
             self._remove_listener = None
+        if self._safety_tick_unsub:
+            self._safety_tick_unsub()
+            self._safety_tick_unsub = None
+        self._cancel_deadline_review()
         await self.executor.close()
         if self._worker:
             self._worker.cancel()
@@ -327,6 +379,27 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
     @callback
     def async_listen(self) -> None:
         entities = source_entities(self.profile)
+        urgent_entities = {
+            entity
+            for entity in [
+                self.profile.get("control_entity"),
+                self.profile.get("critical_entity"),
+                self.profile.get("external_cut_entity"),
+                *(
+                    entity
+                    for zone in self.house.zones
+                    for entity in [
+                        zone.authority_entity,
+                        zone.permission_entity,
+                        zone.heat_permission_entity,
+                        zone.cool_permission_entity,
+                        zone.dry_permission_entity,
+                        zone.thermal_presence_entity,
+                    ]
+                ),
+            ]
+            if entity
+        }
 
         @callback
         def changed(event) -> None:
@@ -357,6 +430,28 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                                 memory.activity_last_positive[entity] = at
             climate = next(
                 (z for z in self.house.zones if z.actuator_entity == entity), None
+            )
+            actuator_changed = bool(
+                climate
+                and (
+                    not old
+                    or not new
+                    or old.state != new.state
+                    or self.actuator_target(climate, old)
+                    != self.actuator_target(climate, new)
+                )
+            )
+            user_action = bool(
+                climate
+                and new
+                and new.context.user_id
+                and (
+                    not old
+                    or old.context.id != new.context.id
+                    or old.state != new.state
+                    or self.actuator_target(climate, old)
+                    != self.actuator_target(climate, new)
+                )
             )
             if climate:
                 user = bool(
@@ -411,17 +506,85 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                     ):
                         self.executor.manual(zone.id, "external_authority")
             if self.executor.enabled:
-                self._safety_pending = True
-                if self._safety_worker is None or self._safety_worker.done():
-                    self._safety_worker = self.executor.spawn(self.safety_worker())
-            self.hass.async_create_task(self.async_request_refresh())
+                self._queue_safety_check()
+            immediate = immediate_review_required(
+                old.state if old else None,
+                new.state if new else None,
+                urgent_entity=entity in urgent_entities,
+                actuator_changed=actuator_changed,
+                user_action=user_action,
+            )
+            self._request_plan_review(immediate=immediate)
 
         self._remove_listener = async_track_state_change_event(
             self.hass, list(entities), changed
         )
         self._started = True
         if self.executor.enabled:
+            self._safety_tick_unsub = async_track_time_interval(
+                self.hass,
+                self._safety_tick,
+                timedelta(seconds=SAFETY_RECHECK_INTERVAL_SECONDS),
+            )
             self.hass.async_create_task(self.async_request_refresh())
+
+    @callback
+    def _request_plan_review(self, *, immediate: bool = False) -> bool:
+        """Coalesce routine source changes; urgent authority and actuator events bypass."""
+        if self._closing:
+            return False
+        now = dt.utcnow().timestamp()
+        if not plan_review_due(
+            self._last_review_at,
+            now,
+            PLAN_REVIEW_INTERVAL_SECONDS,
+            immediate=immediate,
+        ):
+            return False
+        self.hass.async_create_task(self.async_request_refresh())
+        return True
+
+    @callback
+    def _queue_safety_check(self) -> None:
+        if self._closing or not self.executor.enabled:
+            return
+        self._safety_pending = True
+        if self._safety_worker is None or self._safety_worker.done():
+            self._safety_worker = self.executor.spawn(self.safety_worker())
+
+    @callback
+    def _safety_tick(self, _now) -> None:
+        """Run guard-only checks each minute without invoking the full planner."""
+        self._queue_safety_check()
+
+    @callback
+    def _cancel_deadline_review(self) -> None:
+        if self._deadline_review_unsub:
+            self._deadline_review_unsub()
+            self._deadline_review_unsub = None
+        self._next_deadline_at = None
+
+    @callback
+    def _deadline_review(self, _now) -> None:
+        self._deadline_review_unsub = None
+        self._next_deadline_at = None
+        if not self._closing:
+            self.hass.async_create_task(self.async_request_refresh())
+
+    @callback
+    def _schedule_deadline_review(self, decisions, now: float) -> None:
+        self._cancel_deadline_review()
+        deadline = next_deadline_within(
+            decisions.values(), now, PLAN_REVIEW_INTERVAL_SECONDS
+        )
+        if deadline is None or self._closing:
+            return
+        self._next_deadline_at = deadline
+        self._deadline_review_unsub = async_call_later(
+            self.hass,
+            max(0, deadline - now),
+            self._deadline_review,
+        )
 
     def reading(
         self,
@@ -845,7 +1008,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         memory = self.memories.setdefault(zone.id, Memory())
         if not decision.target_only:
             memory.last_sent = now
-        if decision.stage == "dry_ready" and not memory.dry_until:
+        if decision.stage == "dry_ready" and not (memory.dry_active or memory.dry_until):
             snap = self.snapshot()
             p = self.house.policy
             begin_dry(
@@ -860,6 +1023,12 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 else p.dry_floor_day,
                 decision.humidity_stop,
                 zone.dehumidifier_max_s if zone.independent_drying else p.dry_max_s,
+                start_temperature=snap.zones[zone.id].temperature.value,
+                dew_target=round(dew_point(
+                    decision.session_floor if decision.session_floor is not None
+                    else (p.dry_floor_sleep if sleeping(self.house, snap) else p.dry_floor_day),
+                    decision.humidity_stop,
+                ), 3) if zone.dry_dewpoint_completion else None,
             )
             self.executor.state["owned"][zone.id] = {
                 "id": self.executor.state["pending"][zone.id]["id"],
@@ -869,6 +1038,9 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 "until": memory.dry_until,
                 "floor": memory.dry_floor,
                 "target": memory.dry_target,
+                "dry_schema": 1,
+                "start_temperature": memory.dry_start_temperature,
+                "dew_target": memory.dry_dew_target,
             }
             await self.executor.save()
         await self._store.async_save(self._saved())
@@ -915,14 +1087,16 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         await self.executor.critical(active)
         for zone in self.house.zones:
             owner = state["owned"].get(zone.id, {})
-            if owner.get("mode") != "dry" or not owner.get("until"):
+            if owner.get("mode") != "dry":
                 continue
             obs = snap.zones[zone.id]
             now = snap.now.timestamp()
             if self.allowed(zone.authority_entity, zone.authority_states) and (
-                now >= owner["until"]
+                (owner.get("until", 0) > 0 and now >= owner["until"])
                 or not obs.temperature.fresh(now, self.house.policy.temperature_fresh_s)
                 or obs.temperature.value < owner["floor"]
+                or dry_reservation_unsafe(zone, obs.temperature.value,
+                                          owner.get("start_temperature"), owner.get("dew_target"))
                 or not obs.humidity.fresh(now, self.house.policy.humidity_fresh_s)
                 or not obs.dry_allowed
                 or not zone.enabled
@@ -1081,6 +1255,8 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             self._pending_review = True
             if self._worker is None or self._worker.done():
                 self._worker = self.executor.spawn(self.run_control())
+        self._last_review_at = now.timestamp()
+        self._schedule_deadline_review(decisions, self._last_review_at)
         return {
             "at": now.isoformat(),
             "decisions": decisions,

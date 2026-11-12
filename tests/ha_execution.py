@@ -507,6 +507,29 @@ async def main():
             checks.append(
                 "reload preserves identities, Manual state and the critical-cut journal"
             )
+            # A malformed nested ACK must fail setup before listeners/control,
+            # preserve the exact file, and release this entry's actuator claim.
+            assert await hass.config_entries.async_unload(entry.entry_id)
+            journal = base / ".storage" / f"climate_orchestrator.{entry.entry_id}.executor"
+            original_journal = journal.read_bytes()
+            broken = json.loads(original_journal)
+            broken["data"]["pending"]["room"]["expected"] = ["not a mapping"]
+            corrupted_bytes = json.dumps(broken).encode()
+            journal.write_bytes(corrupted_bytes)
+            calls_before_corrupt_setup = len(calls)
+            assert not await hass.config_entries.async_setup(entry.entry_id)
+            await hass.async_block_till_done()
+            assert entry.state is ConfigEntryState.SETUP_ERROR
+            assert journal.read_bytes() == corrupted_bytes
+            assert len(calls) == calls_before_corrupt_setup
+            assert not hass.data.get("climate_orchestrator")
+            # Explicit repair is a fixture action, never an automatic store reset.
+            journal.write_bytes(original_journal)
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert entry.state is ConfigEntryState.LOADED
+            assert not entry.runtime_data.executor.is_automatic("room")
+            checks.append("nested ACK corruption fails actual HA setup with zero calls, unchanged bytes and released claims; explicit repair preserves Manual")
             await hass.config_entries.async_remove(entry.entry_id)
             await hass.async_block_till_done()
             assert not (

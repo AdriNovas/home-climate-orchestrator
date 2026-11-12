@@ -393,6 +393,25 @@ async def main():
             checks.append(
                 "journaled native adapter sets humidity before on, confirms mapped state echoes and owns a bounded session without split calls"
             )
+            # No expiry must not erase the owned-session safety lane.
+            c.executor.state["owned"][z.id]["until"] = 0
+            original_stop = c.executor.stop_owned
+            watchdog_snapshot = c.snapshot
+            stopped = []
+            async def capture_stop(zone):
+                stopped.append(zone.id)
+            c.executor.stop_owned = capture_stop
+            healthy = c.snapshot()
+            await c.check_safety()
+            assert not stopped
+            for field, value in [("temperature", replace(healthy.zones[z.id].temperature, value=None)), ("temperature", replace(healthy.zones[z.id].temperature, value=0)), ("humidity", replace(healthy.zones[z.id].humidity, value=None)), ("dry_allowed", False), ("permitted", False)]:
+                c.snapshot = lambda field=field, value=value: replace(healthy, zones={**healthy.zones, z.id: replace(healthy.zones[z.id], **{field: value})})
+                stopped.clear()
+                await c.check_safety()
+                assert stopped == [z.id], field
+            c.snapshot = watchdog_snapshot
+            c.executor.stop_owned = original_stop
+            checks.append("unlimited owner retains temperature, humidity, permission and dry-safety watchdog exits")
             c.executor.state["owned"][z.id]["until"] = dt.utcnow().timestamp() - 1
             await c.check_safety()
             await asyncio.gather(*c.executor.off_tasks.values())

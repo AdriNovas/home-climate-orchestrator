@@ -97,6 +97,85 @@ def default_bands() -> tuple[PriceBand, ...]:
     )
 
 
+# Shared scalar bounds: forms and domain must accept the same individual ranges.
+POLICY_NUMERIC_BOUNDS = {
+    "boost_limit": (0, 10),
+    "command_interval": (1, 86400),
+    "correction_limit": (0, 10),
+    "dry_attempts": (1, 86400),
+    "dry_cooldown_s": (1, 86400),
+    "dry_floor_day": (10, 30),
+    "dry_floor_sleep": (10, 30),
+    "dry_heat_offset": (-5, 5),
+    "dry_humidity_band": (0, 100),
+    "dry_margin": (0, 10),
+    "dry_max_s": (0, 86400),
+    "dry_min_outdoor": (-20, 35),
+    "dry_min_s": (1, 86400),
+    "extreme_price": (0.01, 10),
+    "extreme_price_hysteresis": (0, 10),
+    "hold_delta": (0, 10),
+    "humidity_deadline_s": (1, 86400),
+    "humidity_fresh_s": (1, 86400),
+    "humidity_recovery_s": (1, 86400),
+    "humidity_stable_s": (1, 86400),
+    "improvement": (0, 10),
+    "internal_fresh_s": (1, 86400),
+    "lookahead_s": (1, 86400),
+    "modulated_hold_s": (0, 7200),
+    "overshoot_delta": (0, 10),
+    "power_fresh_s": (1, 86400),
+    "power_limit": (100, 100000),
+    "proportional_gain": (0, 10),
+    "relaxation_limit": (0.5, 6),
+    "service_humidity": (50, 75),
+    "severe_humidity": (70, 95),
+    "severe_stable_s": (1, 86400),
+    "shared_load_high_w": (1, 20000),
+    "shared_load_idle_w": (0, 5000),
+    "shared_load_observe_s": (600, 86400),
+    "shared_load_retry_s": (1200, 86400),
+    "start_delta": (0, 10),
+    "temperature_fresh_s": (1, 86400),
+    "thermal_sample_gap_s": (1, 86400),
+    "thermal_stability_delta": (0.01, 2),
+    "thermal_stable_s": (1, 86400),
+    "urgent_humidity": (60, 95),
+    "urgent_stable_s": (1, 86400),
+}
+POLICY_INTEGER_FIELDS = frozenset(
+    {
+        "command_interval",
+        "dry_attempts",
+        "dry_cooldown_s",
+        "dry_max_s",
+        "dry_min_s",
+        "humidity_deadline_s",
+        "humidity_fresh_s",
+        "humidity_recovery_s",
+        "humidity_stable_s",
+        "internal_fresh_s",
+        "lookahead_s",
+        "modulated_hold_s",
+        "power_fresh_s",
+        "severe_stable_s",
+        "temperature_fresh_s",
+        "thermal_sample_gap_s",
+        "thermal_stable_s",
+        "urgent_stable_s",
+    }
+)
+
+
+class PolicyValidationError(ValueError):
+    """A policy relationship with stable field/error identifiers for native UI."""
+
+    def __init__(self, message: str, code: str, *fields: str):
+        super().__init__(message)
+        self.code = code
+        self.fields = fields
+
+
 @dataclass(frozen=True)
 class Policy:
     bands: tuple[PriceBand, ...] = field(default_factory=default_bands)
@@ -120,9 +199,14 @@ class Policy:
     dry_max_s: int = 1800
     dry_cooldown_s: int = 14400
     dry_attempts: int = 2
+    # Opt-in concurrency; service budgets are independent from fault/ACK guards.
+    dry_concurrent: bool = False
+    dry_humidity_band: float = 5
+    dry_budget_enabled: bool = True
     humidity_stable_s: int = 900
     humidity_recovery_s: int = 600
     humidity_deadline_s: int = 14400
+    humidity_debt_urgency: bool = True
     service_humidity: float = 65
     severe_humidity: float = 80
     severe_stable_s: int = 900
@@ -148,40 +232,30 @@ class Policy:
     thermal_sample_gap_s: int = 1200
 
     def __post_init__(self) -> None:
-        for name in ["continuous_hold", "shared_load_management"]:
+        for name in ["continuous_hold", "shared_load_management", "dry_concurrent", "dry_budget_enabled", "humidity_debt_urgency", "extreme_price_enabled"]:
             if type(getattr(self, name)) is not bool:
                 raise ValueError(f"{name} must be boolean")
-        for name, low, high in [
-            ("relaxation_limit", 0.5, 6),
-            ("shared_load_idle_w", 0, 5000),
-            ("shared_load_high_w", 1, 20000),
-            ("shared_load_observe_s", 600, 86400),
-            ("shared_load_retry_s", 1200, 86400),
-        ]:
-            object.__setattr__(
-                self, name, bounded(getattr(self, name), name, low, high)
-            )
+        for name, (low, high) in POLICY_NUMERIC_BOUNDS.items():
+            value = getattr(self, name)
+            if name == "dry_heat_offset" and value is None:
+                continue
+            value = bounded(value, name, low, high)
+            object.__setattr__(self, name, int(value) if name in POLICY_INTEGER_FIELDS else value)
         if self.shared_load_idle_w >= self.shared_load_high_w:
-            raise ValueError("Shared-load high threshold must exceed idle reference")
+            raise PolicyValidationError(
+                "Shared-load high threshold must exceed idle reference",
+                "policy_load_order", "shared_load_idle_w", "shared_load_high_w",
+            )
         if self.shared_load_management and not self.continuous_hold:
-            raise ValueError("Shared-load management requires continuous holding")
-        if type(self.extreme_price_enabled) is not bool:
-            raise ValueError("extreme_price_enabled must be a boolean")
-        object.__setattr__(
-            self,
-            "modulated_hold_s",
-            int(bounded(self.modulated_hold_s, "modulated_hold_s", 0, 7200)),
-        )
-        for name, low, high in [
-            ("extreme_price", 0.01, 10),
-            ("extreme_price_hysteresis", 0, 10),
-            ("thermal_stability_delta", 0.01, 2),
-        ]:
-            object.__setattr__(
-                self, name, bounded(getattr(self, name), name, low, high)
+            raise PolicyValidationError(
+                "Shared-load management requires continuous holding",
+                "policy_requires_hold", "shared_load_management", "continuous_hold",
             )
         if self.extreme_price_hysteresis >= self.extreme_price:
-            raise ValueError("Price exit hysteresis must be below its entry threshold")
+            raise PolicyValidationError(
+                "Price exit hysteresis must be below its entry threshold",
+                "policy_price_margin", "extreme_price_hysteresis", "extreme_price",
+            )
         if not self.bands or self.bands[-1].upper is not None:
             raise ValueError("Last price band must be unbounded")
         limits = [b.upper for b in self.bands[:-1]]
@@ -189,65 +263,21 @@ class Policy:
             raise ValueError("Price boundaries must be strictly increasing")
         if len({b.name for b in self.bands}) != len(self.bands):
             raise ValueError("Duplicate price band names")
-        for name in [
-            "start_delta",
-            "hold_delta",
-            "overshoot_delta",
-            "proportional_gain",
-            "boost_limit",
-            "correction_limit",
-            "dry_margin",
-            "improvement",
-        ]:
-            object.__setattr__(self, name, bounded(getattr(self, name), name, 0, 10))
         if not 0 < self.hold_delta < self.start_delta <= self.overshoot_delta + 1:
-            raise ValueError("Invalid start/hold hysteresis")
-        if self.overshoot_delta <= self.hold_delta:
-            raise ValueError("Overshoot threshold must exceed hold tolerance")
-        for name in [
-            "command_interval",
-            "temperature_fresh_s",
-            "humidity_fresh_s",
-            "internal_fresh_s",
-            "dry_min_s",
-            "dry_max_s",
-            "dry_cooldown_s",
-            "dry_attempts",
-            "humidity_stable_s",
-            "humidity_recovery_s",
-            "humidity_deadline_s",
-            "urgent_stable_s",
-            "severe_stable_s",
-            "lookahead_s",
-            "power_fresh_s",
-            "thermal_stable_s",
-            "thermal_sample_gap_s",
-        ]:
-            object.__setattr__(
-                self, name, int(bounded(getattr(self, name), name, 1, 86400))
+            raise PolicyValidationError(
+                "Invalid start/hold hysteresis", "policy_hysteresis",
+                "hold_delta", "start_delta", "overshoot_delta",
             )
-        if self.dry_heat_offset is not None:
-            object.__setattr__(self, "dry_heat_offset", bounded(self.dry_heat_offset, "dry_heat_offset", -5, 5))
-        if self.dry_max_s < self.dry_min_s:
-            raise ValueError("Maximum drying time is below minimum")
-        for name, lo, hi in [
-            ("power_limit", 100, 100000),
-            ("dry_floor_day", 10, 30),
-            ("dry_floor_sleep", 10, 30),
-            ("dry_min_outdoor", -20, 35),
-            ("urgent_humidity", 60, 95),
-        ]:
-            object.__setattr__(self, name, bounded(getattr(self, name), name, lo, hi))
-        object.__setattr__(
-            self,
-            "service_humidity",
-            bounded(self.service_humidity, "service_humidity", 50, 75),
-        )
-        object.__setattr__(
-            self,
-            "severe_humidity",
-            bounded(self.severe_humidity, "severe_humidity", 70, 95),
-        )
+        if self.overshoot_delta <= self.hold_delta:
+            raise PolicyValidationError(
+                "Overshoot threshold must exceed hold tolerance",
+                "policy_overshoot", "overshoot_delta", "hold_delta",
+            )
+        if self.dry_max_s and self.dry_max_s < self.dry_min_s:
+            raise PolicyValidationError(
+                "Maximum drying time is below minimum", "policy_dry_duration",
+                "dry_max_s", "dry_min_s",
+            )
 
     def band(self, price: float | None) -> PriceBand | None:
         if price is None:
@@ -329,6 +359,8 @@ class Zone:
     thermal_presence_entity: str | None = None
     dry_floor_entity: str | None = None
     dry_pause_action: str = "stop"
+    dry_max_temperature_drop: float | None = None
+    dry_dewpoint_completion: bool = False
     preferences: Preferences = field(default_factory=Preferences)
     activity_bindings: tuple[ActivityBinding, ...] = ()
 
@@ -372,6 +404,16 @@ class Zone:
                 bounded(value, "zone humidity target", low, high)
         if self.climate_entity and self.humidifier_entity:
             raise ValueError("One actuator per regulation zone")
+        if type(self.dry_dewpoint_completion) is not bool:
+            raise ValueError("Drying dew-point completion must be boolean")
+        if self.dry_max_temperature_drop is not None:
+            object.__setattr__(self, "dry_max_temperature_drop", bounded(
+                self.dry_max_temperature_drop, "dry_max_temperature_drop", 0, 10
+            ))
+        if self.humidifier_entity and (
+            self.dry_dewpoint_completion or self.dry_max_temperature_drop is not None
+        ):
+            raise ValueError("Split drying reservation guards require a climate actuator")
         if self.dry_pause_action not in ["stop", "retain_owned"]:
             raise ValueError("Unknown owned-dry pause action")
         if self.feedback_loss_action not in ["hold", "stop"]:
@@ -391,13 +433,13 @@ class Zone:
             raise ValueError("Independent drying requires an external humidity sensor")
         for name in [
             "dehumidifier_min_s",
-            "dehumidifier_max_s",
             "dehumidifier_cooldown_s",
         ]:
             object.__setattr__(
                 self, name, int(bounded(getattr(self, name), name, 180, 86400))
             )
-        if self.dehumidifier_max_s < self.dehumidifier_min_s:
+        object.__setattr__(self, "dehumidifier_max_s", int(bounded(self.dehumidifier_max_s, "dehumidifier_max_s", 0, 86400)))
+        if self.dehumidifier_max_s and self.dehumidifier_max_s < self.dehumidifier_min_s:
             raise ValueError("Drying maximum must cover minimum run")
         for name in ["dehumidifier_min_temperature", "dehumidifier_max_temperature"]:
             object.__setattr__(self, name, bounded(getattr(self, name), name, 0, 40))
@@ -617,6 +659,7 @@ class Memory:
     last_attempt: float = 0
     attempts: int = 0
     day: str = ""
+    dry_active: bool = False
     dry_start: float = 0
     dry_until: float = 0
     dry_floor: float = 0
@@ -641,7 +684,15 @@ class Memory:
     comfort_last_report: float = 0
     thermal_wait_mode: str | None = None
 
+    dry_start_temperature: float | None = None
+    dry_dew_target: float | None = None
+
     def __post_init__(self) -> None:
+        for name in ["dry_start_temperature", "dry_dew_target"]:
+            if getattr(self, name) is not None:
+                setattr(self, name, bounded(getattr(self, name), name, -100, 100))
+        if type(self.dry_active) is not bool:
+            raise ValueError("Stored dry activity must be boolean")
         if not isinstance(self.activity_last_positive, dict):
             raise ValueError("Activity memory must be a mapping")
         for value in self.activity_last_positive.values():

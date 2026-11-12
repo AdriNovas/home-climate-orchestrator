@@ -10,12 +10,48 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 from homeassistant.helpers import area_registry, device_registry, entity_registry
 from .const import DOMAIN
-from .domain.models import Policy, house_from_dict
+from .domain.models import (
+    POLICY_INTEGER_FIELDS, POLICY_NUMERIC_BOUNDS, Policy, PolicyValidationError,
+    house_from_dict,
+)
 from .domain.tariffs import FixedPeriod, validate_fixed, currency_code
-from .validation import validate_sources
+from .validation import source_entities, validate_sources
+from .domain.sources import SourceContract
 from .domain.energy import Meter
 from .domain.safety import SupplyProtection
 from .domain.preferences import STRATEGIES, Preferences, ActivityBinding
+
+
+POLICY_GROUPS = {
+    "policy_thermal": (
+        "start_delta", "hold_delta", "overshoot_delta", "proportional_gain",
+        "boost_limit", "correction_limit", "continuous_hold", "modulated_hold_s",
+        "thermal_stable_s", "thermal_stability_delta", "thermal_sample_gap_s",
+    ),
+    "policy_drying": (
+        "dry_floor_day", "dry_floor_sleep", "dry_margin", "dry_heat_offset",
+        "dry_min_outdoor", "dry_min_s", "dry_max_s", "dry_cooldown_s",
+        "dry_attempts", "dry_concurrent", "dry_humidity_band", "dry_budget_enabled",
+    ),
+    "policy_humidity": (
+        "humidity_stable_s", "humidity_recovery_s", "humidity_deadline_s",
+        "humidity_debt_urgency", "service_humidity", "severe_humidity",
+        "severe_stable_s", "urgent_humidity", "urgent_stable_s",
+    ),
+    "policy_power": (
+        "power_limit", "shared_load_management", "relaxation_limit",
+        "shared_load_idle_w", "shared_load_high_w", "shared_load_observe_s",
+        "shared_load_retry_s",
+    ),
+    "policy_sources": (
+        "command_interval", "temperature_fresh_s", "humidity_fresh_s",
+        "internal_fresh_s", "power_fresh_s",
+    ),
+    "policy_pricing": (
+        "lookahead_s", "improvement", "extreme_price_enabled", "extreme_price",
+        "extreme_price_hysteresis",
+    ),
+}
 
 
 def number(low, high, step=1):
@@ -154,6 +190,8 @@ def zone_schema(plants, defaults=None):
                 options=["stop", "retain_owned"], translation_key="dry_pause_actions"
             )
         ),
+        optional("dry_max_temperature_drop", d.get("dry_max_temperature_drop", vol.UNDEFINED)): number(0, 10, 0.1),
+        vol.Required("dry_dewpoint_completion", default=d.get("dry_dewpoint_completion", False)): bool,
         vol.Required("night_allowed", default=d.get("night_allowed", True)): bool,
         vol.Required("enabled", default=d.get("enabled", True)): bool,
         **(
@@ -161,7 +199,7 @@ def zone_schema(plants, defaults=None):
                 vol.Required(k, default=d.get(k, value)): number(low, high)
                 for k, value, low, high in [
                     ("dehumidifier_min_s", 600, 180, 86400),
-                    ("dehumidifier_max_s", 5400, 180, 86400),
+                    ("dehumidifier_max_s", 5400, 0, 86400),
                     ("dehumidifier_cooldown_s", 1200, 180, 86400),
                     ("dehumidifier_min_temperature", 10, 0, 40),
                     ("dehumidifier_max_temperature", 32, 0, 40),
@@ -677,6 +715,87 @@ class ClimateOptions(config_entries.OptionsFlow):
         )
 
     async def async_step_source_quality(self, user_input=None):
+        return self.async_show_menu(
+            step_id="source_quality",
+            menu_options=["source_clock", "source_quality_advanced"],
+        )
+
+    async def async_step_source_clock(self, user_input=None):
+        sources = sorted(source_entities(self.profile))
+        errors = {}
+        if user_input is not None:
+            if user_input["source"] not in sources:
+                errors["source"] = "invalid_source"
+            else:
+                self.source_selection = user_input["source"]
+                return await self.async_step_source_clock_edit()
+        return self.async_show_form(
+            step_id="source_clock", errors=errors,
+            data_schema=vol.Schema({
+                vol.Required("source"): selector.SelectSelector(
+                    selector.SelectSelectorConfig(options=[
+                        {"value": entity_id, "label": (
+                            f"{state.name} ({entity_id})"
+                            if (state := self.hass.states.get(entity_id)) else entity_id
+                        )} for entity_id in sources
+                    ])
+                ),
+            }),
+        )
+
+    async def async_step_source_clock_edit(self, user_input=None):
+        entity_id = self.source_selection
+        current = self.profile.get("source_quality", {}).get(entity_id, {})
+        values = user_input if user_input is not None else current
+        errors = {}
+        if user_input is not None:
+            contract = {name: user_input[name] for name in (
+                "semantics", "timestamp_attribute", "timestamp_entity"
+            ) if user_input.get(name) is not None}
+            if not user_input.get("use_default", False):
+                attribute = contract.get("timestamp_attribute")
+                clock_entity = contract.get("timestamp_entity")
+                if attribute and clock_entity:
+                    errors = {name: "source_clock_one_route" for name in (
+                        "timestamp_attribute", "timestamp_entity"
+                    )}
+                elif contract.get("semantics") == "origin" and not (attribute or clock_entity):
+                    errors["timestamp_attribute"] = "source_clock_required"
+                    errors["timestamp_entity"] = "source_clock_required"
+                elif contract.get("semantics") != "origin" and (attribute or clock_entity):
+                    errors["semantics"] = "source_clock_origin_only"
+                if not errors:
+                    try:
+                        SourceContract(**contract)
+                    except (ValueError, TypeError):
+                        errors["base"] = "invalid_configuration"
+            if not errors:
+                contracts = copy.deepcopy(self.profile.get("source_quality", {}))
+                if user_input.get("use_default", False):
+                    contracts.pop(entity_id, None)
+                else:
+                    contracts[entity_id] = contract
+                self.profile["source_quality"] = contracts
+                try:
+                    return self.save()
+                except (ValueError, TypeError):
+                    errors["base"] = "invalid_configuration"
+        return self.async_show_form(
+            step_id="source_clock_edit", errors=errors,
+            description_placeholders={"source": entity_id},
+            data_schema=vol.Schema({
+                vol.Required("use_default", default=values.get("use_default", False)): bool,
+                vol.Required("semantics", default=values.get("semantics", "received")):
+                    selector.SelectSelector(selector.SelectSelectorConfig(
+                        options=["received", "origin", "provider"],
+                        translation_key="source_clock_semantics",
+                    )),
+                optional("timestamp_attribute", values.get("timestamp_attribute")): str,
+                optional("timestamp_entity", values.get("timestamp_entity")): entity("sensor"),
+            }),
+        )
+
+    async def async_step_source_quality_advanced(self, user_input=None):
         errors = {}
         if user_input is not None:
             self.profile["source_quality"] = user_input.get("source_quality", {})
@@ -685,7 +804,7 @@ class ClimateOptions(config_entries.OptionsFlow):
             except (ValueError, TypeError):
                 errors["base"] = "invalid_configuration"
         return self.async_show_form(
-            step_id="source_quality",
+            step_id="source_quality_advanced",
             errors=errors,
             data_schema=vol.Schema(
                 {
@@ -1037,28 +1156,65 @@ class ClimateOptions(config_entries.OptionsFlow):
         )
 
     async def async_step_policy(self, user_input=None):
+        # Retain direct submissions for existing internal callers; native entry
+        # now guides the user through small, purpose-specific forms.
+        if user_input is not None:
+            return await self.async_step_policy_advanced(user_input)
+        return self.async_show_menu(
+            step_id="policy", menu_options=[*POLICY_GROUPS, "policy_advanced"]
+        )
+
+    async def async_step_policy_thermal(self, user_input=None):
+        return self._policy_form("policy_thermal", user_input)
+
+    async def async_step_policy_drying(self, user_input=None):
+        return self._policy_form("policy_drying", user_input)
+
+    async def async_step_policy_humidity(self, user_input=None):
+        return self._policy_form("policy_humidity", user_input)
+
+    async def async_step_policy_power(self, user_input=None):
+        return self._policy_form("policy_power", user_input)
+
+    async def async_step_policy_sources(self, user_input=None):
+        return self._policy_form("policy_sources", user_input)
+
+    async def async_step_policy_pricing(self, user_input=None):
+        return self._policy_form("policy_pricing", user_input)
+
+    async def async_step_policy_advanced(self, user_input=None):
+        return self._policy_form("policy_advanced", user_input)
+
+    def _policy_form(self, step_id, user_input):
+        names = POLICY_GROUPS.get(step_id, tuple(
+            f.name for f in fields(Policy) if f.name != "bands"
+        ))
         errors = {}
         values = asdict(house_from_dict(self.profile["house"]).policy)
-        if user_input:
+        if user_input is not None:
             try:
+                changes = {name: user_input[name] for name in names if name in user_input}
+                if "dry_heat_offset" in names:
+                    changes["dry_heat_offset"] = user_input.get("dry_heat_offset")
                 self.profile["house"]["policy"] = {
-                    **self.profile["house"].get("policy", {}),
-                    **user_input,
+                    **self.profile["house"].get("policy", {}), **changes,
                 }
                 return self.save()
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as err:
                 errors["base"] = "invalid_configuration"
-        names = [f.name for f in fields(Policy) if f.name != "bands"]
+                if isinstance(err, PolicyValidationError):
+                    errors.update({n: err.code for n in err.fields if n in names})
+                values.update(changes)
         return self.async_show_form(
-            step_id="policy",
+            step_id=step_id,
             data_schema=vol.Schema(
                 {
-                    vol.Required(n, default=values[n]): bool
+                    (optional(n, values[n]) if n == "dry_heat_offset"
+                     else vol.Required(n, default=values[n])): bool
                     if isinstance(values[n], bool)
                     else number(
-                        -20 if n == "dry_min_outdoor" else 0,
-                        100000,
-                        0.1 if isinstance(values[n], float) else 1,
+                        *POLICY_NUMERIC_BOUNDS[n],
+                        1 if n in POLICY_INTEGER_FIELDS else 0.01,
                     )
                     for n in names
                 }
@@ -1352,6 +1508,8 @@ class ClimateOptions(config_entries.OptionsFlow):
                 "thermal_presence_entity",
                 "off_goal_entity",
                 "dry_floor_entity",
+                "dry_max_temperature_drop",
+                "dry_dewpoint_completion",
                 "heat_goal_entity",
                 "cool_goal_entity",
                 "bias_entity",

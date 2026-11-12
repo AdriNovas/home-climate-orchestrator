@@ -455,6 +455,278 @@ async def main():
             checks.append(
                 "linking another split from the integration options creates a distinct stable zone"
             )
+            hass.states.async_set(
+                "humidifier.fictional_dryer", "off",
+                {"device_class": "dehumidifier", "min_humidity": 30, "max_humidity": 80},
+            )
+            for service in ["turn_on", "turn_off", "set_humidity"]:
+                hass.services.async_register("humidifier", service, forbidden)
+            option_id, result = await begin("splits", "add_dehumidifier")
+            result = await options.async_configure(option_id, {
+                "name": "Fictional dryer", "humidifier_entity": "humidifier.fictional_dryer",
+                "temperature_entity": "sensor.fictional_external",
+                "humidity_entity": "sensor.fictional_humidity", "enabled": False,
+            })
+            assert result["type"] == "create_entry", result
+            await hass.async_block_till_done()
+            dryer = entry.runtime_data.house.zones[-1]
+            assert dryer.dehumidifier_max_s == 5400
+            dryer_id = dryer.id
+            dryer_identities = {
+                e.entity_id: e.unique_id for e in registry.entities.values()
+                if e.config_entry_id == entry.entry_id
+            }
+            for maximum in [0, 5400, 0]:
+                option_id, result = await begin("splits", "zone")
+                await options.async_configure(option_id, {"zone": dryer_id})
+                result = await options.async_configure(option_id, {"next_step_id": "zone_advanced"})
+                # Validate the actual rendered form as well as flow-manager dispatch.
+                import voluptuous as vol
+                try:
+                    result["data_schema"]({"dehumidifier_max_s": -1})
+                except vol.Invalid:
+                    pass
+                else:
+                    raise AssertionError("Negative duration accepted")
+                values = result["data_schema"]({"dehumidifier_max_s": maximum})
+                result = await options.async_configure(option_id, values)
+                assert result["type"] == "create_entry", result
+                await hass.async_block_till_done()
+                assert entry.runtime_data.house.zones[-1].dehumidifier_max_s == maximum
+                saved = next(z for z in entry.options["house"]["zones"] if z["id"] == dryer_id)
+                assert saved["dehumidifier_max_s"] == maximum
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert entry.runtime_data.house.zones[-1].dehumidifier_max_s == 0
+            assert entry.runtime_data.house.zones[-1].id == dryer_id
+            assert {
+                e.entity_id: e.unique_id for e in registry.entities.values()
+                if e.config_entry_id == entry.entry_id
+            } == dryer_identities
+            assert not entry.runtime_data.executor.enabled
+            checks.append("independent dryer keeps bounded default; unlimited zero survives edit and reload with stable IDs")
+            # Exercise every policy selector through the actual flow manager.
+            from custom_components.climate_orchestrator.domain.models import POLICY_NUMERIC_BOUNDS
+            import voluptuous as vol
+            option_id, result = await begin("comfort", "policy", "policy_advanced")
+            selectors = {k.schema: v for k, v in result["data_schema"].schema.items()}
+            for name, (low, high) in POLICY_NUMERIC_BOUNDS.items():
+                field_schema = vol.Schema({vol.Required(name): selectors[name]})
+                assert field_schema({name: low})[name] == low, name
+                assert field_schema({name: high})[name] == high, name
+                for outside in (low - 1, high + 1):
+                    try:
+                        field_schema({name: outside})
+                    except vol.Invalid:
+                        pass
+                    else:
+                        raise AssertionError(f"Out-of-range {name} accepted: {outside}")
+            unchanged_options = json.loads(json.dumps(dict(entry.options)))
+            result = await options.async_configure(option_id, {"dry_max_s": 1})
+            assert result["type"] == "form" and result["errors"]["base"] == "invalid_configuration"
+            assert dict(entry.options) == unchanged_options
+            result = await options.async_configure(option_id, {"dry_max_s": 0})
+            assert result["type"] == "create_entry", result
+            await hass.async_block_till_done()
+            assert entry.runtime_data.house.policy.dry_max_s == 0
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert entry.runtime_data.house.policy.dry_max_s == 0
+            assert not entry.runtime_data.executor.enabled
+            checks.append("all 43 numeric policy selectors share domain bounds; cross-field rejection preserves config; unlimited split duration survives reload")
+            for concurrent, budget, band, offset in [(True, False, 5, -0.5), (False, True, 0, None)]:
+                option_id, result = await begin("comfort", "policy", "policy_advanced")
+                import voluptuous as vol
+                keys = {"dry_concurrent", "dry_budget_enabled", "dry_humidity_band"}
+                schema = vol.Schema({k: v for k, v in result["data_schema"].schema.items()
+                                     if k.schema in keys})
+                values = schema({"dry_concurrent": concurrent,
+                                 "dry_budget_enabled": budget,
+                                 "dry_humidity_band": band})
+                if offset is not None:
+                    values["dry_heat_offset"] = offset
+                result = await options.async_configure(option_id, values)
+                assert result["type"] == "create_entry", result
+                await hass.async_block_till_done()
+                policy = entry.runtime_data.house.policy
+                assert policy.dry_heat_offset == offset
+                assert (policy.dry_concurrent, policy.dry_budget_enabled,
+                        policy.dry_humidity_band) == (concurrent, budget, band)
+                assert entry.options["house"]["policy"]["dry_budget_enabled"] == budget
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert entry.runtime_data.house.policy.dry_concurrent is False
+            assert entry.runtime_data.house.policy.dry_budget_enabled is True
+            assert not entry.runtime_data.executor.enabled
+            checks.append("dry admission and service-budget options roundtrip through real policy flow/reload without enabling control")
+            # N2 controls must survive real schema defaulting, saving and reload,
+            # including clearing the optional drop guard rather than reinserting it.
+            n2_ids = {
+                e.entity_id: e.unique_id for e in registry.entities.values()
+                if e.config_entry_id == entry.entry_id
+            }
+            for drop, dew, debt in [(0.7, True, False), (None, False, True)]:
+                option_id, result = await begin("splits", "zone")
+                await options.async_configure(option_id, {"zone": zone_id})
+                result = await options.async_configure(
+                    option_id, {"next_step_id": "zone_advanced"}
+                )
+                schema = result["data_schema"]
+                if drop is None:
+                    key = next(k for k in schema.schema if k.schema == "dry_max_temperature_drop")
+                    assert key.description["suggested_value"] == 0.7
+                submitted = {"dry_dewpoint_completion": dew}
+                if drop is not None:
+                    submitted["dry_max_temperature_drop"] = drop
+                values = schema(submitted)
+                assert values.get("dry_max_temperature_drop") == drop
+                result = await options.async_configure(option_id, values)
+                assert result["type"] == "create_entry", result
+                await hass.async_block_till_done()
+                saved = next(z for z in entry.options["house"]["zones"] if z["id"] == zone_id)
+                assert saved.get("dry_max_temperature_drop") == drop
+                assert saved["dry_dewpoint_completion"] is dew
+                option_id, result = await begin("comfort", "policy", "policy_advanced")
+                values = result["data_schema"]({"humidity_debt_urgency": debt})
+                result = await options.async_configure(option_id, values)
+                assert result["type"] == "create_entry", result
+                await hass.async_block_till_done()
+                assert entry.options["house"]["policy"]["humidity_debt_urgency"] is debt
+                assert await hass.config_entries.async_reload(entry.entry_id)
+                await hass.async_block_till_done()
+                current = next(z for z in entry.runtime_data.house.zones if z.id == zone_id)
+                assert current.dry_max_temperature_drop == drop
+                assert current.dry_dewpoint_completion is dew
+                assert entry.runtime_data.house.policy.humidity_debt_urgency is debt
+                assert not entry.runtime_data.executor.enabled
+                assert {
+                    e.entity_id: e.unique_id for e in registry.entities.values()
+                    if e.config_entry_id == entry.entry_id
+                } == n2_ids
+            checks.append("N2 drop/dew/debt opt-ins enable, clear and reload through real schemas with stable IDs and no control")
+            # Purpose-specific forms must actually consume their settings while
+            # preserving every other group, optional override and authority.
+            from custom_components.climate_orchestrator.config_flow import POLICY_GROUPS
+            from dataclasses import asdict, fields
+            from custom_components.climate_orchestrator.domain.models import Policy
+            names = [name for group in POLICY_GROUPS.values() for name in group]
+            assert len(names) == len(set(names))
+            assert set(names) == {f.name for f in fields(Policy)} - {"bands"}
+            entry.runtime_data.executor.manual(zone_id, "native_options_test")
+            await entry.runtime_data.executor.save()
+            expected_policy = asdict(entry.runtime_data.house.policy)
+            grouped_edits = {
+                "policy_thermal": {"start_delta": 0.6},
+                "policy_drying": {"dry_heat_offset": -0.5},
+                "policy_humidity": {"humidity_stable_s": 1000},
+                "policy_power": {"power_limit": 6100},
+                "policy_sources": {"temperature_fresh_s": 7000},
+                "policy_pricing": {"lookahead_s": 5600},
+            }
+            for group, edit in grouped_edits.items():
+                option_id, result = await begin("comfort", "policy", group)
+                assert {key.schema for key in result["data_schema"].schema} == set(POLICY_GROUPS[group])
+                values = result["data_schema"](edit)
+                expected_policy.update(values)
+                result = await options.async_configure(option_id, values)
+                assert result["type"] == "create_entry", result
+                await hass.async_block_till_done()
+                assert asdict(entry.runtime_data.house.policy) == expected_policy
+                assert not entry.runtime_data.executor.enabled
+                assert entry.runtime_data.executor.state["manual"][zone_id] == "native_options_test"
+            # A failed relationship identifies fields, retains submitted values,
+            # and never commits a partial group or poisons the next submission.
+            for group, edit, error_field, error in [
+                ("policy_thermal", {"hold_delta": 5}, "hold_delta", "policy_hysteresis"),
+                ("policy_drying", {"dry_max_s": 1}, "dry_max_s", "policy_dry_duration"),
+                ("policy_power", {"shared_load_idle_w": 300}, "shared_load_idle_w", "policy_load_order"),
+                ("policy_power", {"shared_load_management": True}, "shared_load_management", "policy_requires_hold"),
+                ("policy_pricing", {"extreme_price_hysteresis": 0.5}, "extreme_price_hysteresis", "policy_price_margin"),
+            ]:
+                option_id, result = await begin("comfort", "policy", group)
+                before = json.loads(json.dumps(dict(entry.options)))
+                result = await options.async_configure(option_id, result["data_schema"](edit))
+                assert result["errors"][error_field] == error, result
+                assert dict(entry.options) == before
+                assert result["data_schema"]({})[error_field] == edit[error_field]
+            checks.append("all 49 policy fields grouped once; six real edits preserve other settings and Manual; relational errors stay beside fields without saving")
+
+            # Typed source clocks use the same persisted/runtime contracts as the
+            # advanced object. No domestic profile or device is involved.
+            from homeassistant.util import dt as dt_util
+            source = "sensor.fictional_external"
+            other_source = "sensor.fictional_humidity"
+            other_contract = {"semantics": "provider"}
+            option_id, result = await begin("system", "source_quality", "source_quality_advanced")
+            result = await options.async_configure(option_id, {
+                "source_quality": {other_source: other_contract},
+            })
+            assert result["type"] == "create_entry", result
+            await hass.async_block_till_done()
+
+            async def clock_form():
+                identity, result = await begin("system", "source_quality", "source_clock")
+                result = await options.async_configure(identity, {"source": source})
+                assert result["step_id"] == "source_clock_edit"
+                return identity, result
+
+            option_id, result = await clock_form()
+            unchanged = json.loads(json.dumps(dict(entry.options)))
+            for submitted, error_field, error in [
+                ({"semantics": "origin"}, "timestamp_attribute", "source_clock_required"),
+                ({"semantics": "origin", "timestamp_attribute": "measured_at", "timestamp_entity": "sensor.fictional_clock"}, "timestamp_entity", "source_clock_one_route"),
+                ({"semantics": "received", "timestamp_attribute": "measured_at"}, "semantics", "source_clock_origin_only"),
+            ]:
+                result = await options.async_configure(option_id, result["data_schema"](submitted))
+                assert result["errors"][error_field] == error, result
+                assert dict(entry.options) == unchanged
+            stamp = dt_util.utcnow().timestamp() - 15
+            hass.states.async_set(source, "20", {
+                "unit_of_measurement": "°C", "device_class": "temperature",
+                "measured_at": stamp,
+            })
+            result = await options.async_configure(option_id, result["data_schema"]({
+                "semantics": "origin", "timestamp_attribute": "measured_at",
+            }))
+            assert result["type"] == "create_entry", result
+            await hass.async_block_till_done()
+            assert entry.runtime_data.source_clock(source, hass.states.get(source)).origin_at == stamp
+            assert entry.options["source_quality"][other_source] == other_contract
+            # Replace attribute by entity: an omitted suggested value must not
+            # silently return through schema defaults.
+            hass.states.async_set("sensor.fictional_clock", str(stamp - 10))
+            option_id, result = await clock_form()
+            values = result["data_schema"]({"semantics": "origin", "timestamp_entity": "sensor.fictional_clock"})
+            assert "timestamp_attribute" not in values
+            result = await options.async_configure(option_id, values)
+            assert result["type"] == "create_entry", result
+            await hass.async_block_till_done()
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert entry.runtime_data.source_clock(source, hass.states.get(source)).origin_at == stamp - 10
+            for semantics in ("received", "provider"):
+                option_id, result = await clock_form()
+                values = result["data_schema"]({"semantics": semantics})
+                assert "timestamp_entity" not in values and "timestamp_attribute" not in values
+                result = await options.async_configure(option_id, values)
+                assert result["type"] == "create_entry", result
+                await hass.async_block_till_done()
+                assert entry.options["source_quality"][source] == {"semantics": semantics}
+                assert entry.runtime_data.source_clock(source, hass.states.get(source)).semantics == semantics
+            option_id, result = await clock_form()
+            result = await options.async_configure(option_id, result["data_schema"]({"use_default": True}))
+            assert result["type"] == "create_entry", result
+            await hass.async_block_till_done()
+            assert await hass.config_entries.async_reload(entry.entry_id)
+            await hass.async_block_till_done()
+            assert dict(entry.options["source_quality"]) == {other_source: other_contract}
+            assert entry.runtime_data.source_clock(source, hass.states.get(source)).semantics == "received"
+            assert asdict(entry.runtime_data.house.policy) == expected_policy
+            assert entry.runtime_data.executor.state["manual"][zone_id] == "native_options_test"
+            assert not entry.runtime_data.executor.enabled
+            assert {e.entity_id: e.unique_id for e in registry.entities.values()
+                    if e.config_entry_id == entry.entry_id} == n2_ids
+            checks.append("typed source clocks reject ambiguous/missing routes; origin attribute/entity and received/provider consume real values; clearing/reload preserves other sources, IDs and Manual")
             assert not service_calls
             await hass.config_entries.async_remove(entry.entry_id)
             await hass.async_block_till_done()

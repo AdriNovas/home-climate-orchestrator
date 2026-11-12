@@ -68,3 +68,25 @@ Detalles: [ejecución y energía](EXECUTION_ENERGY.md).
 Interoperabilidad opcional: [journal y detectores externos](EXTERNAL_MANUAL.md).
 Publicar el journal antes de emitir y reconocerlo no equivale a certificar las
 excepciones Manual o las fases de una instalación: comparar esos contratos aparte.
+
+#### Optional drying-admission policy
+
+The candidate can opt into concurrent admissions within a configured humidity
+band and separately disable normal service quotas/cooldowns. Defaults preserve
+legacy behavior. These switches do not establish authority-policy parity, fault
+backoff equivalence, complete restart/rollback or physical extraction. Match and
+test the installation profile separately; keep shadow until all handover gates
+are satisfied. See [candidate semantics](UNLIMITED_DRYING.md).
+
+Installation-specific cohort settings and fault-latch migration belong in the
+private handover profile. Match the live shared-plant incident/lockout contract;
+never infer it by summing room counters, reset it on import, or treat old
+room-local failure markers as product defaults. Candidate concurrency alone
+does not implement shared-incident lockout parity.
+
+For a downgrade to code predating these optional fields, first return the entry
+to shadow and remove `dry_concurrent`, `dry_humidity_band` and
+`dry_budget_enabled` from its staged policy using the tested migration path.
+An older parser need not accept unknown policy keys. Preserve IDs and execution
+journals; removing keys is not permission to reset Manual, deadlines or debt.
+The candidate has not demonstrated that downgrade as a complete handover.

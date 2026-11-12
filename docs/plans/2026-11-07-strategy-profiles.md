@@ -307,6 +307,19 @@ Panel cotidiano compacto:
 - Decisión/motivo, condición de desbloqueo y próximo vencimiento.
 - Manual/pausa e incidencia accionable, sin exponer tablas avanzadas a diario.
 
+La entrega de interfaz debe incluir controles Lovelace de la estrategia real
+y acceso a preferencias/actividad opcional, sin habilitar ejecución al elegir
+perfil. Mostrar potencia y energía con alcance/cobertura explícitos y enlace
+al detalle, sin reparto ficticio por zona. Añadir una pestaña de auditoría
+administrativa de solo lectura: estrategia elegida/efectiva, decisión y motivo,
+guarda que veta, evidencia y frescura, objetivo ambiental frente a consigna,
+concesión activa, condición de desbloqueo y vencimiento absoluto. Separar
+propuesta, orden emitida, ACK y estado observado; no derivar un motivo de la
+mera coincidencia del estado. Validar visualmente en móvil y escritorio.
+Estos requisitos de frontend y su piloto siguen pendientes en esta candidata;
+las entidades nativas y sus pruebas de servicios no equivalen a entregar el
+dashboard de una instalación.
+
 Global por vivienda en el MVP; prioridades por zona y árbitro conjunto. Overrides
 por instalación independiente serían una ampliación posterior, subordinados al
 suministro común. Evitar estrategias rivales por cabeza de un multisplit.

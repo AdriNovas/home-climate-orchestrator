@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import copy
+from math import isfinite
 from uuid import uuid4
 
 
@@ -59,37 +60,85 @@ class Executor:
                     if publish_required:
                         raise
 
+    @staticmethod
+    def _validate_journal(saved):
+        """Reject corrupt nested records before mutation, saving or listener setup.
+
+        Bindings removed by a deliberate profile edit are still pruned at restore.
+        Malformed records are not a migration: preserve the store for recovery.
+        """
+        def require(condition):
+            if not condition:
+                raise ValueError("Invalid execution journal; preserve store for recovery")
+
+        def numeric(value, minimum=None):
+            return (type(value) in (int, float) and isfinite(value)
+                    and (minimum is None or value >= minimum))
+
+        def text(value):
+            return isinstance(value, str) and bool(value)
+
+        modes = {"off", "heat", "cool", "dry", "fan_only"}
+        require(isinstance(saved, dict))
+        require(type(saved.get("generation")) is int and saved["generation"] >= 0)
+        require(type(saved.get("critical")) is bool)
+        for key in ("pending", "manual", "owned"):
+            require(isinstance(saved.get(key), dict))
+            require(all(text(zone) for zone in saved[key]))
+        require(all(text(reason) for reason in saved["manual"].values()))
+        for row in saved["pending"].values():
+            require(isinstance(row, dict))
+            require(text(row.get("binding")) and text(row.get("id")))
+            require(type(row.get("generation")) is int
+                    and 0 <= row["generation"] <= saved["generation"])
+            require(isinstance(row.get("mode"), str) and row["mode"] in modes)
+            require(row.get("target") is None or numeric(row["target"]))
+            require(numeric(row.get("expires"), 0))
+            require(isinstance(row.get("phase"), str) and row["phase"] in
+                    {"prepared", "sending", "acked", "cancelled", "uncertain"})
+            require(isinstance(row.get("expected"), list) and len(row["expected"]) <= 4)
+            for expected in row["expected"]:
+                require(isinstance(expected, dict))
+                require(isinstance(expected.get("mode"), str) and expected["mode"] in modes)
+                require(expected.get("target") is None or numeric(expected["target"]))
+                # Older records may omit until; observe then uses row.expires.
+                require("until" not in expected or numeric(expected["until"], 0))
+        for owner in saved["owned"].values():
+            require(isinstance(owner, dict) and text(owner.get("binding")))
+            require(isinstance(owner.get("mode"), str) and owner["mode"] in modes)
+            require("at" not in owner or numeric(owner["at"], 0))
+            require("id" not in owner or text(owner["id"]))
+            if owner["mode"] == "dry":
+                require(text(owner.get("id")))
+                require(type(owner.get("dry_schema", 1)) is int
+                        and owner.get("dry_schema", 1) == 1)
+                require(numeric(owner.get("start"), 0) and numeric(owner.get("until"), 0))
+                require(owner["until"] == 0 or owner["until"] >= owner["start"])
+                require(numeric(owner.get("floor")) and 0 <= owner["floor"] <= 40)
+                require(numeric(owner.get("target")) and 0 <= owner["target"] <= 100)
+                for key in ("start_temperature", "dew_target"):
+                    require(owner.get(key) is None or numeric(owner[key]))
+        if "supply" in saved:
+            require(isinstance(saved["supply"], dict))
+            require(set(saved["supply"]) <= {"last", "high", "low"})
+            require(all(numeric(value, 0) for value in saved["supply"].values()))
+
     async def restore(self):
         self.restored = False
         saved = await self.store.async_load()
         if saved is not None:
-            if (
-                not isinstance(saved, dict)
-                or type(saved.get("generation")) is not int
-                or any(
-                    not isinstance(saved.get(k), dict)
-                    for k in ["pending", "manual", "owned"]
-                )
-                or type(saved.get("critical")) is not bool
-            ):
-                raise ValueError("Invalid execution journal; control cannot start")
-            self.state = saved
+            self._validate_journal(saved)
+            self.state = copy.deepcopy(saved)
         zones = {z.id: z for z in self.house.zones}
         for key, owner in list(self.state["owned"].items()):
-            if not isinstance(owner, dict):
-                raise ValueError("Invalid ownership record")
-            if key not in zones or owner.get("binding") != zones[key].actuator_entity:
+            if key not in zones or owner["binding"] != zones[key].actuator_entity:
                 self.state["owned"].pop(key)
         for key, row in list(self.state["pending"].items()):
-            if (
-                key not in zones
-                or not isinstance(row, dict)
-                or row.get("binding") != zones[key].actuator_entity
-            ):
+            if key not in zones or row["binding"] != zones[key].actuator_entity:
                 self.state["pending"].pop(key)
                 self.state["owned"].pop(key, None)
                 continue
-            if row.get("phase") not in ["acked", "cancelled"]:
+            if row["phase"] not in ["acked", "cancelled"]:
                 # Observe the echo if it arrives, but never replay an interrupted start.
                 row["phase"] = "uncertain"
                 self.state["manual"][key] = "restart_unconfirmed"

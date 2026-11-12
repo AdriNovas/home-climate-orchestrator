@@ -2,6 +2,9 @@
 
 - This is an instance-neutral product repository. Never copy private home profiles,
   Recorder exports, device IDs, presence, endpoints, credentials, or workspace history.
+- Implement requested behavior in the integration with validated native options
+  and runtime consumers. Do not substitute installation-specific YAML patches
+  for missing product capabilities; iterate the candidate instead.
 - Released version 0.1 remains observation-only. Develop opt-in execution in the
   0.2 candidate, separated from the pure planner and gated by the migration ADR.
   Never enable control as a side effect of upgrading an observation entry.

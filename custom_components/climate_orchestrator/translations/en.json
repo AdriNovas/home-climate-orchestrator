@@ -78,7 +78,9 @@
           "mode_permission_loss_action": "When permission for a running thermal mode is removed",
           "thermal_presence_entity": "Local thermal occupancy permission (optional)",
           "dry_floor_entity": "External drying temperature floor (optional)",
-          "dry_pause_action": "Pause during an owned drying session"
+          "dry_pause_action": "Pause during an owned drying session",
+          "dry_max_temperature_drop": "Maximum drying temperature drop from reservation (°C; optional)",
+          "dry_dewpoint_completion": "Require humidity and frozen dew-point goal to finish drying"
         }
       },
       "finish": {
@@ -180,7 +182,7 @@
           "require_internal_feedback": "Require fresh internal feedback for thermal commands",
           "humidifier_entity": "Existing dehumidifier",
           "dehumidifier_min_s": "Independent drying · minimum (s)",
-          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s; 0 = unlimited)",
           "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
           "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
@@ -193,52 +195,15 @@
         }
       },
       "policy": {
-        "title": "Advanced regulation",
-        "data": {
-          "continuous_hold": "Keep enabled and regulate the thermostat setpoint",
-          "shared_load_management": "Adapt shared load using an actual plant meter",
-          "relaxation_limit": "Maximum soft relaxation (°C)",
-          "shared_load_idle_w": "Initial aggregate low-load reference (W)",
-          "shared_load_high_w": "Initial aggregate high-load threshold (W)",
-          "shared_load_observe_s": "Observe comfortable high load before one withdrawal (s)",
-          "shared_load_retry_s": "Minimum before another withdrawal attempt on the same head (s)",
-          "modulated_hold_s": "Maximum proposed soft hold (seconds; 0 disables)",
-          "extreme_price_enabled": "Model an extreme-price shutdown",
-          "extreme_price": "Extreme-price entry (EUR/kWh)",
-          "extreme_price_hysteresis": "Extreme-price exit margin (EUR/kWh)",
-          "thermal_stable_s": "Required observed stability (seconds)",
-          "thermal_stability_delta": "Maximum stable temperature range (°C)",
-          "thermal_sample_gap_s": "Maximum stability sample gap (seconds)",
-          "start_delta": "Start deviation (°C)",
-          "hold_delta": "Maintenance tolerance (°C)",
-          "overshoot_delta": "Overshoot protection (°C)",
-          "proportional_gain": "Recovery proportional gain",
-          "boost_limit": "Maximum extra effort (°C)",
-          "correction_limit": "Maximum total compensation (°C)",
-          "command_interval": "Ordinary command cadence (seconds)",
-          "temperature_fresh_s": "Reference temperature freshness (seconds)",
-          "humidity_fresh_s": "Humidity freshness (seconds)",
-          "internal_fresh_s": "Internal sensor freshness (seconds)",
-          "dry_floor_day": "Drying temperature floor, day (°C)",
-          "dry_floor_sleep": "Drying temperature floor, sleep (°C)",
-          "dry_margin": "Drying temperature margin (°C)",
-          "dry_min_outdoor": "Minimum outdoor temperature for drying (°C)",
-          "dry_min_s": "Normal minimum drying session (seconds)",
-          "dry_max_s": "Maximum drying session (seconds)",
-          "dry_cooldown_s": "Drying cooldown (seconds)",
-          "dry_attempts": "Drying attempts per local day",
-          "humidity_stable_s": "Humidity demand persistence (seconds)",
-          "humidity_recovery_s": "Humidity recovery persistence (seconds)",
-          "humidity_deadline_s": "Maximum normal humidity deferral (seconds)",
-          "service_humidity": "Humidity debt threshold (%)",
-          "severe_humidity": "Severe humidity threshold (%)",
-          "severe_stable_s": "Severe humidity persistence (seconds)",
-          "urgent_humidity": "High humidity threshold (%)",
-          "urgent_stable_s": "High humidity persistence (seconds)",
-          "lookahead_s": "Maximum price lookahead (seconds)",
-          "improvement": "Minimum useful price improvement (EUR/kWh)",
-          "power_limit": "Preventive active-power budget (W)",
-          "power_fresh_s": "Active-power freshness (seconds)"
+        "title": "Regulation by purpose",
+        "menu_options": {
+          "policy_thermal": "Heating and cooling",
+          "policy_drying": "Drying sessions",
+          "policy_humidity": "Humidity demand",
+          "policy_power": "Power and shared load",
+          "policy_sources": "Freshness and command timing",
+          "policy_pricing": "Prices and anticipation",
+          "policy_advanced": "All settings (advanced)"
         }
       },
       "schedule": {
@@ -371,7 +336,7 @@
           "require_internal_feedback": "Require fresh internal feedback for thermal commands",
           "humidifier_entity": "Existing dehumidifier",
           "dehumidifier_min_s": "Independent drying · minimum (s)",
-          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s; 0 = unlimited)",
           "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
           "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
@@ -414,7 +379,7 @@
           "require_internal_feedback": "Require fresh internal feedback for thermal commands",
           "humidifier_entity": "Existing dehumidifier",
           "dehumidifier_min_s": "Independent drying · minimum (s)",
-          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s; 0 = unlimited)",
           "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
           "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
@@ -518,7 +483,7 @@
           "zone_targets": "Split and price temperatures",
           "band": "Price bands and shared targets",
           "schedule": "Day and sleep",
-          "policy": "Advanced regulation",
+          "policy": "Regulation by purpose",
           "strategy": "Cost and comfort strategy"
         }
       },
@@ -529,7 +494,7 @@
           "tariff": "Current price source",
           "tariff_type": "Change tariff type",
           "execution": "Observation, control and protection",
-          "source_quality": "Measurement origin (advanced)"
+          "source_quality": "Source quality and origin"
         }
       },
       "zone_settings": {
@@ -603,7 +568,7 @@
           "require_internal_feedback": "Require fresh internal feedback for thermal commands",
           "humidifier_entity": "Existing dehumidifier",
           "dehumidifier_min_s": "Independent drying · minimum (s)",
-          "dehumidifier_max_s": "Independent drying · maximum (s)",
+          "dehumidifier_max_s": "Independent drying · maximum (s; 0 = unlimited)",
           "dehumidifier_cooldown_s": "Independent drying · session cooldown (s)",
           "dehumidifier_min_temperature": "Dehumidifier minimum room temperature (°C)",
           "dehumidifier_max_temperature": "Dehumidifier maximum room temperature (°C)",
@@ -652,10 +617,10 @@
         }
       },
       "source_quality": {
-        "title": "Source clocks",
-        "description": "Optional entity-keyed clock contracts. Received timestamps are not evidence of a new measurement. See the integration source-quality documentation.",
-        "data": {
-          "source_quality": "Explicit source contracts"
+        "title": "Source quality",
+        "menu_options": {
+          "source_clock": "Configure one source",
+          "source_quality_advanced": "Complete object (advanced)"
         }
       },
       "zone_preferences": {
@@ -697,6 +662,169 @@
           "maximum_age_s": "Maximum receipt age (seconds; 0 disables)",
           "remove": "Remove this source"
         }
+      },
+      "policy_advanced": {
+        "title": "All regulation settings",
+        "data": {
+          "continuous_hold": "Keep enabled and regulate the thermostat setpoint",
+          "shared_load_management": "Adapt shared load using an actual plant meter",
+          "relaxation_limit": "Maximum soft relaxation (°C)",
+          "shared_load_idle_w": "Initial aggregate low-load reference (W)",
+          "shared_load_high_w": "Initial aggregate high-load threshold (W)",
+          "shared_load_observe_s": "Observe comfortable high load before one withdrawal (s)",
+          "shared_load_retry_s": "Minimum before another withdrawal attempt on the same head (s)",
+          "modulated_hold_s": "Maximum proposed soft hold (seconds; 0 disables)",
+          "extreme_price_enabled": "Model an extreme-price shutdown",
+          "extreme_price": "Extreme-price entry (EUR/kWh)",
+          "extreme_price_hysteresis": "Extreme-price exit margin (EUR/kWh)",
+          "thermal_stable_s": "Required observed stability (seconds)",
+          "thermal_stability_delta": "Maximum stable temperature range (°C)",
+          "thermal_sample_gap_s": "Maximum stability sample gap (seconds)",
+          "start_delta": "Start deviation (°C)",
+          "hold_delta": "Maintenance tolerance (°C)",
+          "overshoot_delta": "Overshoot protection (°C)",
+          "proportional_gain": "Recovery proportional gain",
+          "boost_limit": "Maximum extra effort (°C)",
+          "correction_limit": "Maximum total compensation (°C)",
+          "command_interval": "Ordinary command cadence (seconds)",
+          "temperature_fresh_s": "Reference temperature freshness (seconds)",
+          "humidity_fresh_s": "Humidity freshness (seconds)",
+          "internal_fresh_s": "Internal sensor freshness (seconds)",
+          "dry_floor_day": "Drying temperature floor, day (°C)",
+          "dry_floor_sleep": "Drying temperature floor, sleep (°C)",
+          "dry_margin": "Drying temperature margin (°C)",
+          "dry_heat_offset": "Optional drying floor offset from heating goal (°C)",
+          "dry_min_outdoor": "Minimum outdoor temperature for drying (°C)",
+          "dry_min_s": "Normal minimum drying session (seconds)",
+          "dry_max_s": "Maximum drying session (seconds; 0 = unlimited)",
+          "dry_cooldown_s": "Drying cooldown (seconds)",
+          "dry_attempts": "Drying attempts per local day",
+          "dry_concurrent": "Concurrent drying admissions",
+          "dry_humidity_band": "Drying admission humidity band (percentage points)",
+          "dry_budget_enabled": "Enable drying service quota and cooldown",
+          "humidity_stable_s": "Humidity demand persistence (seconds)",
+          "humidity_recovery_s": "Humidity recovery persistence (seconds)",
+          "humidity_deadline_s": "Maximum normal humidity deferral (seconds)",
+          "humidity_debt_urgency": "Allow humidity debt to trigger urgency",
+          "service_humidity": "Humidity debt threshold (%)",
+          "severe_humidity": "Severe humidity threshold (%)",
+          "severe_stable_s": "Severe humidity persistence (seconds)",
+          "urgent_humidity": "High humidity threshold (%)",
+          "urgent_stable_s": "High humidity persistence (seconds)",
+          "lookahead_s": "Maximum price lookahead (seconds)",
+          "improvement": "Minimum useful price improvement (EUR/kWh)",
+          "power_limit": "Preventive active-power budget (W)",
+          "power_fresh_s": "Active-power freshness (seconds)"
+        }
+      },
+      "policy_thermal": {
+        "title": "Heating and cooling",
+        "description": "Only values in this group are changed. Other settings, Manual and session deadlines are preserved.",
+        "data": {
+          "start_delta": "Start deviation (°C)",
+          "hold_delta": "Maintenance tolerance (°C)",
+          "overshoot_delta": "Overshoot protection (°C)",
+          "proportional_gain": "Recovery proportional gain",
+          "boost_limit": "Maximum extra effort (°C)",
+          "correction_limit": "Maximum total compensation (°C)",
+          "continuous_hold": "Keep enabled and regulate the thermostat setpoint",
+          "modulated_hold_s": "Maximum proposed soft hold (seconds; 0 disables)",
+          "thermal_stable_s": "Required observed stability (seconds)",
+          "thermal_stability_delta": "Maximum stable temperature range (°C)",
+          "thermal_sample_gap_s": "Maximum stability sample gap (seconds)"
+        }
+      },
+      "policy_drying": {
+        "title": "Drying sessions",
+        "description": "Only values in this group are changed. Other settings, Manual and session deadlines are preserved.",
+        "data": {
+          "dry_floor_day": "Drying temperature floor, day (°C)",
+          "dry_floor_sleep": "Drying temperature floor, sleep (°C)",
+          "dry_margin": "Drying temperature margin (°C)",
+          "dry_heat_offset": "Optional drying floor offset from heating goal (°C)",
+          "dry_min_outdoor": "Minimum outdoor temperature for drying (°C)",
+          "dry_min_s": "Normal minimum drying session (seconds)",
+          "dry_max_s": "Maximum drying session (seconds; 0 = unlimited)",
+          "dry_cooldown_s": "Drying cooldown (seconds)",
+          "dry_attempts": "Drying attempts per local day",
+          "dry_concurrent": "Concurrent drying admissions",
+          "dry_humidity_band": "Drying admission humidity band (percentage points)",
+          "dry_budget_enabled": "Enable drying service quota and cooldown"
+        }
+      },
+      "policy_humidity": {
+        "title": "Humidity demand",
+        "description": "Only values in this group are changed. Other settings, Manual and session deadlines are preserved.",
+        "data": {
+          "humidity_stable_s": "Humidity demand persistence (seconds)",
+          "humidity_recovery_s": "Humidity recovery persistence (seconds)",
+          "humidity_deadline_s": "Maximum normal humidity deferral (seconds)",
+          "humidity_debt_urgency": "Allow humidity debt to trigger urgency",
+          "service_humidity": "Humidity debt threshold (%)",
+          "severe_humidity": "Severe humidity threshold (%)",
+          "severe_stable_s": "Severe humidity persistence (seconds)",
+          "urgent_humidity": "High humidity threshold (%)",
+          "urgent_stable_s": "High humidity persistence (seconds)"
+        }
+      },
+      "policy_power": {
+        "title": "Power and shared load",
+        "description": "Only values in this group are changed. Other settings, Manual and session deadlines are preserved.",
+        "data": {
+          "power_limit": "Preventive active-power budget (W)",
+          "shared_load_management": "Adapt shared load using an actual plant meter",
+          "relaxation_limit": "Maximum soft relaxation (°C)",
+          "shared_load_idle_w": "Initial aggregate low-load reference (W)",
+          "shared_load_high_w": "Initial aggregate high-load threshold (W)",
+          "shared_load_observe_s": "Observe comfortable high load before one withdrawal (s)",
+          "shared_load_retry_s": "Minimum before another withdrawal attempt on the same head (s)"
+        }
+      },
+      "policy_sources": {
+        "title": "Freshness and command timing",
+        "description": "Only values in this group are changed. Other settings, Manual and session deadlines are preserved. Receipt freshness does not prove a new physical measurement.",
+        "data": {
+          "command_interval": "Ordinary command cadence (seconds)",
+          "temperature_fresh_s": "Reference temperature freshness (seconds)",
+          "humidity_fresh_s": "Humidity freshness (seconds)",
+          "internal_fresh_s": "Internal sensor freshness (seconds)",
+          "power_fresh_s": "Active-power freshness (seconds)"
+        }
+      },
+      "policy_pricing": {
+        "title": "Prices and anticipation",
+        "description": "Only values in this group are changed. Other settings, Manual and session deadlines are preserved.",
+        "data": {
+          "lookahead_s": "Maximum price lookahead (seconds)",
+          "improvement": "Minimum useful price improvement (EUR/kWh)",
+          "extreme_price_enabled": "Model an extreme-price shutdown",
+          "extreme_price": "Extreme-price entry (EUR/kWh)",
+          "extreme_price_hysteresis": "Extreme-price exit margin (EUR/kWh)"
+        }
+      },
+      "source_quality_advanced": {
+        "title": "Source clocks",
+        "description": "Optional entity-keyed clock contracts. Received timestamps are not evidence of a new measurement. See the integration source-quality documentation.",
+        "data": {
+          "source_quality": "Explicit source contracts"
+        }
+      },
+      "source_clock": {
+        "title": "Choose source",
+        "description": "Choose a source bound to this installation. Only that source is changed.",
+        "data": {
+          "source": "Source"
+        }
+      },
+      "source_clock_edit": {
+        "title": "Source clock",
+        "description": "Source: {source}. Receipt does not prove a new measurement; provider only declares the upstream integration contract. For origin choose one attribute or entity containing a timezone-aware timestamp or Unix seconds. Restore default removes only this contract and uses receipt; freshness limits are unchanged.",
+        "data": {
+          "use_default": "Restore default contract (receipt)",
+          "semantics": "Clock meaning",
+          "timestamp_attribute": "Origin timestamp attribute (optional)",
+          "timestamp_entity": "Origin timestamp entity (optional)"
+        }
       }
     },
     "error": {
@@ -708,7 +836,16 @@
       "already_configured": "This split is already linked to another room",
       "name_required": "Enter a name for the room",
       "not_dehumidifier": "Select a water-removing dehumidifier, not a humidifier.",
-      "invalid_humidity_pair": "Stop humidity must be lower than start humidity, within the displayed ranges."
+      "invalid_humidity_pair": "Stop humidity must be lower than start humidity, within the displayed ranges.",
+      "policy_load_order": "The high-load threshold must exceed the low-load reference.",
+      "policy_requires_hold": "Shared-load management requires continuous holding in Heating and cooling.",
+      "policy_price_margin": "The exit margin must be below the entry price.",
+      "policy_hysteresis": "Use 0 < hold < start and start ≤ overshoot + 1 °C.",
+      "policy_overshoot": "Overshoot protection must exceed the hold tolerance.",
+      "policy_dry_duration": "Maximum duration must be 0 (unlimited) or at least the minimum.",
+      "source_clock_one_route": "Choose either an attribute or an entity for the origin timestamp, not both.",
+      "source_clock_required": "Origin requires a timestamp attribute or entity.",
+      "source_clock_origin_only": "Explicit timestamps require Origin; clear both routes to use receipt or provider."
     }
   },
   "entity": {
@@ -923,6 +1060,13 @@
       "options": {
         "add": "Add source",
         "clear": "Remove all linked sources"
+      }
+    },
+    "source_clock_semantics": {
+      "options": {
+        "received": "Receipt in Home Assistant",
+        "origin": "Explicit origin timestamp",
+        "provider": "Provider contract (does not verify origin)"
       }
     }
   },

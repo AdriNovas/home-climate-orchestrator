@@ -129,3 +129,11 @@ un ciclo con propiedad explícita previa durante la pausa; no inicia ni adopta
 ciclos. Permanecen las salidas por máximo, suelo congelado, datos, permiso de
 zona/secado, deshabilitación y seguridad eléctrica. Manual nunca se adopta.
 Los registros de sesión y entidades conservan identidad al recargar.
+
+### Concurrent admissions (opt-in)
+
+See [unlimited drying](UNLIMITED_DRYING.md) for the separate admission-band and
+service-budget switches. Overlapping permitted operation does not imply parallel
+command transmission or per-head consumption: the plant executor remains serial
+and aggregate energy retains its measured scope. Existing owners and their
+frozen humidity endpoints are not renewed when another head joins.

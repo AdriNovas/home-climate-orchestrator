@@ -19,9 +19,9 @@ Desde la ficha de integración, **Configurar** abre:
 |---|---|
 | Equipos y sondas | Vincular split o deshumidificador; editar equipo, sondas/área, objetivos o prioridad/permisos/compensación. |
 | Unidades exteriores | Añadir y editar instalaciones, sentido compartido y tiempos mínimos. |
-| Confort y horarios | Selector Precio/Equilibrado/Confort/Anterior, aplicación opt-in; tablas por precio, día/sueño y regulación avanzada. |
+| Confort y horarios | Selector Precio/Equilibrado/Confort/Anterior, aplicación opt-in; tablas por precio, día/sueño y regulación por ámbito. |
 | Consumo y medidores | W/kW y energía al ámbito real; selección sin solapes para subtotal y contadores por periodo con cobertura. |
-| Fuentes y funcionamiento | Exterior, presencia y permisos globales, fuente/tipo de tarifa, observación/control y protección. |
+| Fuentes y funcionamiento | Exterior, presencia y permisos globales, calidad/origen por fuente, fuente/tipo de tarifa, observación/control y protección. |
 
 El nombre y área vacíos se pueden completar desde el registro del equipo
 seleccionado; no se deduce un área por el nombre de una entidad. Se comprueban
@@ -38,6 +38,50 @@ conservan las metas actuales. Ver [contrato y ejemplos](STRATEGIES_ACTIVITY.md).
 Los dispositivos de regulación son servicios lógicos con acceso a la configuración
 nativa. El equipo físico permanece en su integración original: no se reempareja,
 no se apropian sus identificadores ni se sustituye el driver del fabricante.
+
+### Regulación por ámbito (candidata 0.2.0a9)
+
+**Confort y horarios → Regulación por ámbito** reparte los 49 ajustes existentes,
+sin cambiar su significado, en seis formularios:
+
+| Formulario | Qué ajusta |
+|---|---|
+| Calor y frío | Histéresis, ganancia, compensación, mantenimiento continuo y estabilidad térmica. |
+| Sesiones de secado | Suelos, margen/offset opcional, exterior, tiempos, intentos, concurrencia y presupuesto de servicio. |
+| Demanda de humedad | Persistencia, recuperación, deuda, umbrales fuertes y sus plazos. |
+| Potencia y carga compartida | Presupuesto W, referencias de carga, relajación y esperas entre retiradas. |
+| Frescura y cadencia de órdenes | Edad admisible de las fuentes y separación entre órdenes ordinarias; no es el reloj del planificador. |
+| Precios y anticipación | Horizonte, mejora útil y entrada/salida de precio extremo. |
+
+**Todos los ajustes (avanzado)** conserva el formulario completo. Guardar un
+grupo no toca los demás; por ejemplo, un cambio de potencia no elimina el
+offset opcional de secado. Borrar el offset en su formulario sí vuelve al suelo
+predeterminado. Las relaciones inválidas señalan los campos implicados y no
+guardan nada. Cambiar ajustes no renueva sesiones/deuda ni concede autoridad;
+los cambios estructurales siguen usando la recarga habitual de la integración.
+
+### Calidad y origen de las fuentes
+
+**Fuentes y funcionamiento → Calidad y origen de las fuentes → Configurar una
+fuente** permite seleccionar una fuente vinculada por nombre e identificador:
+
+- **Recepción:** usa la fecha de recepción de HA; no prueba una medida física
+  nueva ni modifica el límite de frescura general de esa magnitud.
+- **Origen:** exige exactamente un atributo o una entidad con la fecha de la
+  medida. Admite segundos Unix o una fecha con zona horaria. La falta de esa
+  fecha en ejecución sigue siendo dato de origen inválido, sin respaldo
+  silencioso a recepción.
+- **Proveedor:** declara el contrato del proveedor de la entidad; no fabrica
+  una fecha de origen ni equivale a verificar una medida nueva.
+
+Las dos rutas de fecha son opcionales y realmente borrables. No se acepta
+origen sin fecha, dos rutas a la vez, ni una fecha explícita con otra semántica.
+**Volver al contrato predeterminado** elimina solo el contrato seleccionado,
+preserva los demás y vuelve a recepción. El editor **Objeto completo
+(avanzado)** se conserva y usa el mismo esquema y consumidor runtime.
+
+Estas opciones son persistentes en la entrada de HA; no requieren editar YAML
+ni código Python. No habilitan control ni eliminan Manual al guardarse o recargar.
 
 ## Objetivos editables como entidades
 
@@ -165,7 +209,7 @@ demanda permanente. Nunca eliminar la deuda/urgencia al cambiar de banda.
 | `start_delta` / `hold_delta` / `overshoot_delta` | 0,5 / 0,2 / 0,5 °C | Arranque, mantenimiento, protección por exceso. |
 | `proportional_gain` / `boost_limit` | 0,7 / 1 °C | Esfuerzo transitorio proporcional y limitado. |
 | `correction_limit` / `bias` | 6 °C / 0 por estancia | Tope combinado y corrección estable del sensor interno. |
-| `command_interval` | 300 s | Cadencia mínima entre órdenes; en observación no se emite ninguna. |
+| `command_interval` | 300 s | Cadencia mínima entre órdenes ordinarias; no es la frecuencia de cálculo. En observación no se emite ninguna. |
 | Instalación: mínimo off/on | 1200 / 1200 s | Evitar ciclos cortos, salvo protección por exceso. |
 | Permanencia / separación inversión | 3600 / 7200 s | Restricciones de sentido compartido. |
 
@@ -174,6 +218,14 @@ se redondea al paso y límites del equipo. Cerca del objetivo se retira esfuerzo
 se permite alivio referido al sensor interno reciente. **No es aprendizaje PI ni
 una calibración automática.** Cuando el sensor del split difiere, poner siempre
 su consigna igual al Aqara no asegura mantener la temperatura ambiental.
+
+El planificador ordinario completo se recalcula como máximo cada **300 s**;
+actualizaciones de fuentes no críticas se agrupan dentro de ese intervalo. No se
+usa un `delay` en el camino de seguridad: cambios de autoridad, Manual, equipo,
+lecturas no disponibles y permisos urgentes conservan revisión reactiva. Si una
+decisión trae un `next_at` anterior, se agenda un despertar puntual para ese
+plazo; el intervalo de órdenes sigue siendo una guarda distinta. Véase
+[cadencia de planificación](PLANNING_CADENCE.md).
 
 Ya estar en modo/consigna correctos significa mantener, no una nueva orden.
 No se introduce `fan_only` como paso económico rutinario. No se puede deducir un
@@ -323,3 +375,22 @@ y corte independiente siguen limitando al controlador.
 Ejemplo ficticio de multisplit más equipo independiente, prioridades y tablas:
 [versatile-zones.json](../examples/versatile-zones.json). Sigue en sombra hasta
 superar [la migración de autoridad](MIGRATION.md).
+
+### Policy form ranges and zero values
+
+The numeric policy form uses the same scalar bounds as `Policy` validation.
+Cross-field constraints still apply: hold < start, overshoot > hold, shared-load
+high > idle, extreme-price exit margin < entry, and a nonzero drying maximum
+must be at least its minimum. A form range alone does not relax these relations.
+
+`dry_max_s = 0` means **no absolute split-drying session deadline**. The accepted
+session keeps its endpoint and ownership; thermal, source, Manual, permission,
+plant and fault/ACK protections still apply. Economic-window estimation uses
+`dry_min_s` for an uncapped session, not an infinite forecast horizon. Independent
+dryers use their separate `dehumidifier_max_s` setting (also 0 = unlimited).
+`modulated_hold_s = 0` instead disables the proposed soft hold; zero is not a
+universal "off" switch. No existing values or control authority are migrated by
+this form correction.
+
+Read [autonomy readiness](AUTONOMY_READINESS.md) for configuration principles,
+remaining usability work and the acceptance gates before household handover.

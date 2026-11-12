@@ -117,16 +117,32 @@ def hardware_target(
 
 
 def begin_dry(
-    memory: Memory, now: float, floor: float, target: float, maximum_s: int
+    memory: Memory, now: float, floor: float, target: float, maximum_s: int,
+    *, start_temperature: float | None = None, dew_target: float | None = None,
 ) -> None:
     """Explicit intent acceptance hook for a future executor/simulator, never observer adoption."""
+    reservation = Memory(dry_start_temperature=start_temperature, dry_dew_target=dew_target)
+    memory.dry_active = True
     memory.dry_start = now
-    memory.dry_until = now + maximum_s
+    memory.dry_until = now + maximum_s if maximum_s else 0
     memory.dry_floor = floor
     memory.dry_target = target
     memory.last_attempt = now
     memory.attempts += 1
     memory.low_since = 0
+    memory.dry_start_temperature = reservation.dry_start_temperature
+    memory.dry_dew_target = reservation.dry_dew_target
+
+
+def dry_reservation_unsafe(zone, temperature, start_temperature, dew_target):
+    """Required reservation metadata is never reconstructed from current telemetry."""
+    return (
+        zone.dry_max_temperature_drop is not None and (
+            start_temperature is None
+            or temperature < start_temperature - zone.dry_max_temperature_drop
+        )
+        or zone.dry_dewpoint_completion and dew_target is None
+    )
 
 
 def independent_drying(zone, obs, memory, decision, snap, house, high, rh_ok, prices):
@@ -172,13 +188,14 @@ def independent_drying(zone, obs, memory, decision, snap, house, high, rh_ok, pr
     until = max(
         obs.mode_since
         + next(x for x in house.plants if x.id == zone.plant).minimum_off_s,
-        memory.last_attempt + zone.dehumidifier_cooldown_s,
+        memory.last_attempt + zone.dehumidifier_cooldown_s
+        if p.dry_budget_enabled else 0,
     )
     if now < until:
         return replace(decision, stage="waiting", reason="minimum_off", next_at=until)
     if house.strategy != "legacy" and not decision.urgent:
         wait = humidity_opportunity(
-            house, zone, snap, prices, memory, zone.dehumidifier_max_s
+            house, zone, snap, prices, memory, (zone.dehumidifier_max_s or zone.dehumidifier_min_s)
         )
         if wait is not None:
             return replace(
@@ -218,7 +235,8 @@ def evaluate(
         m = memories.setdefault(z.id, Memory())
         if m.day != day:
             m.day = day
-            m.attempts = 0
+            if p.dry_budget_enabled:
+                m.attempts = 0
         heat = (
             z.heat_sleep_targets.get(band.name, band.heat_sleep)
             if sleep
@@ -318,27 +336,35 @@ def evaluate(
         )
         urgent = (
             (m.urgent_since > 0 and now - m.urgent_since >= p.urgent_stable_s)
-            or (m.debt_since > 0 and now - m.debt_since >= p.humidity_deadline_s)
+            or (p.humidity_debt_urgency and m.debt_since > 0
+                and now - m.debt_since >= p.humidity_deadline_s)
             or (m.severe_since > 0 and now - m.severe_since >= p.severe_stable_s)
         )
         d = replace(d, urgent=urgent)
         if not o.automatic:
+            m.dry_active = False
             m.dry_start = 0
             m.dry_until = 0
             m.low_since = 0
             result[z.id] = replace(d, stage="manual", reason="manual_authority")
             continue
         # An explicit owned session has independent maximum/floor exits even paused.
-        if m.dry_until:
+        if m.dry_active or m.dry_until:
             m.low_since = (
                 (m.low_since or now)
-                if rh_ok and o.humidity.value <= m.dry_target
+                if rh_ok and temp_ok and o.humidity.value <= m.dry_target
+                and (not z.dry_dewpoint_completion or (
+                    m.dry_dew_target is not None
+                    and dew_point(o.temperature.value, o.humidity.value) <= m.dry_dew_target
+                ))
                 else 0
             )
             stop = (
-                now >= m.dry_until
+                (m.dry_until > 0 and now >= m.dry_until)
                 or not temp_ok
                 or not rh_ok
+                or dry_reservation_unsafe(z, o.temperature.value,
+                                          m.dry_start_temperature, m.dry_dew_target)
                 or (p.dry_heat_offset is not None and common_floor is None)
                 or o.temperature.value < (common_floor if common_floor is not None else m.dry_floor)
                 or (snap.paused and z.dry_pause_action == "stop")
@@ -359,11 +385,12 @@ def evaluate(
             if o.mode == "off" and now >= m.dry_start + 80:
                 if z.independent_drying:
                     m.dry_episode_blocked = True
+                m.dry_active = False
                 m.dry_start = 0
                 m.dry_until = 0
                 m.low_since = 0
             elif stop or recovered:
-                if z.independent_drying and now >= m.dry_until:
+                if z.independent_drying and m.dry_until > 0 and now >= m.dry_until:
                     m.dry_episode_blocked = True
                 result[z.id] = replace(
                     d, stage="dry_stop", reason="session_limit_or_recovery", mode="off"
@@ -635,7 +662,10 @@ def evaluate(
             ):
                 result[z.id] = replace(d, stage="blocked", reason="dry_outdoor_limit")
                 continue
-            if now - m.last_attempt < p.dry_cooldown_s or m.attempts >= p.dry_attempts:
+            if p.dry_budget_enabled and (
+                now - m.last_attempt < p.dry_cooldown_s
+                or m.attempts >= p.dry_attempts
+            ):
                 midnight = datetime.combine(
                     snap.now.astimezone(ZoneInfo(house.timezone)).date()
                     + timedelta(days=1),
@@ -650,7 +680,7 @@ def evaluate(
                     d, stage="waiting", reason="dry_budget", next_at=next_at
                 )
                 continue
-            windows = opportunities(prices, snap.now, p.dry_max_s, p.lookahead_s)
+            windows = opportunities(prices, snap.now, (p.dry_max_s or p.dry_min_s), p.lookahead_s)
             present = next((w for w in windows if abs(w["start"] - now) < 1), None)
             cheaper = next(
                 (
@@ -665,7 +695,7 @@ def evaluate(
             if house.strategy != "legacy":
                 # Humidity is independent of thermal occupancy concessions.
                 # Missing prices only removes economic waiting, never service.
-                wait = humidity_opportunity(house, z, snap, prices, m, p.dry_max_s)
+                wait = humidity_opportunity(house, z, snap, prices, m, (p.dry_max_s or p.dry_min_s))
                 cheaper = {"start": wait} if wait is not None else None
                 present = present or {"start": now}
             if not urgent and not present:
@@ -801,7 +831,7 @@ def evaluate(
                 reason = "plant_state_unknown"
             elif plant.shared_mode and active - {mode}:
                 reason = "plant_mode_conflict"
-            elif mode == "dry" and dry_selected:
+            elif mode == "dry" and dry_selected and not p.dry_concurrent:
                 reason = "dry_session_reserved"
             elif o.mode != mode and now - o.mode_since < plant.minimum_off_s:
                 reason = "minimum_off"
@@ -858,6 +888,27 @@ def evaluate(
             elif mode == "dry":
                 dry_selected = True
             result[z.id] = d
+        if p.dry_concurrent:
+            # Apply the band after all independent eligibility checks. A head
+            # waiting for OFF/reversal/power cannot reserve healthy heads' band.
+            eligible = [
+                z for z in members
+                if z.id in result and result[z.id].mode == "dry"
+                and snap.zones[z.id].humidity.fresh(now, p.humidity_fresh_s)
+            ]
+            reference = max(
+                (snap.zones[z.id].humidity.value for z in eligible), default=None
+            )
+            for z in eligible:
+                d = result[z.id]
+                if (
+                    d.stage != "drying" and reference is not None
+                    and snap.zones[z.id].humidity.value < reference - p.dry_humidity_band
+                ):
+                    result[z.id] = replace(
+                        d, stage="waiting", reason="dry_humidity_band",
+                        mode=None, next_at=None,
+                    )
     # A capability-specific feedback requirement restricts thermal emissions,
     # never off-only protection or unaffected zones. Recheck in fresh_plan too.
     for zone in house.zones:

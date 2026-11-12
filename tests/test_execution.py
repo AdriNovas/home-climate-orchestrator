@@ -158,6 +158,10 @@ class ExecutionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_restart_never_replays_ambiguous_start(self):
         row = {
+            "id": "interrupted",
+            "generation": self.executor.state["generation"],
+            "mode": "heat",
+            "target": 23,
             "binding": self.zone.climate_entity,
             "phase": "sending",
             "expected": [],
@@ -171,6 +175,83 @@ class ExecutionTests(unittest.IsolatedAsyncioTestCase):
         await other.execute(self.zone, self.fresh()[1][self.zone.id])
         self.assertFalse(self.calls)
         await other.close()
+
+    async def test_nested_journal_corruption_preserves_store_and_blocks_control(self):
+        await self.run_zone()
+        baseline = copy.deepcopy(self.store.data)
+        key = self.zone.id
+        corruptions = [
+            ("pending", {**baseline["pending"][key], "expected": ["not a mapping"]}),
+            ("pending", {**baseline["pending"][key], "expected": {}}),
+            ("pending", {**baseline["pending"][key], "expected": [{"mode": "heat", "target": "23"}]}),
+            ("pending", {**baseline["pending"][key], "expected": [{"mode": "heat", "until": float("nan")}]}),
+            ("pending", {**baseline["pending"][key], "expected": [{"mode": []}]}),
+            ("pending", {**baseline["pending"][key], "expires": "tomorrow"}),
+            ("pending", {**baseline["pending"][key], "expires": float("inf")}),
+            ("pending", {**baseline["pending"][key], "generation": True}),
+            ("pending", {**baseline["pending"][key], "generation": -1}),
+            ("pending", {**baseline["pending"][key], "generation": baseline["generation"] + 1}),
+            ("pending", {**baseline["pending"][key], "target": True}),
+            ("pending", {**baseline["pending"][key], "phase": "future_protocol"}),
+            ("pending", {**baseline["pending"][key], "id": ""}),
+            ("owned", {"binding": self.zone.actuator_entity, "mode": "dry", "id": "partial"}),
+            ("owned", {**baseline["owned"][key], "at": float("nan")}),
+            ("owned", {**baseline["owned"][key], "mode": "unknown"}),
+            ("manual", False),
+        ]
+        calls_before = len(self.calls)
+        for section, row in corruptions:
+            with self.subTest(section=section, row=row):
+                self.store.data = copy.deepcopy(baseline)
+                self.store.data[section][key] = row
+                # NaN does not compare equal, so compare an unchanged serialization.
+                import json
+                original = json.dumps(self.store.data, sort_keys=True)
+                saves = len(self.store.saves)
+                other = Executor(self.house, self.store, self.fresh, self.emit, time.time, True)
+                with self.assertRaises(ValueError):
+                    await other.restore()
+                self.assertFalse(other.restored)
+                self.assertEqual(await other.execute(self.zone, self.fresh()[1][key]), "revoked")
+                await other.close()
+                self.assertEqual(json.dumps(self.store.data, sort_keys=True), original)
+                self.assertEqual(len(self.store.saves), saves)
+                self.assertEqual(len(self.calls), calls_before)
+        self.store.data = baseline
+
+    async def test_real_journal_all_phases_restore_without_replay_or_listener_error(self):
+        await self.run_zone()
+        baseline = copy.deepcopy(self.store.data)
+        key = self.zone.id
+        calls_before = len(self.calls)
+        for phase in ("prepared", "sending", "acked", "cancelled", "uncertain"):
+            with self.subTest(phase=phase):
+                self.store.data = copy.deepcopy(baseline)
+                self.store.data["pending"][key]["phase"] = phase
+                other = Executor(self.house, self.store, self.fresh, self.emit, time.time, True)
+                await other.restore()
+                row = other.state["pending"][key]
+                echo = row["expected"][-1]
+                other.observe(key, echo["mode"], echo["target"], "off", 16)
+                self.assertEqual(row["phase"], phase if phase in ("acked", "cancelled") else "uncertain")
+                self.assertEqual(other.is_automatic(key), phase in ("acked", "cancelled"))
+                await other.close()
+                self.assertEqual(len(self.calls), calls_before)
+        self.store.data = baseline
+
+    async def test_root_and_supply_nested_corruption_preserve_store(self):
+        baseline = copy.deepcopy(self.store.data)
+        for patch in ({"generation": -1}, {"supply": []}, {"supply": {"high": "bad"}},
+                      {"supply": {"last": True}}, {"manual": {"0": None}}):
+            with self.subTest(patch=patch):
+                self.store.data = {**copy.deepcopy(baseline), **patch}
+                original = copy.deepcopy(self.store.data)
+                other = Executor(self.house, self.store, self.fresh, self.emit, time.time, True)
+                with self.assertRaises(ValueError):
+                    await other.restore()
+                await other.close()
+                self.assertEqual(self.store.data, original)
+        self.store.data = baseline
 
     async def test_corrupt_journal_stops_control(self):
         self.store.data = {"generation": 1}

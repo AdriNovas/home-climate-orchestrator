@@ -1,5 +1,24 @@
 # Cambios
 
+## 0.2.0a9 · configuración nativa y recuperación segura
+
+- Los 49 ajustes de política se organizan en seis formularios: calor/frío,
+  secado, humedad, potencia, frescura/cadencia y precios. Se conserva un
+  formulario completo avanzado. Cada grupo guarda solo su delta.
+- Errores relacionales junto a los campos: histéresis, sobrepaso, duración,
+  carga compartida y margen de precio. Un error no guarda cambios parciales.
+- Editor por fuente para recepción, origen o contrato del proveedor, con
+  ruta de fecha tipada, borrado real y retorno individual al predeterminado.
+  Se conserva el objeto avanzado con el mismo consumidor runtime.
+- Incluye correcciones locales posteriores a a8: validación anidada del
+  journal antes de cargar/guardar y límites comunes de modelo/formulario.
+- Revisión ordinaria coalescida a 300 s con guardas de 60 s, eventos urgentes
+  y plazos independientes; sin retrasar cortes o Manual hasta esa cadencia.
+- Secado sin máximo explícito con cero, concurrencia/presupuesto opt-in y
+  reservas térmicas/rocío persistentes. No se activan al actualizar perfiles.
+- Actualizar o editar opciones no concede autoridad, borra Manual ni certifica
+  paridad/relevo de un controlador existente. Sin cambios YAML de instalación.
+
 ## 0.2.0a8 · suelo térmico común opt-in
 
 - Admisión y continuidad pueden compartir max(suelo configurado, objetivo de calor vigente + `dry_heat_offset`), sin margen adicional de arranque. Valor no configurado conserva comportamiento previo.
