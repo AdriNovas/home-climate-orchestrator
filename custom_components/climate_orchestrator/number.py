@@ -30,9 +30,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
         [
             AmbientTarget(coordinator, zone, table, band.name, index)
             for zone in coordinator.house.zones
+            for index, band in enumerate(coordinator.house.policy.bands)
             for table in TABLES
             if (not zone.independent_drying or table.startswith("humidity"))
-            for index, band in enumerate(coordinator.house.policy.bands)
         ]
     )
 
@@ -74,7 +74,7 @@ class AmbientTarget(ClimateDiagnostic, NumberEntity):
             else f"{low:g}–{high:g}"
         )
         self._attr_translation_placeholders = {
-            "price_range": price_range + f" {coordinator.currency}/kWh"
+            "price_range": f"{index + 1:02d} · {price_range} {coordinator.currency}/kWh"
         }
         self._attr_icon = (
             "mdi:water-percent"

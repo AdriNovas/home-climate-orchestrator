@@ -963,22 +963,22 @@
     },
     "number": {
       "heat_day_target": {
-        "name": "Heat · day · {price_range}"
+        "name": "{price_range} · Heat · day"
       },
       "cool_day_target": {
-        "name": "Cool · day · {price_range}"
+        "name": "{price_range} · Cool · day"
       },
       "heat_sleep_target": {
-        "name": "Heat · sleep · {price_range}"
+        "name": "{price_range} · Heat · sleep"
       },
       "cool_sleep_target": {
-        "name": "Cool · sleep · {price_range}"
+        "name": "{price_range} · Cool · sleep"
       },
       "humidity_start_target": {
-        "name": "Humidity · start · {price_range}"
+        "name": "{price_range} · Humidity · start"
       },
       "humidity_stop_target": {
-        "name": "Humidity · stop · {price_range}"
+        "name": "{price_range} · Humidity · stop"
       }
     },
     "select": {

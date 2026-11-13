@@ -10,9 +10,9 @@
   ],
   "config_flow": true,
   "documentation": "https://github.com/AdriNovas/home-climate-orchestrator",
-  "integration_type": "helper",
+  "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/AdriNovas/home-climate-orchestrator/issues",
   "requirements": [],
-  "version": "0.2.0a10"
+  "version": "0.2.0a11"
 }
