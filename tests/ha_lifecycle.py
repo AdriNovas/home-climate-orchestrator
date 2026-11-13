@@ -112,7 +112,7 @@ async def main():
             ]
             assert len(entities) == 51
             assert sum(e.entity_category.value == "diagnostic" for e in entities) == 13
-            assert sum(e.entity_category.value == "config" for e in entities) == 37
+            assert sum(e.entity_category.value == "config" for e in entities) == 38
             assert all(hass.states.get(e.entity_id) for e in entities)
             identities = {e.entity_id: e.unique_id for e in entities}
             assert entry.runtime_data.data["physical_control"] is False
