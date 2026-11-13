@@ -57,7 +57,9 @@ class ZoneNightPermission(ClimateDiagnostic, SwitchEntity):
 
     @property
     def is_on(self):
-        return next(z for z in self.coordinator.house.zones if z.id == self.zone.id).night_allowed
+        entry = self.coordinator.entry
+        profile = {**entry.data, **entry.options}
+        return next(z for z in profile["house"]["zones"] if z["id"] == self.zone.id).get("night_allowed", True)
 
     async def _set(self, enabled):
         entry = self.coordinator.entry
@@ -67,6 +69,7 @@ class ZoneNightPermission(ClimateDiagnostic, SwitchEntity):
         house_from_dict(profile["house"])
         validate_sources(self.hass, profile)
         self.hass.config_entries.async_update_entry(entry, options=profile)
+        self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs):
         await self._set(True)

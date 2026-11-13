@@ -373,6 +373,8 @@ class Zone:
         return self.humidifier_entity is not None
 
     def __post_init__(self) -> None:
+        if not isinstance(self.night_allowed, bool):
+            raise ValueError("Overnight permission must be boolean")
         if not all([self.id, self.name, self.plant, self.temperature_entity]):
             raise ValueError("Zone identity, plant and temperature source required")
         if not isinstance(self.preferences, Preferences) or any(
