@@ -439,12 +439,18 @@ async def main():
                     "target_temp_step": 0.5,
                 },
             )
+            hass.states.async_set(
+                "sensor.fictional_humidity_2",
+                "70",
+                {"unit_of_measurement": "%", "device_class": "humidity"},
+            )
             option_id, result = await begin("splits", "add_split")
             result = await options.async_configure(
                 option_id,
                 {
                     "climate_entity": "climate.fictional_office",
                     "temperature_entity": "sensor.fictional_external",
+                    "humidity_entity": "sensor.fictional_humidity_2",
                     "plant": plant_id,
                 },
             )
@@ -471,6 +477,31 @@ async def main():
             await hass.async_block_till_done()
             dryer = entry.runtime_data.house.zones[-1]
             assert dryer.dehumidifier_max_s == 5400
+            assert dryer.humidity_basis == "room"
+            assert dryer.drying_availability == "occupied"
+            hass.states.async_set(
+                "sensor.fictional_humidity", "82",
+                {"unit_of_measurement": "%", "device_class": "humidity"},
+            )
+            assert entry.runtime_data.snapshot().home_humidity.value == 82
+            hass.states.async_set(
+                "sensor.fictional_humidity", "64",
+                {"unit_of_measurement": "%", "device_class": "humidity"},
+            )
+            assert entry.runtime_data.snapshot().home_humidity.value == 70
+            hass.states.async_set(
+                "sensor.fictional_humidity_2", "unavailable",
+                {"unit_of_measurement": "%", "device_class": "humidity"},
+            )
+            assert entry.runtime_data.snapshot().home_humidity.value is None
+            hass.states.async_set(
+                "sensor.fictional_humidity_2", "70",
+                {"unit_of_measurement": "%", "device_class": "humidity"},
+            )
+            hass.states.async_set(
+                "sensor.fictional_humidity", "65",
+                {"unit_of_measurement": "%", "device_class": "humidity"},
+            )
             dryer_id = dryer.id
             dryer_identities = {
                 e.entity_id: e.unique_id for e in registry.entities.values()
@@ -489,6 +520,9 @@ async def main():
                 else:
                     raise AssertionError("Negative duration accepted")
                 values = result["data_schema"]({"dehumidifier_max_s": maximum})
+                if maximum == 0 and result["step_id"] == "zone_advanced":
+                    values["humidity_basis"] = "home_max"
+                    values["drying_availability"] = "always"
                 result = await options.async_configure(option_id, values)
                 assert result["type"] == "create_entry", result
                 await hass.async_block_till_done()
@@ -498,6 +532,17 @@ async def main():
             assert await hass.config_entries.async_reload(entry.entry_id)
             await hass.async_block_till_done()
             assert entry.runtime_data.house.zones[-1].dehumidifier_max_s == 0
+            assert entry.runtime_data.house.zones[-1].humidity_basis == "home_max"
+            assert entry.runtime_data.house.zones[-1].drying_availability == "always"
+            config_entity = next(
+                entity.entity_id for entity in registry.entities.values()
+                if entity.config_entry_id == entry.entry_id
+                and entity.unique_id == f"{entry.entry_id}_house_configuration"
+            )
+            published = hass.states.get(config_entity)
+            native_zone = published.attributes["zones"][dryer_id]
+            assert native_zone["humidity_basis"] == "home_max"
+            assert native_zone["drying_availability"] == "always"
             assert entry.runtime_data.house.zones[-1].id == dryer_id
             assert {
                 e.entity_id: e.unique_id for e in registry.entities.values()

@@ -1,6 +1,6 @@
 [project]
 name = "home-climate-orchestrator"
-version = "0.2.0a8"
+version = "0.2.0a13"
 description = "Tariff-aware climate planner with opt-in journaled control and scoped energy bindings"
 requires-python = ">=3.13"
 license = "MIT"

@@ -80,7 +80,9 @@
           "dry_floor_entity": "External drying temperature floor (optional)",
           "dry_pause_action": "Pause during an owned drying session",
           "dry_max_temperature_drop": "Maximum drying temperature drop from reservation (°C; optional)",
-          "dry_dewpoint_completion": "Require humidity and frozen dew-point goal to finish drying"
+          "dry_dewpoint_completion": "Require humidity and frozen dew-point goal to finish drying",
+          "humidity_basis": "Humidity reference",
+          "drying_availability": "Drying availability"
         }
       },
       "finish": {
@@ -115,7 +117,9 @@
           "area": "Real area",
           "labels": "Existing functional labels",
           "humidifier_entity": "Existing dehumidifier",
-          "enabled": "Enable planning"
+          "enabled": "Enable planning",
+          "humidity_basis": "Humidity reference for this dehumidifier",
+          "drying_availability": "Drying availability"
         }
       }
     },
@@ -191,7 +195,9 @@
           "mode_permission_loss_action": "When permission for a running thermal mode is removed",
           "thermal_presence_entity": "Local thermal occupancy permission (optional)",
           "dry_floor_entity": "External drying temperature floor (optional)",
-          "dry_pause_action": "Pause during an owned drying session"
+          "dry_pause_action": "Pause during an owned drying session",
+          "humidity_basis": "Humidity reference",
+          "drying_availability": "Drying availability"
         }
       },
       "policy": {
@@ -1070,6 +1076,18 @@
         "received": "Receipt in Home Assistant",
         "origin": "Explicit origin timestamp",
         "provider": "Provider contract (does not verify origin)"
+      }
+    },
+    "humidity_bases": {
+      "options": {
+        "room": "This room only",
+        "home_max": "Highest configured indoor humidity in the home"
+      }
+    },
+    "drying_availabilities": {
+      "options": {
+        "occupied": "Only with occupancy and the sleep schedule",
+        "always": "Whenever demand exists (ignores presence and sleep schedule)"
       }
     }
   },

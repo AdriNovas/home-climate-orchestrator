@@ -80,7 +80,9 @@
           "dry_floor_entity": "Suelo de secado externo (opcional)",
           "dry_pause_action": "Pausa durante un secado propio",
           "dry_max_temperature_drop": "Caída máxima de temperatura desde la reserva de secado (°C; opcional)",
-          "dry_dewpoint_completion": "Exigir humedad y rocío objetivo congelado para terminar secado"
+          "dry_dewpoint_completion": "Exigir humedad y rocío objetivo congelado para terminar secado",
+          "humidity_basis": "Referencia de humedad",
+          "drying_availability": "Disponibilidad de secado"
         }
       },
       "finish": {
@@ -115,7 +117,9 @@
           "area": "Área real",
           "labels": "Etiquetas funcionales existentes",
           "humidifier_entity": "Deshumidificador existente",
-          "enabled": "Habilitar planificación"
+          "enabled": "Habilitar planificación",
+          "humidity_basis": "Referencia de humedad para este deshumidificador",
+          "drying_availability": "Disponibilidad de secado"
         }
       }
     },
@@ -191,7 +195,9 @@
           "mode_permission_loss_action": "Al retirar permiso al modo térmico en marcha",
           "thermal_presence_entity": "Permiso de ocupación térmica local (opcional)",
           "dry_floor_entity": "Suelo de secado externo (opcional)",
-          "dry_pause_action": "Pausa durante un secado propio"
+          "dry_pause_action": "Pausa durante un secado propio",
+          "humidity_basis": "Referencia de humedad",
+          "drying_availability": "Disponibilidad de secado"
         }
       },
       "policy": {
@@ -1070,6 +1076,18 @@
         "received": "Recepción en Home Assistant",
         "origin": "Fecha explícita de origen",
         "provider": "Contrato del proveedor (no verifica origen)"
+      }
+    },
+    "humidity_bases": {
+      "options": {
+        "room": "Solo esta estancia",
+        "home_max": "Mayor humedad medida en toda la vivienda"
+      }
+    },
+    "drying_availabilities": {
+      "options": {
+        "occupied": "Solo con presencia y según horario de sueño",
+        "always": "Siempre que haya demanda (ignora presencia y horario de sueño)"
       }
     }
   },

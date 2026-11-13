@@ -209,6 +209,17 @@ def zone_schema(plants, defaults=None):
             else {}
         ),
     }
+    if d.get("humidifier_entity"):
+        schema[vol.Required("humidity_basis", default=d.get("humidity_basis", "room"))] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["room", "home_max"], translation_key="humidity_bases"
+            )
+        )
+        schema[vol.Required("drying_availability", default=d.get("drying_availability", "occupied"))] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=["occupied", "always"], translation_key="drying_availabilities"
+            )
+        )
     return vol.Schema(schema)
 
 
@@ -386,6 +397,20 @@ def dehumidifier_schema(defaults=None):
             vol.Required(
                 "humidity_entity", default=d.get("humidity_entity", vol.UNDEFINED)
             ): entity("sensor"),
+            vol.Required(
+                "humidity_basis", default=d.get("humidity_basis", "room")
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=["room", "home_max"], translation_key="humidity_bases"
+                )
+            ),
+            vol.Required(
+                "drying_availability", default=d.get("drying_availability", "occupied")
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=["occupied", "always"], translation_key="drying_availabilities"
+                )
+            ),
             optional("area", d.get("area", vol.UNDEFINED)): selector.AreaSelector(),
             optional("labels", list(d.get("labels", []))): selector.LabelSelector(
                 selector.LabelSelectorConfig(multiple=True)

@@ -53,6 +53,61 @@ def dryer_fixture(**zone_options):
 
 
 class HumidityTests(unittest.TestCase):
+    def test_home_max_demand_runs_always_without_presence_or_sleep_permission(self):
+        h, s, p, m, pm = dryer_fixture(
+            humidity_basis="home_max",
+            drying_availability="always",
+            night_allowed=False,
+        )
+        h = replace(h, day_start="23:59", night_start="00:00")
+        t = NOW.timestamp()
+        s = replace(
+            s,
+            occupied=False,
+            home_humidity=Reading(84, t),
+            zones={
+                **s.zones,
+                "dryer": replace(s.zones["dryer"], humidity=Reading(48, t)),
+            },
+        )
+        decision = evaluate(h, s, p, m, pm)["dryer"]
+        self.assertEqual((decision.mode, decision.physical_target), ("dry", 60))
+
+    def test_home_max_requires_fresh_complete_aggregate(self):
+        h, s, p, m, pm = dryer_fixture(humidity_basis="home_max")
+        t = NOW.timestamp()
+        s = replace(
+            s,
+            home_humidity=Reading(None),
+            zones={
+                **s.zones,
+                "dryer": replace(s.zones["dryer"], humidity=Reading(90, t)),
+            },
+        )
+        decision = evaluate(h, s, p, m, pm)["dryer"]
+        self.assertIsNone(decision.mode)
+        self.assertEqual(decision.reason, "humidity_or_temperature_stale")
+
+    def test_occupied_dehumidifier_keeps_legacy_presence_and_schedule_guards(self):
+        h, s, p, m, pm = dryer_fixture(
+            humidity_basis="home_max",
+            drying_availability="occupied",
+            night_allowed=False,
+        )
+        h = replace(h, day_start="23:59", night_start="00:00")
+        t = NOW.timestamp()
+        s = replace(s, occupied=False, home_humidity=Reading(84, t))
+        decision = evaluate(h, s, p, m, pm)["dryer"]
+        self.assertIsNone(decision.mode)
+        self.assertEqual(decision.reason, "dry_permission_or_occupancy")
+
+    def test_home_humidity_options_rejected_for_split(self):
+        h, *_ = fixture()
+        with self.assertRaises(ValueError):
+            replace(h.zones[0], humidity_basis="home_max")
+        with self.assertRaises(ValueError):
+            replace(h.zones[0], drying_availability="always")
+
     def test_targets_are_independent_per_room_and_price(self):
         h, s, p, m, pm = fixture(2)
         h = replace(

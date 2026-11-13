@@ -161,8 +161,11 @@ def independent_drying(zone, obs, memory, decision, snap, house, high, rh_ok, pr
     if (
         not zone.allow_dry
         or not obs.dry_allowed
-        or snap.occupied is not True
-        or (sleeping(house, snap) and not zone.night_allowed)
+        or zone.drying_availability != "always"
+        and (
+            snap.occupied is not True
+            or (sleeping(house, snap) and not zone.night_allowed)
+        )
     ):
         return replace(decision, stage="waiting", reason="dry_permission_or_occupancy")
     if (
@@ -232,6 +235,8 @@ def evaluate(
     wanted = {}
     for z in house.zones:
         o = snap.zones[z.id]
+        if z.humidity_basis == "home_max":
+            o = replace(o, humidity=snap.home_humidity)
         m = memories.setdefault(z.id, Memory())
         if m.day != day:
             m.day = day
@@ -894,16 +899,17 @@ def evaluate(
             eligible = [
                 z for z in members
                 if z.id in result and result[z.id].mode == "dry"
-                and snap.zones[z.id].humidity.fresh(now, p.humidity_fresh_s)
+                and (snap.home_humidity if z.humidity_basis == "home_max" else snap.zones[z.id].humidity).fresh(now, p.humidity_fresh_s)
             ]
             reference = max(
-                (snap.zones[z.id].humidity.value for z in eligible), default=None
+                ((snap.home_humidity if z.humidity_basis == "home_max" else snap.zones[z.id].humidity).value for z in eligible), default=None
             )
             for z in eligible:
                 d = result[z.id]
+                humidity = snap.home_humidity if z.humidity_basis == "home_max" else snap.zones[z.id].humidity
                 if (
                     d.stage != "drying" and reference is not None
-                    and snap.zones[z.id].humidity.value < reference - p.dry_humidity_band
+                    and humidity.value < reference - p.dry_humidity_band
                 ):
                     result[z.id] = replace(
                         d, stage="waiting", reason="dry_humidity_band",

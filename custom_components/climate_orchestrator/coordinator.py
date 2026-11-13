@@ -879,6 +879,22 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             )
             memory.activity_last_positive = activity.last_positive
             readings[z.id] = replace(readings[z.id], activity=activity.state)
+        home_humidity_sources = [
+            readings[z.id].humidity for z in self.house.zones if z.humidity_entity
+        ]
+        home_humidity = Reading(None)
+        humidity_now = now.timestamp()
+        if home_humidity_sources and all(
+            reading.fresh(humidity_now, self.house.policy.humidity_fresh_s)
+            and 0 < reading.value <= 100
+            for reading in home_humidity_sources
+        ):
+            # The oldest timestamp makes this derived maximum no fresher than
+            # any of the configured room probes it represents.
+            home_humidity = Reading(
+                max(reading.value for reading in home_humidity_sources),
+                min(reading.at for reading in home_humidity_sources),
+            )
         # Persist observed plant direction, not a planned or sent direction.
         for p in self.house.plants:
             members = [readings[z.id] for z in self.house.zones if z.plant == p.id]
@@ -948,6 +964,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 )
                 == 1
             },
+            home_humidity,
         )
         if self.profile.get("external_cut_entity") and (
             external_cut is None or external_cut["active"]

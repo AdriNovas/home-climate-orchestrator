@@ -363,6 +363,9 @@ class Zone:
     dry_dewpoint_completion: bool = False
     preferences: Preferences = field(default_factory=Preferences)
     activity_bindings: tuple[ActivityBinding, ...] = ()
+    # Appended to preserve the positional constructor contract for existing profiles.
+    humidity_basis: str = "room"
+    drying_availability: str = "occupied"
 
     @property
     def actuator_entity(self):
@@ -375,6 +378,10 @@ class Zone:
     def __post_init__(self) -> None:
         if not isinstance(self.night_allowed, bool):
             raise ValueError("Overnight permission must be boolean")
+        if self.humidity_basis not in ("room", "home_max"):
+            raise ValueError("Unknown humidity reference")
+        if self.drying_availability not in ("occupied", "always"):
+            raise ValueError("Unknown dehumidifier availability schedule")
         if not all([self.id, self.name, self.plant, self.temperature_entity]):
             raise ValueError("Zone identity, plant and temperature source required")
         if not isinstance(self.preferences, Preferences) or any(
@@ -433,6 +440,10 @@ class Zone:
             )
         if self.humidifier_entity and not self.humidity_entity:
             raise ValueError("Independent drying requires an external humidity sensor")
+        if self.humidity_basis == "home_max" and not self.humidifier_entity:
+            raise ValueError("Home-wide humidity is only supported for an independent dehumidifier")
+        if self.drying_availability != "occupied" and not self.humidifier_entity:
+            raise ValueError("Independent dehumidifier availability is only supported for its own actuator")
         for name in [
             "dehumidifier_min_s",
             "dehumidifier_cooldown_s",
@@ -647,6 +658,7 @@ class Snapshot:
     external_fence: tuple | None = None
     plant_power: dict[str, Reading] = field(default_factory=dict)
     zone_power: dict[str, Reading] = field(default_factory=dict)
+    home_humidity: Reading = field(default_factory=lambda: Reading(None))
 
     def __post_init__(self) -> None:
         aware(self.now)

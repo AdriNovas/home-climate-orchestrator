@@ -47,6 +47,24 @@ El adaptador usa `humidifier.set_humidity`, confirma el objetivo y después
 encendido se confirman con registro persistente. Fallo/ambigüedad o cambio
 humano retira autoridad local. `turn_off` conserva un carril de protección.
 
+### Referencia local o demanda de toda la casa
+
+Un deshumidificador independiente puede usar su humedad local (`room`) o la
+mayor lectura válida de las estancias configuradas (`home_max`). El agregado
+solo se publica cuando **todas** las sondas configuradas están dentro del
+límite de frescura y entre 0–100 %; la edad efectiva es la de la lectura más
+antigua. Así se evita que una habitación con sensor caído desaparezca del
+máximo o que un dato retenido provoque servicio indefinido. Una referencia no
+disponible bloquea nuevas decisiones de humedad hasta recuperar fuentes frescas.
+
+La disponibilidad `always` elimina únicamente las condiciones de presencia y
+franja nocturna. No equivale a funcionamiento continuo: el motor sigue
+respetando umbral de inicio/parada, permiso, pausa/Manual, rango térmico,
+protección de depósito, reposo, disponibilidad del humidistato y límites de
+carga. Un automatismo que consuma esta configuración debe replicar esas
+protecciones de forma explícita; la integración no toma el control del actuador
+por el mero hecho de publicar los valores.
+
 ## Calor ↔ dry: dos esperas distintas
 
 El `dry` de un split enfría su batería. Al detenerse puede quedar condensado;

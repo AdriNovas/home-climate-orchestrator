@@ -394,6 +394,8 @@ class ConfigurationSensor(ClimateDiagnostic, SensorEntity):
                     "actuator_entity": zone.actuator_entity,
                     "temperature_entity": zone.temperature_entity,
                     "humidity_entity": zone.humidity_entity,
+                    "humidity_basis": zone.humidity_basis,
+                    "drying_availability": zone.drying_availability,
                     "enabled": zone.enabled,
                     "night_allowed": zone.night_allowed,
                 }

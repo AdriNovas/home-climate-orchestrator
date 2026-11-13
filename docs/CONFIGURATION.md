@@ -60,7 +60,29 @@ predeterminado. Las relaciones inválidas señalan los campos implicados y no
 guardan nada. Cambiar ajustes no renueva sesiones/deuda ni concede autoridad;
 los cambios estructurales siguen usando la recarga habitual de la integración.
 
-### Calidad y origen de las fuentes
+#### Estrategia nativa del deshumidificador independiente (0.2.0a13)
+
+En **Equipos y sondas → habitación → Avanzado**, los deshumidificadores
+independientes tienen dos opciones configurables, persistentes y visibles en
+el sensor de configuración efectiva:
+
+- **Referencia de humedad**: `room` usa la sonda local (predeterminado);
+  `home_max` demanda según la mayor humedad de todas las estancias configuradas
+  con sonda. El agregado solo está disponible cuando todas esas sondas están
+  frescas y válidas; ante dato incompleto no inventa demanda ni usa un valor
+  antiguo.
+- **Disponibilidad**: `occupied` conserva la regla previa de presencia y
+  horario nocturno; `always` permite valorar demanda a cualquier hora y sin
+  presencia. No anula permiso de la zona, pausa global, Manual, frescura,
+  límites térmicos, máximo/reposo, protección de depósito ni protecciones
+  eléctricas.
+
+Estas opciones solo se ofrecen al deshumidificador independiente: no amplían
+la autoridad de secado de un split. Un consumidor externo debe leer la
+configuración publicada por ID estable de zona y volver a validar sus propios
+interbloqueos; cambiar este perfil no conmuta directamente el aparato.
+
+## Calidad y origen de las fuentes
 
 **Fuentes y funcionamiento → Calidad y origen de las fuentes → Configurar una
 fuente** permite seleccionar una fuente vinculada por nombre e identificador:
