@@ -148,6 +148,8 @@ async def main():
                 assert entry.runtime_data.house.zones[0].night_allowed is expected
                 assert entry.options["house"]["zones"][0]["night_allowed"] is expected
                 assert hass.states.get(night).state == ("on" if expected else "off")
+                published = next(s for s in hass.states.async_all("sensor") if s.attributes.get("zones"))
+                assert published.attributes["zones"]["room"]["night_allowed"] is expected
                 assert hass.states.get("climate.demo").state == "off"
             checks.append("native overnight permission hot-applies in shadow without unloading or physical calls")
 

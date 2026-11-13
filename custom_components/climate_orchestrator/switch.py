@@ -69,6 +69,10 @@ class ZoneNightPermission(ClimateDiagnostic, SwitchEntity):
         house_from_dict(profile["house"])
         validate_sources(self.hass, profile)
         self.hass.config_entries.async_update_entry(entry, options=profile)
+        # Publish the configuration contract synchronously; a debounced plan
+        # refresh must not retain an old external scheduling permission.
+        self.coordinator.async_apply_target_options()
+        self.coordinator.async_update_listeners()
         self.async_write_ha_state()
 
     async def async_turn_on(self, **kwargs):
