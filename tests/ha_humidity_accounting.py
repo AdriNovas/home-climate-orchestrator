@@ -289,6 +289,7 @@ async def main():
                 "temperature_entity": "sensor.bath_temperature",
                 "humidity_entity": "sensor.bath_humidity",
                 "enabled": False,
+                "night_allowed": True,
             }
             checks.append(
                 "read-only validated policy surface supports explicit external consumers without granting authority or exposing credentials"
