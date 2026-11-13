@@ -395,6 +395,7 @@ class ConfigurationSensor(ClimateDiagnostic, SensorEntity):
                     "temperature_entity": zone.temperature_entity,
                     "humidity_entity": zone.humidity_entity,
                     "enabled": zone.enabled,
+                    "night_allowed": zone.night_allowed,
                 }
                 for zone in c.house.zones
             },

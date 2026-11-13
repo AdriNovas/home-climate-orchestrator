@@ -959,6 +959,9 @@
     "switch": {
       "automatic_control": {
         "name": "Automatic authority"
+      },
+      "night_permission": {
+        "name": "Allow overnight climate"
       }
     },
     "number": {

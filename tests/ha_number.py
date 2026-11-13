@@ -139,6 +139,17 @@ async def main():
             )
             identities = {e.entity_id: e.unique_id for e in numbers}
             original_runtime = entry.runtime_data
+            night = next(e.entity_id for e in registry.entities.values()
+                         if e.config_entry_id == entry.entry_id and e.unique_id.endswith("_night_permission"))
+            for service, expected in [("turn_off", False), ("turn_on", True)]:
+                await hass.services.async_call("switch", service, {"entity_id": night}, blocking=True)
+                await hass.async_block_till_done()
+                assert entry.runtime_data is original_runtime
+                assert entry.runtime_data.house.zones[0].night_allowed is expected
+                assert entry.options["house"]["zones"][0]["night_allowed"] is expected
+                assert hass.states.get(night).state == ("on" if expected else "off")
+                assert hass.states.get("climate.demo").state == "off"
+            checks.append("native overnight permission hot-applies in shadow without unloading or physical calls")
 
             def target(table, band="normal"):
                 return next(

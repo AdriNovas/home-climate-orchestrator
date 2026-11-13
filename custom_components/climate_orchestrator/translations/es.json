@@ -959,6 +959,9 @@
     "switch": {
       "automatic_control": {
         "name": "Autoridad automática"
+      },
+      "night_permission": {
+        "name": "Permitir climatización nocturna"
       }
     },
     "number": {

@@ -148,6 +148,7 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             item["house"].pop("strategy", None)
             for zone in item["house"]["zones"]:
                 zone.pop("preferences", None)
+                zone.pop("night_allowed", None)
                 for table in [
                     "heat_targets",
                     "cool_targets",
