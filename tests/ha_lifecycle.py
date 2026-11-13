@@ -110,7 +110,7 @@ async def main():
                 for e in registry.entities.values()
                 if e.config_entry_id == entry.entry_id
             ]
-            assert len(entities) == 50
+            assert len(entities) == 51
             assert sum(e.entity_category.value == "diagnostic" for e in entities) == 13
             assert sum(e.entity_category.value == "config" for e in entities) == 37
             assert all(hass.states.get(e.entity_id) for e in entities)
