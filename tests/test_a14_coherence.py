@@ -174,6 +174,17 @@ class DemandPostureTests(unittest.TestCase):
         d = evaluate(house, s, prices, mem, pl)["0"]
         self.assertEqual(thermal_demand(house, d, s.zones["0"], T0)["state"], "maintain")
 
+    def test_room_below_goal_but_appliance_relaxed_is_maintain(self):
+        house, snap, prices, mem, pl = fixture()
+        o = snap.zones["0"]
+        def posture(setpoint, internal):
+            s = replace(snap, zones={"0": replace(o, mode="heat", mode_since=T0 - 4000, setpoint=setpoint,
+                                                   temperature=Reading(19.0, T0), internal=Reading(internal, T0))})
+            d = evaluate(house, s, prices, mem, pl)["0"]
+            return thermal_demand(house, d, s.zones["0"], T0)["state"]
+        self.assertEqual(posture(21.5, 22.9), "maintain")
+        self.assertEqual(posture(21.5, 19.5), "demand")
+
     def test_planned_start_is_demand(self):
         p, d = self.posture("off", 16)
         self.assertEqual(d.mode, "heat")

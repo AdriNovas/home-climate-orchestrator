@@ -26,8 +26,9 @@ def thermal_demand(
 ) -> dict:
     """Return the posture and the temperature deficit that justifies it.
 
-    ``maintain`` means the unit runs while the room is already at (or beyond)
-    its goal, so the setpoint only keeps the appliance from cycling. ``demand``
+    ``maintain`` means the unit runs without acting: the room is at (or beyond)
+    its goal, or the appliance setpoint is already less demanding than the
+    temperature the unit measures, so it only stays on to avoid cycling. ``demand``
     means the room still needs heating or cooling. The classification follows
     the room and the unit, not whether the planner could issue a command now:
     a waiting or blocked plan does not change what a running unit is doing.
@@ -57,8 +58,20 @@ def thermal_demand(
         # Planned start: the room needs the unit.
         return {**base, "state": "demand", "level": LEVELS["demand"]}
     threshold = 0.3 if policy.continuous_hold else policy.hold_delta
-    state = "demand" if deficit > threshold else "maintain"
-    return {**base, "state": state, "level": LEVELS[state]}
+    # The appliance has the last word on whether it is working: when its own
+    # setpoint is already less demanding than the temperature it measures, it
+    # is kept on without acting, even if the room sits slightly off its goal.
+    relaxed = (
+        obs.setpoint is not None
+        and obs.internal.fresh(now, policy.internal_fresh_s)
+        and (
+            obs.setpoint <= obs.internal.value - obs.step / 2
+            if mode == "heat"
+            else obs.setpoint >= obs.internal.value + obs.step / 2
+        )
+    )
+    state = "demand" if deficit > threshold and not relaxed else "maintain"
+    return {**base, "state": state, "level": LEVELS[state], "appliance_relaxed": relaxed}
 
 
 def house_posture(postures) -> dict:

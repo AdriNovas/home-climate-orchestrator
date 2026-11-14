@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.0a18 · mantenimiento según la consigna del equipo
+
+- `thermal_demand` clasifica como *mantenimiento* un equipo en marcha cuya
+  consigna ya es menos exigente que la temperatura que mide (calor: consigna ≤
+  interna − medio paso), aunque la sala esté algo por debajo del objetivo; antes
+  se mostraba como demanda. Sin cambios de política ni de órdenes.
+
 ## 0.2.0a17 · recuperación de fuentes sin ceguera
 
 - Una fuente que vuelve de `unavailable`/`unknown` pide revisión inmediata,
