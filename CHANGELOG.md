@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.2.0a17 · recuperación de fuentes sin ceguera
+
+- Una fuente que vuelve de `unavailable`/`unknown` pide revisión inmediata,
+  igual que cuando se pierde. Antes, tras un reinicio el plan podía quedar hasta
+  cinco minutos calculado con las sondas ausentes (`temperature_stale`).
+
 ## 0.2.0a16 · estado térmico de la casa para gráficas
 
 - `house_thermal_demand` (apagado / calor·mantenimiento / calor·demanda /

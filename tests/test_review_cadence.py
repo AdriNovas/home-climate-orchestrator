@@ -30,6 +30,8 @@ class ReviewCadenceTests(unittest.TestCase):
         self.assertTrue(
             immediate_review_required("21", "unavailable")
         )
+        self.assertTrue(immediate_review_required("unavailable", "21"))
+        self.assertTrue(immediate_review_required("unknown", "21.1"))
         self.assertFalse(
             immediate_review_required("21.0", "21.1")
         )

@@ -32,10 +32,14 @@ def immediate_review_required(
     actuator_changed: bool = False,
     user_action: bool = False,
 ) -> bool:
-    """Keep authority/actuator changes and source loss out of the slow queue."""
+    """Keep authority/actuator changes and source loss/recovery out of the slow queue."""
     if old_state is None or new_state is None:
         return True
     if new_state in {"unknown", "unavailable"}:
+        return True
+    # A source coming back is as relevant as one going away: otherwise a plan
+    # computed while it was missing stays blind until the periodic review.
+    if old_state in {"unknown", "unavailable"} and old_state != new_state:
         return True
     if urgent_entity and old_state != new_state:
         return True
