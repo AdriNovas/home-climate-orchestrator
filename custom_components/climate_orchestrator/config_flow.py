@@ -243,6 +243,15 @@ def plant_schema(defaults=None):
     )
 
 
+PLANT_DEFAULT_SECONDS = {
+    "minimum_off": 1200,
+    "minimum_on": 1200,
+    "direction_hold": 3600,
+    "reversal_gap": 7200,
+    "coil_drain": 300,
+}
+
+
 def plant_data(data, identity=None):
     return {
         "id": identity or uuid4().hex,
@@ -1632,15 +1641,17 @@ class ClimateOptions(config_entries.OptionsFlow):
         errors = {}
         p = plants[index]
         if user_input:
-            plants[index] = plant_data(user_input, p["id"])
+            candidate = plant_data(user_input, p["id"])
+            plants[index] = candidate
             try:
                 return self.save()
             except ValueError:
+                plants[index] = p
                 errors["base"] = "invalid_configuration"
         defaults = {
             **p,
             **{
-                n + "_min": p.get(n + "_s", 300 if n == "coil_drain" else 0) / 60
+                n + "_min": p.get(n + "_s", PLANT_DEFAULT_SECONDS[n]) / 60
                 for n in [
                     "minimum_off",
                     "minimum_on",

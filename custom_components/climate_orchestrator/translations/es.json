@@ -946,6 +946,20 @@
       },
       "strategy_preview": {
         "name": "Comparación de estrategias"
+      },
+      "thermal_demand": {
+        "name": "Demanda térmica",
+        "state": {
+          "off": "Apagado",
+          "maintain": "Mantenimiento (sin demanda)",
+          "demand": "Demandando",
+          "stopping": "Parando",
+          "unmanaged": "Sin gestión",
+          "drying": "Secando"
+        }
+      },
+      "demand_level": {
+        "name": "Nivel de demanda"
       }
     },
     "binary_sensor": {

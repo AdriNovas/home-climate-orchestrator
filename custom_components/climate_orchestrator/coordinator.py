@@ -268,6 +268,11 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
             raise ValueError(
                 "Currency migration requires a separate entry; existing measured energy and cost are preserved"
             )
+        for container in ("zones", "plants", "bindings", "accounting"):
+            if not isinstance(data.get(container, {}), dict):
+                raise ValueError(f"Invalid {container} store; preserve store for recovery")
+        if not isinstance(data.get("accounting_archive", []), list):
+            raise ValueError("Invalid accounting archive; preserve store for recovery")
         for key, row in data.get("zones", {}).items():
             if key in {z.id for z in self.house.zones}:
                 try:
@@ -297,11 +302,14 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
         for meter in self.meters:
             saved = data.get("accounting", {}).get(meter.id)
             if saved:
+                if not isinstance(saved, dict):
+                    LOGGER.warning("Discarding incompatible accounting row")
+                    continue
                 if saved.get("binding") != [
                     meter.power_entity,
                     meter.scope,
                     meter.target,
-                ]:
+                ] or not isinstance(saved.get("ledger"), dict):
                     self.accounting_archive.append({"meter": meter.id, **saved})
                     continue
                 self.accounting[meter.id] = Accounting(
@@ -1109,6 +1117,15 @@ class ClimateCoordinator(DataUpdateCoordinator[dict]):
                 continue
             obs = snap.zones[zone.id]
             now = snap.now.timestamp()
+            if (
+                obs.mode in ("heat", "cool", "fan_only")
+                and now - owner.get("start", now) >= 80
+                and not state["critical"]
+            ):
+                # The unit left dry; an off-stop would be refused forever, so
+                # the stale reservation is released instead of lingering.
+                await self.executor.release_owned(zone)
+                continue
             if self.allowed(zone.authority_entity, zone.authority_states) and (
                 (owner.get("until", 0) > 0 and now >= owner["until"])
                 or not obs.temperature.fresh(now, self.house.policy.temperature_fresh_s)

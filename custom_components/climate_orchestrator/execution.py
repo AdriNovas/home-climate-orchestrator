@@ -171,6 +171,11 @@ class Executor:
 
     async def resume(self, zone):
         self.state["manual"].pop(zone, None)
+        row = self.state["pending"].get(zone)
+        if row and row.get("phase") == "uncertain":
+            # The person acknowledged the unconfirmed command; keep its late
+            # echoes recognisable but stop treating it as an open transaction.
+            row["phase"] = "cancelled"
         # Old echoes remain recorded until expiry; a new generation cannot reuse them.
         self.invalidate()
         await self.save()
@@ -313,7 +318,13 @@ class Executor:
             ):
                 return "already_satisfied"
             previous = self.state["pending"].get(zone.id)
-            if previous and previous.get("phase") == "uncertain":
+            if (
+                previous
+                and previous.get("phase") == "uncertain"
+                and self.clock() <= previous.get("expires", 0)
+            ):
+                # Only the in-flight window blocks a new command. Afterwards the
+                # row is an unresolved record, not a permanent veto.
                 return "unconfirmed_previous"
             row = {
                 "id": uuid4().hex,
@@ -485,6 +496,11 @@ class Executor:
                     and self.clock() - self.last_cut.get(zone.id, 0) >= 10
                 ):
                     self.off_tasks[zone.id] = self.spawn(self._off(zone))
+
+    async def release_owned(self, zone):
+        """Drop ownership of a session whose actuator is no longer in that mode."""
+        if self.state["owned"].pop(zone.id, None) is not None:
+            await self.save(publish_required=False)
 
     def owned_certificate(self, zone, owner):
         current = self.state["owned"].get(zone.id, {})

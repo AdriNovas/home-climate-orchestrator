@@ -1,5 +1,41 @@
 # Cambios
 
+## 0.2.0a14 · auditoría de coherencia y demanda térmica
+
+Correcciones:
+
+- Un comando sin confirmar (`uncertain`) ya no veta para siempre la cabeza:
+  solo bloquea durante su ventana en vuelo, y **Reanudar** cierra la
+  transacción abierta conservando los ecos tardíos. Antes, tras un timeout
+  la zona rechazaba toda orden aunque se reanudara.
+- Una sesión de secado propia ya no queda atascada en `dry_ack_pending` si la
+  unidad aparece en calor/frío/ventilador tras la ventana de confirmación: el
+  motor la da por terminada y el control térmico y las protecciones vuelven.
+  La reserva persistida se libera en la comprobación de seguridad.
+- Una zona con «permitir durante el sueño» desactivado se detiene (una vez) al
+  entrar el periodo de sueño si estaba en calor/frío, en lugar de seguir
+  encendida sin control. Pausa global, Manual y permisos externos no cambian.
+- El periodo de sueño pertenece a su tarde: con inicio de noche pasada la
+  medianoche ya no se acorta ni alarga al cambiar de día laborable a fin de
+  semana. Horarios habituales sin cambios.
+- Restauración robusta: contenedores `zones`/`plants`/`bindings`/`accounting`
+  o archivo de contabilidad con tipo incorrecto se conservan para recuperación
+  con error explícito; filas de contabilidad malformadas se archivan.
+- Editar una planta sin tiempos guardados usa los valores del modelo (20/20/60/
+  120/5 min), no cero; una edición inválida ya no deja el candidato en el flujo.
+- `async_migrate_entry` usa `CONFIG_VERSION`.
+
+Novedad:
+
+- Sensores `thermal_demand` (apagado / mantenimiento sin demanda / demanda /
+  parando / sin gestión / secando) y `demand_level` (0/1/2) por habitación
+  térmica, con el déficit de temperatura. Distinguen una unidad que trabaja
+  para alcanzar el objetivo de otra encendida con la sala ya en objetivo y
+  consigna relajada para evitar ciclos. Es lectura de estado/plan, no medida de
+  compresor.
+
+Documentación: README/INSTALACIÓN y CHANGELOG alineados con la versión.
+
 ## 0.2.0a10 · coherencia de versión instalada y diagnóstico
 
 - Corrige la versión anunciada en el diagnóstico nativo: ahora coincide con el

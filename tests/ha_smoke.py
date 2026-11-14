@@ -267,7 +267,7 @@ async def main():
             entities = []
             await sensor.async_setup_entry(h, entry, entities.extend)
             await binary_sensor.async_setup_entry(h, entry, entities.extend)
-            assert len(entities) == 13 and len({x.unique_id for x in entities}) == 13
+            assert len(entities) == 15 and len({x.unique_id for x in entities}) == 15
             assert all(x.entity_category.value == "diagnostic" for x in entities)
             for x in entities:
                 if isinstance(x, sensor.SensorEntity):

@@ -10,6 +10,7 @@ from homeassistant.const import UnitOfTemperature, PERCENTAGE
 from .entity import ClimateDiagnostic
 from .const import DOMAIN, VERSION
 from .domain.engine import dew_point
+from .domain.demand import STATES, thermal_demand
 from .domain.accounting import PERIODS
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.util import dt
@@ -22,6 +23,8 @@ KEYS = [
     "humidity_stop",
     "physical_target",
     "dew_point",
+    "thermal_demand",
+    "demand_level",
 ]
 
 
@@ -46,7 +49,8 @@ async def async_setup_entry(hass, entry, async_add_entities):
             PlanSensor(c, z, k)
             for z in c.house.zones
             for k in KEYS
-            if not z.independent_drying or k not in ["heat_goal", "cool_goal"]
+            if not z.independent_drying
+            or k not in ["heat_goal", "cool_goal", "thermal_demand", "demand_level"]
         ]
     )
     async_add_entities([CommandSensor(c, z) for z in c.house.zones])
@@ -106,6 +110,12 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
                 "external",
                 "reversing",
             ]
+        elif key == "thermal_demand":
+            self._attr_device_class = SensorDeviceClass.ENUM
+            self._attr_options = list(STATES)
+        elif key == "demand_level":
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_suggested_display_precision = 0
         else:
             self._attr_device_class = (
                 SensorDeviceClass.HUMIDITY
@@ -121,8 +131,21 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
             )
             self._attr_state_class = SensorStateClass.MEASUREMENT
 
+    def _posture(self):
+        c = self.coordinator
+        return thermal_demand(
+            c.house,
+            c.data["decisions"].get(self.zone.id),
+            c.data["observations"].get(self.zone.id),
+            dt.utcnow().timestamp(),
+        )
+
     @property
     def native_value(self):
+        if self.key == "thermal_demand":
+            return self._posture()["state"]
+        if self.key == "demand_level":
+            return self._posture()["level"]
         if self.key == "dew_point":
             c = self.coordinator
             o = c.data["observations"].get(self.zone.id)
@@ -139,6 +162,14 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
 
     @property
     def extra_state_attributes(self):
+        if self.key in ("thermal_demand", "demand_level"):
+            posture = self._posture()
+            return {
+                "temperature_deficit": posture["deficit"],
+                "goal": posture["goal"],
+                "levels": "0 off · 1 maintain/stopping · 2 demand",
+                "interpretation": "Room need versus goal while the unit runs; HVAC mode is not measured compressor activity.",
+            }
         if self.key != "planned_stage":
             return None
         d = self.coordinator.data["decisions"].get(self.zone.id)

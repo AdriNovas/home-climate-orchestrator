@@ -32,14 +32,36 @@ def dew_point(temperature: float, humidity: float) -> float:
 
 
 def sleeping(house: House, snapshot: Snapshot) -> bool:
+    """Whether local time lies in a sleep period.
+
+    The evening of a calendar day (Friday and Saturday use the weekend night
+    start) owns the hours that spill past midnight, so a night starting after
+    00:00 is not cut short or lengthened when the weekday class changes.
+    """
     local = snapshot.now.astimezone(ZoneInfo(house.timezone))
-    weekend = local.weekday() >= 5
-    start = minute(house.weekend_day_start if weekend else house.day_start)
-    stop = minute(
-        house.weekend_night_start if local.weekday() in [4, 5] else house.night_start
-    )
     clock = local.hour * 60 + local.minute
-    return not (start <= clock < stop) if start < stop else stop <= clock < start
+
+    def bounds(day_weekday: int) -> tuple[int, int]:
+        weekend = day_weekday >= 5
+        return (
+            minute(house.weekend_day_start if weekend else house.day_start),
+            minute(
+                house.weekend_night_start
+                if day_weekday in (4, 5)
+                else house.night_start
+            ),
+        )
+
+    start, stop = bounds(local.weekday())
+    if start < stop:
+        awake = start <= clock < stop
+    else:
+        awake = clock >= start
+    if not awake and clock < start:
+        # Spill-over of the previous evening, with that evening's own start.
+        previous_start, previous_stop = bounds((local.weekday() - 1) % 7)
+        awake = previous_start >= previous_stop and clock < previous_stop
+    return not awake
 
 
 def hardware_target(
@@ -387,7 +409,15 @@ def evaluate(
                 and now - m.dry_start
                 >= (z.dehumidifier_min_s if z.independent_drying else p.dry_min_s)
             )
-            if o.mode == "off" and now >= m.dry_start + 80:
+            if o.mode in ("heat", "cool", "fan_only") and now >= m.dry_start + 80:
+                # The unit left dry without an owned command: the reservation
+                # no longer describes reality and must not suppress thermal
+                # control or protections. Manual is handled before this point.
+                m.dry_active = False
+                m.dry_start = 0
+                m.dry_until = 0
+                m.low_since = 0
+            elif o.mode == "off" and now >= m.dry_start + 80:
                 if z.independent_drying:
                     m.dry_episode_blocked = True
                 m.dry_active = False
@@ -481,6 +511,20 @@ def evaluate(
             continue
         if o.mode == "dry":
             result[z.id] = replace(d, stage="external", reason="unowned_drying")
+            continue
+        if (
+            sleep
+            and not z.night_allowed
+            and not snap.paused
+            and o.permitted
+            and o.mode in ("heat", "cool")
+            and "off" in o.supported_modes
+        ):
+            # An automatic zone excluded from the sleep period must not keep
+            # running unattended: stop it once, never reclaim Manual or pauses.
+            result[z.id] = replace(
+                d, stage="protect", reason="night_not_allowed", mode="off"
+            )
             continue
         if snap.paused or not o.permitted or (sleep and not z.night_allowed):
             result[z.id] = replace(d, stage="paused", reason="pause_or_schedule")
