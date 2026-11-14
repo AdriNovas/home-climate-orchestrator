@@ -20,7 +20,9 @@ def thermal_demand(
 
     ``maintain`` means the unit runs while the room is already at (or beyond)
     its goal, so the setpoint only keeps the appliance from cycling. ``demand``
-    means the room still needs heating or cooling.
+    means the room still needs heating or cooling. The classification follows
+    the room and the unit, not whether the planner could issue a command now:
+    a waiting or blocked plan does not change what a running unit is doing.
     """
     empty = {"state": "off", "level": 0, "deficit": None, "goal": None}
     if decision is None or obs is None:
@@ -28,7 +30,7 @@ def thermal_demand(
     policy = house.policy
     running = obs.mode if obs.mode in ("heat", "cool") else None
     wanted = decision.mode if decision.mode in ("heat", "cool") else None
-    if obs.mode == "dry" or decision.stage in ("drying", "dry_ready"):
+    if obs.mode == "dry":
         return {**empty, "state": "drying"}
     mode = running or wanted
     if mode is None:
@@ -43,8 +45,6 @@ def thermal_demand(
     base = {"deficit": deficit, "goal": goal}
     if running and decision.mode == "off":
         return {**base, "state": "stopping", "level": LEVELS["stopping"]}
-    if running and decision.mode not in ("heat", "cool"):
-        return {**base, "state": "unmanaged", "level": None}
     if running is None:
         # Planned start: the room needs the unit.
         return {**base, "state": "demand", "level": LEVELS["demand"]}

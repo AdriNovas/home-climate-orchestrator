@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.2.0a15 · demanda térmica por estado real
+
+- `thermal_demand`/`demand_level` describen la necesidad de la sala y el
+  estado de la unidad aunque el plan esté en espera o bloqueado: una unidad en
+  marcha con la sala por debajo de su objetivo es *demanda*; con la sala en
+  objetivo es *mantenimiento*. «Secando» solo si la unidad está en dry.
+
 ## 0.2.0a14 · auditoría de coherencia y demanda térmica
 
 Correcciones:

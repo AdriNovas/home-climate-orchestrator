@@ -161,6 +161,19 @@ class DemandPostureTests(unittest.TestCase):
         p, _ = self.posture("off", 21)
         self.assertEqual((p["state"], p["level"]), ("off", 0))
 
+    def test_running_unit_with_waiting_plan_is_still_classified(self):
+        house, snap, prices, mem, pl = fixture()
+        o = snap.zones["0"]
+        s = replace(snap, paused=True, zones={"0": replace(o, mode="heat", mode_since=T0 - 4000,
+                                                            temperature=Reading(16, T0),
+                                                            internal=Reading(16, T0))})
+        d = evaluate(house, s, prices, mem, pl)["0"]
+        self.assertIsNone(d.mode)
+        self.assertEqual(thermal_demand(house, d, s.zones["0"], T0)["state"], "demand")
+        s = replace(s, zones={"0": replace(s.zones["0"], temperature=Reading(19.5, T0))})
+        d = evaluate(house, s, prices, mem, pl)["0"]
+        self.assertEqual(thermal_demand(house, d, s.zones["0"], T0)["state"], "maintain")
+
     def test_planned_start_is_demand(self):
         p, d = self.posture("off", 16)
         self.assertEqual(d.mode, "heat")
