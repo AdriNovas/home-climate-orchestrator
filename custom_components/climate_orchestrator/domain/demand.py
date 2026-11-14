@@ -11,6 +11,14 @@ from .models import Decision, House, Observation
 
 LEVELS = {"off": 0, "maintain": 1, "stopping": 1, "demand": 2}
 STATES = ("off", "maintain", "demand", "stopping", "unmanaged", "drying")
+HOUSE_STATES = (
+    "off",
+    "heat_maintain",
+    "heat_demand",
+    "cool_maintain",
+    "cool_demand",
+    "mixed",
+)
 
 
 def thermal_demand(
@@ -24,7 +32,7 @@ def thermal_demand(
     the room and the unit, not whether the planner could issue a command now:
     a waiting or blocked plan does not change what a running unit is doing.
     """
-    empty = {"state": "off", "level": 0, "deficit": None, "goal": None}
+    empty = {"state": "off", "level": 0, "deficit": None, "goal": None, "mode": None}
     if decision is None or obs is None:
         return {**empty, "state": "unmanaged", "level": None}
     policy = house.policy
@@ -39,10 +47,10 @@ def thermal_demand(
         return {**empty, "state": "unmanaged", "level": None}
     goal = decision.heat_goal if mode == "heat" else decision.cool_goal
     if not obs.temperature.fresh(now, policy.temperature_fresh_s):
-        return {"state": "unmanaged", "level": None, "deficit": None, "goal": goal}
+        return {"state": "unmanaged", "level": None, "deficit": None, "goal": goal, "mode": mode}
     temperature = obs.temperature.value
     deficit = round(goal - temperature if mode == "heat" else temperature - goal, 2)
-    base = {"deficit": deficit, "goal": goal}
+    base = {"deficit": deficit, "goal": goal, "mode": mode}
     if running and decision.mode == "off":
         return {**base, "state": "stopping", "level": LEVELS["stopping"]}
     if running is None:
@@ -51,3 +59,26 @@ def thermal_demand(
     threshold = 0.3 if policy.continuous_hold else policy.hold_delta
     state = "demand" if deficit > threshold else "maintain"
     return {**base, "state": state, "level": LEVELS[state]}
+
+
+def house_posture(postures) -> dict:
+    """Combine room postures into one chartable house state.
+
+    Any room that still needs conditioning makes the house ``*_demand``; units
+    that only keep an already satisfied room are ``*_maintain``. Opposite
+    directions at the same time are ``mixed`` and rooms without data are ignored.
+    """
+    running = [p for p in postures if p["state"] in ("maintain", "demand", "stopping")]
+    demanding = [p for p in running if p["state"] == "demand"]
+    pool = demanding or running
+    modes = {p["mode"] for p in pool if p.get("mode")}
+    if not pool or not modes:
+        return {"state": "off", "level": 0, "demanding": 0, "maintaining": 0}
+    kind = "demand" if demanding else "maintain"
+    state = "mixed" if len(modes) > 1 else f"{next(iter(modes))}_{kind}"
+    return {
+        "state": state,
+        "level": 2 if demanding else 1,
+        "demanding": len(demanding),
+        "maintaining": len(running) - len(demanding),
+    }

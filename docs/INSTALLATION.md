@@ -1,4 +1,4 @@
-> Esta rama es la candidata 0.2.0a15. La instalación
+> Esta rama es la candidata 0.2.0a16. La instalación
 > pública0.1 sigue en observación. No cambiar la autoridad de una vivienda por
 > el solo hecho de actualizar archivos.
 
@@ -18,7 +18,7 @@ del proyecto Home Assistant.
 1. Abrir **Ajustes → Marketplace → Añadir desde enlace**.
 2. Introducir `https://github.com/AdriNovas/home-climate-orchestrator`.
 3. Si pide tipo, seleccionar **Integración**. Conectar GitHub si la interfaz lo requiere.
-4. Habilitar versiones preliminares para este repositorio y seleccionar la versión preliminar más reciente (0.2.0a15).
+4. Habilitar versiones preliminares para este repositorio y seleccionar la versión preliminar más reciente (0.2.0a16).
    Marketplace ofrece estables por defecto; el interruptor de prereleases puede
    necesitar habilitarse en el dispositivo Marketplace del repositorio.
 5. Instalar y seguir cualquier aviso de reinicio; después añadir la integración
@@ -30,7 +30,7 @@ Referencia: [Marketplace y repositorios personalizados](https://www.home-assista
 
 1. Abrir HACS → menú de repositorios personalizados.
 2. Añadir la misma URL como **Integration**.
-3. Seleccionar la prerelease más reciente (0.2.0a15), habilitando versiones beta si no aparece.
+3. Seleccionar la prerelease más reciente (0.2.0a16), habilitando versiones beta si no aparece.
 4. Descargar, reiniciar cuando lo solicite HA y añadir **Home Climate Orchestrator**
    en Dispositivos y servicios.
 

@@ -14,7 +14,7 @@ sys.path.append(str(ROOT / "custom_components/climate_orchestrator"))
 sys.path.append(str(ROOT / "tests"))
 from domain.models import Memory, Reading
 from domain.engine import evaluate, begin_dry, sleeping
-from domain.demand import thermal_demand
+from domain.demand import house_posture, thermal_demand
 from test_domain import fixture, NOW
 import test_execution as TE
 
@@ -178,6 +178,26 @@ class DemandPostureTests(unittest.TestCase):
         p, d = self.posture("off", 16)
         self.assertEqual(d.mode, "heat")
         self.assertEqual(p["state"], "demand")
+
+
+class HousePostureTests(unittest.TestCase):
+    def p(self, state, mode):
+        return {"state": state, "mode": mode}
+
+    def test_combinations(self):
+        cases = [
+            ([], "off", 0),
+            ([self.p("off", None)], "off", 0),
+            ([self.p("maintain", "heat")], "heat_maintain", 1),
+            ([self.p("maintain", "heat"), self.p("demand", "heat")], "heat_demand", 2),
+            ([self.p("maintain", "cool"), self.p("maintain", "heat")], "mixed", 1),
+            ([self.p("demand", "cool")], "cool_demand", 2),
+            ([self.p("unmanaged", "heat"), self.p("maintain", "heat")], "heat_maintain", 1),
+            ([self.p("stopping", "heat")], "heat_maintain", 1),
+        ]
+        for rooms, state, level in cases:
+            r = house_posture(rooms)
+            self.assertEqual((r["state"], r["level"]), (state, level), rooms)
 
 
 if __name__ == "__main__":

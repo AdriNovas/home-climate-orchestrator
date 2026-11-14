@@ -960,6 +960,20 @@
       },
       "demand_level": {
         "name": "Nivel de demanda"
+      },
+      "house_thermal_demand": {
+        "name": "Demanda térmica de la casa",
+        "state": {
+          "off": "Apagado",
+          "heat_maintain": "Calor · mantenimiento",
+          "heat_demand": "Calor · demanda",
+          "cool_maintain": "Frío · mantenimiento",
+          "cool_demand": "Frío · demanda",
+          "mixed": "Mixto"
+        }
+      },
+      "house_demand_level": {
+        "name": "Nivel de demanda de la casa"
       }
     },
     "binary_sensor": {

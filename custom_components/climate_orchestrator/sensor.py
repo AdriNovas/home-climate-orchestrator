@@ -10,7 +10,7 @@ from homeassistant.const import UnitOfTemperature, PERCENTAGE
 from .entity import ClimateDiagnostic
 from .const import DOMAIN, VERSION
 from .domain.engine import dew_point
-from .domain.demand import STATES, thermal_demand
+from .domain.demand import HOUSE_STATES, STATES, house_posture, thermal_demand
 from .domain.accounting import PERIODS
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.util import dt
@@ -54,6 +54,9 @@ async def async_setup_entry(hass, entry, async_add_entities):
         ]
     )
     async_add_entities([CommandSensor(c, z) for z in c.house.zones])
+    async_add_entities(
+        [HouseDemandSensor(c, key) for key in ("house_thermal_demand", "house_demand_level")]
+    )
     async_add_entities(
         [
             MeterSensor(c, m, key)
@@ -191,6 +194,49 @@ class PlanSensor(ClimateDiagnostic, SensorEntity):
             if self.zone.plant in self.coordinator.plants
             else {},
             "interpretation": "Decision; execution requires its own confirmed journal. HVAC mode is not measured compressor activity.",
+        }
+
+
+class HouseDemandSensor(ClimateDiagnostic, SensorEntity):
+    """One chartable house posture: demand versus keeping satisfied rooms."""
+
+    def __init__(self, c, key):
+        super().__init__(c, None, key)
+        if key == "house_thermal_demand":
+            self._attr_device_class = SensorDeviceClass.ENUM
+            self._attr_options = list(HOUSE_STATES)
+        else:
+            self._attr_state_class = SensorStateClass.MEASUREMENT
+            self._attr_suggested_display_precision = 0
+
+    def _summary(self):
+        c = self.coordinator
+        now = dt.utcnow().timestamp()
+        rooms = {}
+        for zone in c.house.zones:
+            if zone.independent_drying:
+                continue
+            rooms[zone.name] = thermal_demand(
+                c.house,
+                c.data["decisions"].get(zone.id),
+                c.data["observations"].get(zone.id),
+                now,
+            )
+        return rooms, house_posture(rooms.values())
+
+    @property
+    def native_value(self):
+        summary = self._summary()[1]
+        return summary["state"] if self.key == "house_thermal_demand" else summary["level"]
+
+    @property
+    def extra_state_attributes(self):
+        rooms, summary = self._summary()
+        return {
+            "rooms_demanding": summary["demanding"],
+            "rooms_maintaining": summary["maintaining"],
+            "rooms": {name: p["state"] for name, p in rooms.items()},
+            "interpretation": "Demand = a running unit whose room is still below (heat) or above (cool) its goal. Maintain = the unit runs while the room is already at its goal. Not measured compressor activity.",
         }
 
 

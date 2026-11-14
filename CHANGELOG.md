@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.2.0a16 · estado térmico de la casa para gráficas
+
+- `house_thermal_demand` (apagado / calor·mantenimiento / calor·demanda /
+  frío·mantenimiento / frío·demanda / mixto) y `house_demand_level` (0/1/2):
+  un único estado graficable que separa una unidad que trabaja para alcanzar el
+  objetivo de otra encendida con la sala ya en objetivo. Atributos con el
+  estado de cada estancia y el número de estancias en demanda/mantenimiento.
+
 ## 0.2.0a15 · demanda térmica por estado real
 
 - `thermal_demand`/`demand_level` describen la necesidad de la sala y el
